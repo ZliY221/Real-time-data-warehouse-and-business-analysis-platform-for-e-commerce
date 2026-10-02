@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本先完成事件契约和可复现的数据生成器。后续中间件接入必须建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心和 Kafka Source 作业入口。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -13,7 +13,8 @@
 - [x] 提供脱敏示例数据
 - [x] 提供 Kafka KRaft Compose 配置和生产、消费、冒烟测试脚本
 - [x] 实现可脱离 Kafka 测试的 Flink 事件时间、去重与一分钟窗口聚合核心
-- [ ] 接入 Kafka
+- [x] 实现可配置的 Flink KafkaSource、消费位置策略和 checkpoint 作业入口
+- [ ] 在真实 Kafka broker 上完成 Flink 端到端运行验收
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [x] 配置 Python、Java/Flink 与 Kafka 三层持续集成工作流
@@ -56,9 +57,12 @@ flowchart LR
 
 ```text
 ecommerce-realtime-warehouse/
+├─ .github/workflows/             GitHub Actions 持续集成
 ├─ data/sample/                  脱敏示例事件
 ├─ docs/                         需求、架构和数据字典
+├─ flink-job/                    Java/Flink 实时计算作业
 ├─ schemas/                      JSON Schema 事件契约
+├─ scripts/                      测试、Kafka 与作业提交脚本
 ├─ src/event_generator/          事件生成器源码
 ├─ tests/                        自动化测试
 ├─ .gitignore
@@ -96,6 +100,7 @@ python -m unittest discover -s tests -v
 - [学习单元 03 Flink 事件时间 去重与分钟窗口](docs/study-03-flink-event-time.md)
 - [学习单元 04 JSON 解析 质量侧流与迟到数据](docs/study-04-quality-and-late-data.md)
 - [学习单元 05 持续集成与可验证交付](docs/study-05-continuous-integration.md)
+- [学习单元 06 Flink KafkaSource 与消费恢复](docs/study-06-flink-kafka-source.md)
 
 ## 自动化验证
 
@@ -109,15 +114,30 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 ## Flink 核心测试
 
-当前电脑系统默认 Java 为 8，但已安装 JDK 17。以下脚本只在测试进程中临时切换 `JAVA_HOME`，不会修改系统设置：
+要求 JDK 17 或更高版本。以下脚本会优先使用 `JAVA_HOME`，并在 Windows 常见安装目录中自动寻找 JDK 17；环境切换只对测试进程生效，不会修改系统设置。脚本运行 Maven `verify`，同时验证测试和可部署 JAR 构建：
 
 ```powershell
 ./scripts/test-flink.ps1
 ```
 
-Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。Kafka Source、侧流外部存储和分析存储仍待完成。
+Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 作业入口已完成；侧流外部存储和分析存储仍待完成。
 
-当前验证基线：17 项 Python 测试和 14 项 Java/Flink 测试全部通过。
+当前验证基线：18 项 Python 测试和 21 项 Java/Flink 测试全部通过。
+
+构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
+
+```powershell
+$env:JAVA_HOME = "你的 JDK 17 路径"
+mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
+```
+
+在本地 Flink 集群和 Kafka 已启动后提交作业：
+
+```powershell
+./scripts/submit-flink-job.ps1 -StartingOffsets earliest
+```
+
+默认配置使用 `localhost:9092`、`order-events` Topic、`ecommerce-order-metrics` Consumer Group、10 秒乱序容忍、60 秒空闲分区检测和 10 秒 checkpoint。完整参数与设计理由见学习单元 06。
 
 ## Kafka 本地环境
 
@@ -130,7 +150,7 @@ Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark�
 ./scripts/kafka-smoke-test.ps1 -Count 20
 ```
 
-当前开发机没有 Docker CLI，因此 Compose 配置和脚本只完成了静态检查，尚未通过真实运行验收。完成冒烟测试前，不在简历中宣称 Kafka 链路已经完成。
+当前开发机没有 Docker CLI，也没有正在运行的 Flink 集群。因此 Kafka Compose、Kafka 冒烟测试和 Flink KafkaSource 只分别完成静态检查、构建与作业图测试，尚未通过真实端到端运行验收。完成验收前，不在简历中宣称 Kafka-Flink 链路已经完成。
 
 ## 简历表述原则
 

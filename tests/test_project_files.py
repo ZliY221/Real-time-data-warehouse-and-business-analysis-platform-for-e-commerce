@@ -70,6 +70,29 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("needs: [python-tests, flink-tests]", workflow)
         self.assertIn("if: ${{ always() }}", workflow)
 
+    def test_flink_kafka_source_dependency_and_entrypoint_are_pinned(self) -> None:
+        pom = (self.root / "flink-job" / "pom.xml").read_text(encoding="utf-8")
+        job = (
+            self.root
+            / "flink-job"
+            / "src"
+            / "main"
+            / "java"
+            / "com"
+            / "zhangliyang"
+            / "portfolio"
+            / "job"
+            / "KafkaOrderMetricsJob.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("<flink.version>1.20.1</flink.version>", pom)
+        self.assertIn(
+            "<flink.kafka.connector.version>3.3.0-1.20</flink.kafka.connector.version>",
+            pom,
+        )
+        self.assertIn("KafkaSource<String>", job)
+        self.assertIn("CheckpointingMode.EXACTLY_ONCE", job)
+        self.assertIn("WatermarkStrategy.noWatermarks()", job)
+
 
 if __name__ == "__main__":
     unittest.main()

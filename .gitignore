@@ -9,4 +9,5 @@ data/generated/
 build/
 dist/
 *.egg-info/
+flink-job/target/
 

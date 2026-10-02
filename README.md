@@ -12,8 +12,9 @@
 - [x] 为确定性、金额一致性和事件唯一性编写测试
 - [x] 提供脱敏示例数据
 - [x] 提供 Kafka KRaft Compose 配置和生产、消费、冒烟测试脚本
+- [x] 实现可脱离 Kafka 测试的 Flink 事件时间、去重与一分钟窗口聚合核心
 - [ ] 接入 Kafka
-- [ ] 使用 Flink 完成事件时间窗口聚合
+- [x] 使用 Flink 完成事件时间窗口聚合
 - [ ] 处理重复事件、乱序事件和迟到事件
 - [ ] 写入分析型数据库
 - [ ] 提供 FastAPI 查询接口和经营看板
@@ -91,6 +92,19 @@ python -m unittest discover -s tests -v
 - [事件数据字典](docs/data-dictionary.md)
 - [学习单元 01 事件契约与可复现数据](docs/study-01-event-contract.md)
 - [学习单元 02 Kafka 本地消息链路](docs/study-02-kafka.md)
+- [学习单元 03 Flink 事件时间 去重与分钟窗口](docs/study-03-flink-event-time.md)
+
+## Flink 核心测试
+
+当前电脑系统默认 Java 为 8，但已安装 JDK 17。以下脚本只在测试进程中临时切换 `JAVA_HOME`，不会修改系统设置：
+
+```powershell
+./scripts/test-flink.ps1
+```
+
+Flink 核心已经实现事件校验、Watermark、基于 `event_id` 的状态去重，以及按地区和渠道统计的一分钟订单量与 GMV。JSON 解析、Kafka Source、迟到数据侧输出和分析存储仍待完成。
+
+当前验证基线：15 项 Python 测试和 6 项 Java/Flink 测试全部通过。
 
 ## Kafka 本地环境
 

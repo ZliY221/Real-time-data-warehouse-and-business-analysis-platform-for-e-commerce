@@ -38,7 +38,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1", self.compose_text)
         self.assertIn("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1", self.compose_text)
 
-    def test_kafka_scripts_exist(self) -> None:
+    def test_required_kafka_scripts_exist(self) -> None:
         names = {
             "kafka-up.ps1",
             "kafka-produce-sample.ps1",
@@ -46,7 +46,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
             "kafka-smoke-test.ps1",
             "kafka-down.ps1",
         }
-        self.assertEqual(names, {path.name for path in (self.root / "scripts").glob("*.ps1")})
+        actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
+        self.assertTrue(names.issubset(actual_names))
 
 
 if __name__ == "__main__":

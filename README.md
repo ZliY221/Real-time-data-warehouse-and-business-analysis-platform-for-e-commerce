@@ -11,6 +11,7 @@
 - [x] 实现无第三方依赖的数据生成器
 - [x] 为确定性、金额一致性和事件唯一性编写测试
 - [x] 提供脱敏示例数据
+- [x] 提供 Kafka KRaft Compose 配置和生产、消费、冒烟测试脚本
 - [ ] 接入 Kafka
 - [ ] 使用 Flink 完成事件时间窗口聚合
 - [ ] 处理重复事件、乱序事件和迟到事件
@@ -89,6 +90,20 @@ python -m unittest discover -s tests -v
 - [架构设计](docs/architecture.md)
 - [事件数据字典](docs/data-dictionary.md)
 - [学习单元 01 事件契约与可复现数据](docs/study-01-event-contract.md)
+- [学习单元 02 Kafka 本地消息链路](docs/study-02-kafka.md)
+
+## Kafka 本地环境
+
+安装 Docker Desktop 后运行：
+
+```powershell
+./scripts/kafka-up.ps1
+./scripts/kafka-produce-sample.ps1
+./scripts/kafka-consume.ps1 -FromBeginning -Count 20
+./scripts/kafka-smoke-test.ps1 -Count 20
+```
+
+当前开发机没有 Docker CLI，因此 Compose 配置和脚本只完成了静态检查，尚未通过真实运行验收。完成冒烟测试前，不在简历中宣称 Kafka 链路已经完成。
 
 ## 简历表述原则
 

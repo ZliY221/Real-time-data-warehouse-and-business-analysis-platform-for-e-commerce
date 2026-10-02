@@ -16,6 +16,7 @@
 - [ ] 接入 Kafka
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
+- [x] 配置 Python、Java/Flink 与 Kafka 三层持续集成工作流
 - [ ] 写入分析型数据库
 - [ ] 提供 FastAPI 查询接口和经营看板
 - [ ] 加入数据质量检查、监控与压力测试
@@ -94,6 +95,17 @@ python -m unittest discover -s tests -v
 - [学习单元 02 Kafka 本地消息链路](docs/study-02-kafka.md)
 - [学习单元 03 Flink 事件时间 去重与分钟窗口](docs/study-03-flink-event-time.md)
 - [学习单元 04 JSON 解析 质量侧流与迟到数据](docs/study-04-quality-and-late-data.md)
+- [学习单元 05 持续集成与可验证交付](docs/study-05-continuous-integration.md)
+
+## 自动化验证
+
+本地统一运行 Python 和 Java/Flink 测试：
+
+```powershell
+./scripts/test-all.ps1
+```
+
+GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Python 与 Flink 测试，两者通过后再执行 Kafka 生产消费冒烟测试。工作流尚未在远程仓库运行，因此当前只证明配置已创建并通过本地静态检查，不能宣称远程 CI 已通过。
 
 ## Flink 核心测试
 
@@ -105,7 +117,7 @@ python -m unittest discover -s tests -v
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。Kafka Source、侧流外部存储和分析存储仍待完成。
 
-当前验证基线：15 项 Python 测试和 14 项 Java/Flink 测试全部通过。
+当前验证基线：17 项 Python 测试和 14 项 Java/Flink 测试全部通过。
 
 ## Kafka 本地环境
 

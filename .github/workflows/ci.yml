@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    name: Python contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run Python tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+
+  flink-tests:
+    name: Java and Flink tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: flink-job/pom.xml
+      - name: Run Maven verification
+        run: >-
+          mvn -f flink-job/pom.xml
+          --batch-mode
+          --no-transfer-progress
+          verify
+
+  kafka-smoke-test:
+    name: Kafka production and consumption smoke test
+    needs: [python-tests, flink-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Display container runtime versions
+        run: |
+          docker version
+          docker compose version
+      - name: Start Kafka and create the business topic
+        shell: pwsh
+        run: ./scripts/kafka-up.ps1
+      - name: Run the Kafka data-contract smoke test
+        shell: pwsh
+        env:
+          PYTHON: python3
+        run: ./scripts/kafka-smoke-test.ps1 -Count 20
+      - name: Stop Kafka and remove the test volume
+        if: ${{ always() }}
+        shell: pwsh
+        run: ./scripts/kafka-down.ps1 -RemoveData

@@ -49,6 +49,27 @@ class KafkaProjectFilesTests(unittest.TestCase):
         actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
         self.assertTrue(names.issubset(actual_names))
 
+    def test_ci_workflow_uses_least_privilege_and_pinned_actions(self) -> None:
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("contents: read", workflow)
+        self.assertIn("actions/checkout@v6", workflow)
+        self.assertIn("actions/setup-python@v5", workflow)
+        self.assertIn("actions/setup-java@v4", workflow)
+        self.assertNotIn("@main", workflow)
+        self.assertNotIn("@master", workflow)
+
+    def test_ci_runs_all_three_verification_layers(self) -> None:
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("python-tests:", workflow)
+        self.assertIn("flink-tests:", workflow)
+        self.assertIn("kafka-smoke-test:", workflow)
+        self.assertIn("needs: [python-tests, flink-tests]", workflow)
+        self.assertIn("if: ${{ always() }}", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

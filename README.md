@@ -15,7 +15,7 @@
 - [x] 实现可脱离 Kafka 测试的 Flink 事件时间、去重与一分钟窗口聚合核心
 - [ ] 接入 Kafka
 - [x] 使用 Flink 完成事件时间窗口聚合
-- [ ] 处理重复事件、乱序事件和迟到事件
+- [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [ ] 写入分析型数据库
 - [ ] 提供 FastAPI 查询接口和经营看板
 - [ ] 加入数据质量检查、监控与压力测试
@@ -93,6 +93,7 @@ python -m unittest discover -s tests -v
 - [学习单元 01 事件契约与可复现数据](docs/study-01-event-contract.md)
 - [学习单元 02 Kafka 本地消息链路](docs/study-02-kafka.md)
 - [学习单元 03 Flink 事件时间 去重与分钟窗口](docs/study-03-flink-event-time.md)
+- [学习单元 04 JSON 解析 质量侧流与迟到数据](docs/study-04-quality-and-late-data.md)
 
 ## Flink 核心测试
 
@@ -102,9 +103,9 @@ python -m unittest discover -s tests -v
 ./scripts/test-flink.ps1
 ```
 
-Flink 核心已经实现事件校验、Watermark、基于 `event_id` 的状态去重，以及按地区和渠道统计的一分钟订单量与 GMV。JSON 解析、Kafka Source、迟到数据侧输出和分析存储仍待完成。
+Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。Kafka Source、侧流外部存储和分析存储仍待完成。
 
-当前验证基线：15 项 Python 测试和 6 项 Java/Flink 测试全部通过。
+当前验证基线：15 项 Python 测试和 14 项 Java/Flink 测试全部通过。
 
 ## Kafka 本地环境
 

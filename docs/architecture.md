@@ -55,5 +55,5 @@ sequenceDiagram
 
 ## 版本选择
 
-第一版设计参考 Apache Flink 1.20.1 的 DataStream 文档。真正接入前会再次确认 Kafka Connector 与运行环境的兼容矩阵，并在仓库锁定 Java、Flink、Kafka 和数据库版本。
+当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 连接器的 shaded 作业 JAR。Kafka broker 使用官方 3.9.1 KRaft 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
 

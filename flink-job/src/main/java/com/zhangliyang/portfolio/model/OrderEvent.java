@@ -113,5 +113,18 @@ public class OrderEvent implements Serializable {
     public int hashCode() {
         return Objects.hash(eventId, orderId, eventTime, ingestTime, region, channel, totalAmount);
     }
+
+    @Override
+    public String toString() {
+        return "OrderEvent{" +
+                "eventId='" + eventId + '\'' +
+                ", orderId='" + orderId + '\'' +
+                ", eventTime=" + eventTime +
+                ", ingestTime=" + ingestTime +
+                ", region='" + region + '\'' +
+                ", channel='" + channel + '\'' +
+                ", totalAmount=" + totalAmount +
+                '}';
+    }
 }
 

@@ -61,5 +61,14 @@ public class RejectedEvent implements Serializable {
     public int hashCode() {
         return Objects.hash(rawPayload, errorType, reason);
     }
+
+    @Override
+    public String toString() {
+        return "RejectedEvent{" +
+                "errorType='" + errorType + '\'' +
+                ", reason='" + reason + '\'' +
+                ", rawPayload='" + rawPayload + '\'' +
+                '}';
+    }
 }
 

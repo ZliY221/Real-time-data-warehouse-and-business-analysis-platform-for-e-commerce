@@ -8,7 +8,6 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.OutputTag;
 
 import java.time.Duration;
@@ -86,7 +85,7 @@ public final class OrderMetricsPipeline {
                 .name("deduplicate-by-event-id")
                 .keyBy(new RegionChannelKeySelector())
                 .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
-                .allowedLateness(Time.milliseconds(allowedLateness.toMillis()))
+                .allowedLateness(allowedLateness)
                 .sideOutputLateData(lateEventsTag)
                 .aggregate(new OrderAggregateFunction(), new AttachWindowMetadataFunction())
                 .name("aggregate-minute-metrics");

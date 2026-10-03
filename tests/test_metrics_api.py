@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import json
+import sqlite3
 from typing import Any
 import unittest
 
 from fastapi.testclient import TestClient
 
+from data_quality.history import StoredRuleResult, StoredRun
 from metrics_api.app import create_app
 from metrics_api.repository import MetricsRepositoryError
 
@@ -57,10 +59,95 @@ class FakeRepository:
         return self.breakdown_rows
 
 
+class FakeQualityHistory:
+    def __init__(self) -> None:
+        self.runs = [
+            StoredRun(
+                run_id="quality-pass",
+                generated_at="2026-10-03T08:00:00Z",
+                input_file="data/sample/order_events.ndjson",
+                passed=True,
+                total_records=12,
+                parsed_records=12,
+                invalid_json_records=0,
+                invalid_contract_records=0,
+                duplicate_records=0,
+                late_records=0,
+                passed_rules=6,
+                failed_rules=0,
+            ),
+            StoredRun(
+                run_id="quality-fail",
+                generated_at="2026-10-03T09:00:00Z",
+                input_file="C:/private/workspace/data/quality/issues.ndjson",
+                passed=False,
+                total_records=10,
+                parsed_records=9,
+                invalid_json_records=1,
+                invalid_contract_records=2,
+                duplicate_records=1,
+                late_records=3,
+                passed_rules=2,
+                failed_rules=4,
+            ),
+        ]
+        self.trend = [
+            StoredRuleResult(
+                run_id="quality-pass",
+                generated_at="2026-10-03T08:00:00Z",
+                rule_id="channel-share-drift",
+                rule_type="distribution",
+                passed=True,
+                checked_records=12,
+                violations=0,
+                metric_name="max_channel_share_drift",
+                observed_value=0.12,
+                threshold=0.35,
+                message="within threshold",
+                samples=(),
+                metrics={},
+            ),
+            StoredRuleResult(
+                run_id="quality-fail",
+                generated_at="2026-10-03T09:00:00Z",
+                rule_id="channel-share-drift",
+                rule_type="distribution",
+                passed=False,
+                checked_records=9,
+                violations=1,
+                metric_name="max_channel_share_drift",
+                observed_value=0.62,
+                threshold=0.35,
+                message="threshold exceeded",
+                samples=(),
+                metrics={},
+            ),
+        ]
+        self.error: sqlite3.Error | None = None
+        self.last_runs_query: dict[str, Any] | None = None
+        self.last_trend_query: dict[str, Any] | None = None
+
+    def list_runs(self, *, limit: int, passed: bool | None = None) -> list[StoredRun]:
+        if self.error:
+            raise self.error
+        self.last_runs_query = {"limit": limit, "passed": passed}
+        rows = [row for row in reversed(self.runs) if passed is None or row.passed is passed]
+        return rows[:limit]
+
+    def rule_trend(self, rule_id: str, *, limit: int) -> list[StoredRuleResult]:
+        if self.error:
+            raise self.error
+        self.last_trend_query = {"rule_id": rule_id, "limit": limit}
+        return [row for row in self.trend if row.rule_id == rule_id][-limit:]
+
+
 class MetricsApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repository = FakeRepository()
-        self.client = TestClient(create_app(self.repository))
+        self.quality_history = FakeQualityHistory()
+        self.client = TestClient(
+            create_app(self.repository, quality_history=self.quality_history)
+        )
 
     def tearDown(self) -> None:
         self.client.close()
@@ -249,14 +336,83 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual(422, response.status_code)
         self.assertIsNone(self.repository.last_breakdown_query)
 
-    def test_openapi_describes_both_metric_endpoints(self) -> None:
+    def test_quality_runs_are_newest_first_and_support_pass_filtering(self) -> None:
+        response = self.client.get(
+            "/api/v1/quality/runs",
+            params={"limit": 7, "passed": "false"},
+        )
+
+        self.assertEqual(200, response.status_code)
+        body = response.json()
+        self.assertEqual(1, body["count"])
+        self.assertFalse(body["passed"])
+        self.assertEqual("quality-fail", body["items"][0]["run_id"])
+        self.assertEqual(4, body["items"][0]["failed_rules"])
+        self.assertEqual("issues.ndjson", body["items"][0]["input_file"])
+        self.assertNotIn("private", response.text)
+        self.assertEqual(
+            {"limit": 7, "passed": False},
+            self.quality_history.last_runs_query,
+        )
+        self.assertEqual("clickhouse", response.headers["x-data-mode"])
+
+    def test_quality_trend_returns_only_dashboard_safe_metrics(self) -> None:
+        response = self.client.get(
+            "/api/v1/quality/trend",
+            params={"rule_id": "channel-share-drift", "limit": 10},
+        )
+
+        self.assertEqual(200, response.status_code)
+        body = response.json()
+        self.assertEqual(2, body["count"])
+        self.assertEqual(0.62, body["items"][1]["observed_value"])
+        self.assertNotIn("samples", body["items"][1])
+        self.assertNotIn("message", body["items"][1])
+        self.assertEqual(
+            {"rule_id": "channel-share-drift", "limit": 10},
+            self.quality_history.last_trend_query,
+        )
+
+    def test_quality_endpoint_validation_is_bounded(self) -> None:
+        missing_rule = self.client.get("/api/v1/quality/trend")
+        excessive_limit = self.client.get(
+            "/api/v1/quality/runs",
+            params={"limit": 501},
+        )
+
+        self.assertEqual(422, missing_rule.status_code)
+        self.assertEqual(422, excessive_limit.status_code)
+
+    def test_quality_store_failures_use_a_stable_public_error(self) -> None:
+        self.quality_history.error = sqlite3.OperationalError(
+            "database path and internal table details"
+        )
+
+        response = self.client.get("/api/v1/quality/runs")
+
+        self.assertEqual(503, response.status_code)
+        self.assertEqual(
+            {
+                "detail": {
+                    "code": "quality_history_unavailable",
+                    "message": "The quality history is temporarily unavailable.",
+                }
+            },
+            response.json(),
+        )
+        self.assertNotIn("database path", response.text)
+
+    def test_openapi_describes_metric_and_quality_endpoints(self) -> None:
         document = self.client.get("/openapi.json").json()
 
         self.assertIn("/api/v1/metrics/minutes", document["paths"])
         self.assertIn("/api/v1/metrics/summary", document["paths"])
         self.assertIn("/api/v1/metrics/timeseries", document["paths"])
         self.assertIn("/api/v1/metrics/breakdown", document["paths"])
+        self.assertIn("/api/v1/quality/runs", document["paths"])
+        self.assertIn("/api/v1/quality/trend", document["paths"])
         self.assertIn("MinuteMetricsResponse", document["components"]["schemas"])
+        self.assertIn("QualityRunsResponse", document["components"]["schemas"])
 
     def test_dashboard_and_assets_are_served_with_security_headers(self) -> None:
         page = self.client.get("/dashboard")

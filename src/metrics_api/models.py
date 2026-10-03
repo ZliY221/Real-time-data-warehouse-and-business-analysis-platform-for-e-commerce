@@ -101,3 +101,45 @@ class BreakdownResponse(UtcModel):
     count: int = Field(ge=0)
     items: list[BreakdownItem]
 
+
+class QualityRunItem(UtcModel):
+    run_id: str
+    generated_at: datetime
+    input_file: str
+    passed: bool
+    total_records: int = Field(ge=0)
+    parsed_records: int = Field(ge=0)
+    invalid_json_records: int = Field(ge=0)
+    invalid_contract_records: int = Field(ge=0)
+    duplicate_records: int = Field(ge=0)
+    late_records: int = Field(ge=0)
+    passed_rules: int = Field(ge=0)
+    failed_rules: int = Field(ge=0)
+
+
+class QualityRunsResponse(UtcModel):
+    generated_at: datetime
+    count: int = Field(ge=0)
+    limit: int = Field(ge=1, le=500)
+    passed: bool | None = None
+    items: list[QualityRunItem]
+
+
+class QualityTrendPoint(UtcModel):
+    run_id: str
+    generated_at: datetime
+    passed: bool
+    checked_records: int = Field(ge=0)
+    violations: int = Field(ge=0)
+    metric_name: str
+    observed_value: float
+    threshold: float
+
+
+class QualityTrendResponse(UtcModel):
+    generated_at: datetime
+    rule_id: str
+    count: int = Field(ge=0)
+    limit: int = Field(ge=1, le=500)
+    items: list[QualityTrendPoint]
+

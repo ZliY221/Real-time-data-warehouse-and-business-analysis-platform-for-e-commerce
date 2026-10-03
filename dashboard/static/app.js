@@ -6,6 +6,7 @@ import {
   formatLag,
   formatMoney,
   formatTimestamp,
+  qualityPassRate,
 } from "./data.js";
 
 const elements = {
@@ -32,13 +33,23 @@ const elements = {
   trendChart: document.querySelector("#trend-chart"),
   regionChart: document.querySelector("#region-chart"),
   channelChart: document.querySelector("#channel-chart"),
+  qualityTrendChart: document.querySelector("#quality-trend-chart"),
   trendEmpty: document.querySelector("#trend-empty"),
+  qualityTrendEmpty: document.querySelector("#quality-trend-empty"),
   trendSubtitle: document.querySelector("#trend-subtitle"),
   bucketBadge: document.querySelector("#bucket-badge"),
   recentTable: document.querySelector("#recent-table-body"),
   regionTable: document.querySelector("#region-table-body"),
   channelTable: document.querySelector("#channel-table-body"),
   lastRefreshed: document.querySelector("#last-refreshed"),
+  qualityRuleBadge: document.querySelector("#quality-rule-badge"),
+  qualityLatestStatus: document.querySelector("#quality-latest-status"),
+  qualityLatestTime: document.querySelector("#quality-latest-time"),
+  qualityPassRate: document.querySelector("#quality-pass-rate"),
+  qualityFailedRules: document.querySelector("#quality-failed-rules"),
+  qualityRunCount: document.querySelector("#quality-run-count"),
+  qualityHistoryNote: document.querySelector("#quality-history-note"),
+  qualityHistoryTable: document.querySelector("#quality-history-table-body"),
   liveStatus: document.querySelector("#screen-reader-status"),
 };
 
@@ -69,6 +80,9 @@ function initializeCharts() {
     renderer: "canvas",
   });
   charts.channel = window.echarts.init(elements.channelChart, theme, {
+    renderer: "canvas",
+  });
+  charts.quality = window.echarts.init(elements.qualityTrendChart, theme, {
     renderer: "canvas",
   });
 
@@ -429,6 +443,178 @@ function renderRecent(items) {
   elements.recentTable.replaceChildren(...rows);
 }
 
+function appendQualityStatus(row, passed) {
+  const cell = document.createElement("td");
+  const status = document.createElement("span");
+  status.className = `quality-pill quality-pill--${passed ? "pass" : "fail"}`;
+  status.textContent = passed ? "通过" : "失败";
+  cell.append(status);
+  row.append(cell);
+}
+
+function renderQualityRuns(response) {
+  const items = response.items;
+  const latest = items[0];
+  const passRate = qualityPassRate(items);
+  elements.qualityRunCount.textContent = formatInteger(response.count);
+  elements.qualityPassRate.textContent =
+    passRate === null ? "—" : `${Math.round(passRate * 100)}%`;
+  elements.qualityFailedRules.textContent = latest
+    ? formatInteger(latest.failed_rules)
+    : "—";
+  elements.qualityLatestStatus.textContent = latest
+    ? latest.passed
+      ? "通过"
+      : "失败"
+    : "暂无";
+  elements.qualityLatestStatus.className = latest
+    ? `quality-status quality-status--${latest.passed ? "pass" : "fail"}`
+    : "quality-status";
+  elements.qualityLatestTime.textContent = latest
+    ? `运行于 ${formatTimestamp(latest.generated_at, { seconds: true })}`
+    : "尚未写入质量检查记录";
+  elements.qualityHistoryNote.textContent = items.length
+    ? `已读取 ${items.length} 次 SQLite 历史摘要。`
+    : "SQLite 历史库可用，但暂无运行记录。";
+
+  const rows = items.map((item) => {
+    const row = document.createElement("tr");
+    appendCell(row, formatTimestamp(item.generated_at, { seconds: true }));
+    appendQualityStatus(row, item.passed);
+    appendCell(row, formatInteger(item.total_records));
+    appendCell(row, formatInteger(item.failed_rules));
+    appendCell(
+      row,
+      formatInteger(item.invalid_json_records + item.invalid_contract_records),
+    );
+    appendCell(row, formatInteger(item.duplicate_records));
+    appendCell(row, formatInteger(item.late_records));
+    return row;
+  });
+  if (rows.length === 0) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.className = "table-message";
+    cell.textContent = "暂无质量检查历史";
+    row.append(cell);
+    rows.push(row);
+  }
+  elements.qualityHistoryTable.replaceChildren(...rows);
+}
+
+function renderQualityTrend(response) {
+  const items = response.items;
+  const hasData = items.length > 0;
+  elements.qualityTrendChart.hidden = !hasData;
+  elements.qualityTrendEmpty.hidden = hasData;
+  elements.qualityRuleBadge.textContent = `规则：${response.rule_id}`;
+  if (!hasData) {
+    charts.quality.clear();
+    return;
+  }
+
+  charts.quality.resize();
+  charts.quality.setOption(
+    {
+      ...baseChartOption("渠道分布漂移观测值与质量门禁阈值的时间趋势图。"),
+      color: [cssToken("--chart-gmv"), cssToken("--color-warning")],
+      grid: { left: 52, right: 22, top: 42, bottom: 45, containLabel: false },
+      legend: {
+        top: 0,
+        right: 0,
+        textStyle: { color: cssToken("--color-text-muted") },
+        data: ["观测值", "门禁阈值"],
+      },
+      tooltip: {
+        trigger: "axis",
+        renderMode: "richText",
+        valueFormatter: (value) => `${(Number(value) * 100).toFixed(1)}%`,
+      },
+      xAxis: {
+        type: "category",
+        boundaryGap: false,
+        data: items.map((item) => formatTimestamp(item.generated_at)),
+        axisLabel: { color: cssToken("--color-text-muted"), hideOverlap: true },
+        axisLine: { lineStyle: { color: cssToken("--chart-grid") } },
+      },
+      yAxis: {
+        type: "value",
+        min: 0,
+        axisLabel: {
+          color: cssToken("--color-text-muted"),
+          formatter: (value) => `${Math.round(value * 100)}%`,
+        },
+        splitLine: {
+          lineStyle: { color: cssToken("--chart-grid"), type: "dashed" },
+        },
+      },
+      series: [
+        {
+          name: "观测值",
+          type: "line",
+          smooth: 0.16,
+          symbol: "circle",
+          symbolSize: 8,
+          lineStyle: { width: 2.5 },
+          areaStyle: { opacity: 0.08 },
+          data: items.map((item) => ({
+            value: item.observed_value,
+            itemStyle: {
+              color: item.passed
+                ? cssToken("--color-success")
+                : cssToken("--color-danger"),
+            },
+          })),
+        },
+        {
+          name: "门禁阈值",
+          type: "line",
+          symbol: "none",
+          lineStyle: { width: 1.5, type: "dashed" },
+          data: items.map((item) => item.threshold),
+        },
+      ],
+    },
+    { notMerge: true },
+  );
+}
+
+function renderQualityFailure(error) {
+  elements.qualityLatestStatus.textContent = "不可用";
+  elements.qualityLatestStatus.className =
+    "quality-status quality-status--fail";
+  elements.qualityLatestTime.textContent = "等待质量历史恢复";
+  elements.qualityPassRate.textContent = "—";
+  elements.qualityFailedRules.textContent = "—";
+  elements.qualityRunCount.textContent = "—";
+  elements.qualityRuleBadge.textContent = "质量历史不可用";
+  elements.qualityHistoryNote.textContent = error.message;
+  elements.qualityHistoryTable.innerHTML =
+    '<tr><td colspan="7" class="table-message">质量历史暂时不可用</td></tr>';
+  elements.qualityTrendChart.hidden = true;
+  elements.qualityTrendEmpty.hidden = false;
+  charts.quality.clear();
+}
+
+async function refreshQuality() {
+  try {
+    const [runs, trend] = await Promise.all([
+      fetchJson("/api/v1/quality/runs", new URLSearchParams({ limit: "12" })),
+      fetchJson(
+        "/api/v1/quality/trend",
+        new URLSearchParams({ rule_id: "channel-share-drift", limit: "50" }),
+      ),
+    ]);
+    renderQualityRuns(runs);
+    renderQualityTrend(trend);
+  } catch (error) {
+    renderQualityFailure(
+      error instanceof Error ? error : new Error("质量历史读取失败。"),
+    );
+  }
+}
+
 function syncSelect(select, values, emptyLabel) {
   const selected = select.value;
   const options = [new Option(emptyLabel, "")];
@@ -460,12 +646,14 @@ function renderFailure(error) {
     '<tr><td colspan="6" class="table-message">数据服务暂时不可用</td></tr>';
   setConnectionState("error", "数据服务不可用");
   elements.liveStatus.textContent = `数据刷新失败：${error.message}`;
-  for (const chart of Object.values(charts)) chart.clear();
+  for (const chart of [charts.trend, charts.region, charts.channel])
+    chart.clear();
 }
 
 async function refreshDashboard() {
   elements.errorBanner.hidden = true;
   setLoading(true);
+  const qualityRefresh = refreshQuality();
   try {
     const filters = currentFilters();
     const [summary, timeSeries, regions, channels, recent] = await Promise.all([
@@ -507,6 +695,7 @@ async function refreshDashboard() {
   } catch (error) {
     renderFailure(error instanceof Error ? error : new Error("发生未知错误。"));
   } finally {
+    await qualityRefresh;
     setLoading(false);
   }
 }

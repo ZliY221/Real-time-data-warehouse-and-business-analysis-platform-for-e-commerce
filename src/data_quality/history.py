@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
-from typing import Any, Iterator
+from typing import Any, Iterator, Protocol
 
 from .models import QualityReport
 
@@ -59,6 +59,24 @@ class StoredRuleResult:
             "passed": self.passed,
             "samples": list(self.samples),
         }
+
+
+class QualityHistoryReader(Protocol):
+    """Read-only contract used by the API and deterministic preview data."""
+
+    def list_runs(
+        self,
+        *,
+        limit: int = 50,
+        passed: bool | None = None,
+    ) -> list[StoredRun]: ...
+
+    def rule_trend(
+        self,
+        rule_id: str,
+        *,
+        limit: int = 50,
+    ) -> list[StoredRuleResult]: ...
 
 
 class QualityHistoryStore:

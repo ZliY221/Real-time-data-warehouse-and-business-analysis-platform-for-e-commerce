@@ -80,10 +80,19 @@ export function createLocalRange(hours, now = new Date()) {
   };
 }
 
+export function qualityPassRate(runs) {
+  if (!Array.isArray(runs) || runs.length === 0) return null;
+  const passed = runs.filter((run) => run?.passed === true).length;
+  return passed / runs.length;
+}
+
 export function apiErrorMessage(status, payload) {
   const detail = payload?.detail;
   if (detail?.code === "analytics_store_unavailable") {
     return "分析存储暂时不可用。请确认 ClickHouse 已启动后重试。";
+  }
+  if (detail?.code === "quality_history_unavailable") {
+    return "质量历史暂时不可用。请确认 SQLite 历史库可读后重试。";
   }
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;

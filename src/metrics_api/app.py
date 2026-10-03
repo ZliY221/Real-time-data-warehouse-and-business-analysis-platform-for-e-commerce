@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import sqlite3
+from threading import Lock
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from data_quality.history import QualityHistoryReader, QualityHistoryStore
 from metrics_api.config import ApiSettings
 from metrics_api.models import (
     BreakdownDimension,
@@ -19,6 +22,10 @@ from metrics_api.models import (
     MetricSummaryResponse,
     MinuteMetric,
     MinuteMetricsResponse,
+    QualityRunItem,
+    QualityRunsResponse,
+    QualityTrendPoint,
+    QualityTrendResponse,
     ResolvedTimeBucket,
     TimeBucket,
     TimeSeriesPoint,
@@ -106,11 +113,24 @@ def get_repository(request: Request) -> MetricsRepository:
     return request.app.state.repository
 
 
+def get_quality_history(request: Request) -> QualityHistoryReader:
+    history = request.app.state.quality_history
+    if history is None:
+        with request.app.state.quality_history_lock:
+            history = request.app.state.quality_history
+            if history is None:
+                history = QualityHistoryStore(request.app.state.quality_history_path)
+                request.app.state.quality_history = history
+    return history
+
+
 def create_app(
     repository: MetricsRepository | None = None,
     *,
     settings: ApiSettings | None = None,
     data_mode: Literal["clickhouse", "preview"] = "clickhouse",
+    quality_history: QualityHistoryReader | None = None,
+    quality_history_path: Path = Path("build/data-quality/history.db"),
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
@@ -121,6 +141,9 @@ def create_app(
         settings or ApiSettings.from_env()
     )
     app.state.data_mode = data_mode
+    app.state.quality_history = quality_history
+    app.state.quality_history_path = quality_history_path
+    app.state.quality_history_lock = Lock()
     app.mount(
         "/dashboard/assets",
         StaticFiles(directory=DASHBOARD_DIRECTORY),
@@ -341,6 +364,87 @@ def create_app(
             ),
             dimension=dimension,
             count=len(items),
+            items=items,
+        )
+
+    @app.get(
+        "/api/v1/quality/runs",
+        response_model=QualityRunsResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["data quality"],
+    )
+    def quality_runs(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=500)] = 20,
+        passed: Annotated[bool | None, Query()] = None,
+    ) -> QualityRunsResponse:
+        try:
+            history = get_quality_history(request)
+            rows = history.list_runs(limit=limit, passed=passed)
+        except (OSError, sqlite3.Error, ValueError) as error:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "quality_history_unavailable",
+                    "message": "The quality history is temporarily unavailable.",
+                },
+            ) from error
+        items = [
+            QualityRunItem.model_validate(
+                {**row.to_dict(), "input_file": Path(row.input_file).name}
+            )
+            for row in rows
+        ]
+        return QualityRunsResponse(
+            generated_at=datetime.now(UTC),
+            count=len(items),
+            limit=limit,
+            passed=passed,
+            items=items,
+        )
+
+    @app.get(
+        "/api/v1/quality/trend",
+        response_model=QualityTrendResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["data quality"],
+    )
+    def quality_trend(
+        request: Request,
+        rule_id: Annotated[str, Query(min_length=1, max_length=100)],
+        limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    ) -> QualityTrendResponse:
+        try:
+            history = get_quality_history(request)
+            rows = history.rule_trend(rule_id, limit=limit)
+        except (OSError, sqlite3.Error, ValueError) as error:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "quality_history_unavailable",
+                    "message": "The quality history is temporarily unavailable.",
+                },
+            ) from error
+        items = [
+            QualityTrendPoint.model_validate(
+                {
+                    "run_id": row.run_id,
+                    "generated_at": row.generated_at,
+                    "passed": row.passed,
+                    "checked_records": row.checked_records,
+                    "violations": row.violations,
+                    "metric_name": row.metric_name,
+                    "observed_value": row.observed_value,
+                    "threshold": row.threshold,
+                }
+            )
+            for row in rows
+        ]
+        return QualityTrendResponse(
+            generated_at=datetime.now(UTC),
+            rule_id=rule_id,
+            count=len(items),
+            limit=limit,
             items=items,
         )
 

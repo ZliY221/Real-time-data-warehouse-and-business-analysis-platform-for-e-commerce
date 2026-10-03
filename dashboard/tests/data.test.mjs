@@ -8,6 +8,7 @@ import {
   formatInteger,
   formatLag,
   formatMoney,
+  qualityPassRate,
   toApiTimestamp,
 } from "../static/data.js";
 
@@ -68,4 +69,17 @@ test("lag and API errors provide clear user-facing states", () => {
 
 test("invalid timestamps are rejected before sending a request", () => {
   assert.throws(() => toApiTimestamp("not-a-time"), /有效/);
+});
+
+test("quality pass rate handles mixed and empty history", () => {
+  assert.equal(qualityPassRate([{ passed: true }, { passed: false }]), 0.5);
+  assert.equal(qualityPassRate([{ passed: true }, { passed: true }]), 1);
+  assert.equal(qualityPassRate([]), null);
+});
+
+test("quality history errors have a focused recovery message", () => {
+  assert.match(
+    apiErrorMessage(503, { detail: { code: "quality_history_unavailable" } }),
+    /SQLite/,
+  );
 });

@@ -44,7 +44,7 @@ Python 固定事件
 
 ### 4. 工程化证据
 
-- Python/API/数据质量/对账/离线数仓、JavaScript、Java/Flink 分层测试，共 126 项。
+- Python/API/数据质量/对账/离线数仓、JavaScript、Java/Flink 分层测试，共 127 项。
 - GitHub Actions 配置 Python、Flink、Kafka、ClickHouse 四层验证。
 - 固定版本依赖、最小权限、超时、失败清理和可重复样例。
 - 里程碑提交保留从事件契约到端到端验收脚本的演进。
@@ -216,6 +216,12 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 选择 DuckDB 是因为评审者不需要 Docker 或集群就能复现分析型 SQL、事务、Decimal、窗口函数和分层模型。它证明我实际处理过粒度、维度键、增量幂等、坏数据隔离和一对多重复汇总风险，但不能直接证明分布式 Shuffle、容错、分区文件或小文件治理能力。因此简历写“使用 DuckDB 实现本地离线维度数仓”，不改写为 Hive/Spark 生产经验。
 
 证据：`src/offline_warehouse/`、`tests/test_offline_warehouse.py`、`docs/study-16-offline-dimensional-warehouse.md`。
+
+### 27. 离线装载为什么能提升 132 倍，这个数字可靠吗
+
+第一版在 Python 循环里反复查询维度并逐行写订单和商品事实，主要成本是解释器与数据库之间的大量往返。优化后仍由 Python 做业务契约和冲突判断，但将合法事件一次暂存，由 DuckDB 使用连接、`INSERT ... SELECT` 和 `UNNEST` 做集合式处理。相同 1000 条固定输入、相同机器、三次独立冷数据库运行，中位数从 27.393944 秒降到 0.206895 秒，即 132.41 倍；旧版本在 `af54c57` 临时工作树中重跑。这个倍数只说明当前逐行实现被集合式 SQL 替代后的差异，不代表生产系统或任意数据量都提升 132 倍。
+
+证据：`docs/evidence/offline-warehouse-performance.md`、`src/offline_warehouse/benchmark.py`。
 
 ## 三个 STAR 故事
 

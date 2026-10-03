@@ -9,6 +9,7 @@ import unittest
 import duckdb
 
 from event_generator.generator import generate_order_events
+from offline_warehouse.benchmark import run_benchmark, to_markdown as benchmark_markdown
 from offline_warehouse.loader import ConflictingEventError, load_order_events
 from offline_warehouse.report import build_report, to_markdown
 
@@ -209,6 +210,18 @@ class OfflineWarehouseTests(unittest.TestCase):
                 self.assertNotIn(event["event_id"], serialized)
                 self.assertNotIn(event["payload"]["order_id"], serialized)
                 self.assertNotIn(event["payload"]["user_id"], serialized)
+
+    def test_benchmark_runs_isolated_trials_and_verifies_results(self) -> None:
+        report = run_benchmark(event_count=20, trial_count=2, seed=2027)
+
+        self.assertEqual(report.event_count, 20)
+        self.assertEqual(report.trial_count, 2)
+        self.assertEqual(len(report.trials), 2)
+        self.assertTrue(all(trial.loaded_events == 20 for trial in report.trials))
+        self.assertGreater(report.median_events_per_second, 0)
+        markdown = benchmark_markdown(report)
+        self.assertIn("correctness-oriented batch-load benchmark", markdown)
+        self.assertNotIn("usr_", markdown)
 
 
 if __name__ == "__main__":

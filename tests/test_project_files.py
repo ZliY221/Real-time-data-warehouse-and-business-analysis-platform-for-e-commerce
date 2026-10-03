@@ -193,6 +193,24 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('id="preview-banner"', dashboard)
         self.assertIn("内存演示数据", dashboard)
 
+    def test_quality_history_is_exposed_by_api_and_dashboard(self) -> None:
+        api = (self.root / "src" / "metrics_api" / "app.py").read_text(
+            encoding="utf-8"
+        )
+        html = (self.root / "dashboard" / "static" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        javascript = (self.root / "dashboard" / "static" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"/api/v1/quality/runs"', api)
+        self.assertIn('"/api/v1/quality/trend"', api)
+        self.assertIn('id="quality-trend-chart"', html)
+        self.assertIn('id="quality-history-table-body"', html)
+        self.assertIn('"/api/v1/quality/runs"', javascript)
+        self.assertIn('"/api/v1/quality/trend"', javascript)
+        self.assertIn("renderQualityFailure", javascript)
+
     def test_ci_workflow_uses_least_privilege_and_pinned_actions(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"

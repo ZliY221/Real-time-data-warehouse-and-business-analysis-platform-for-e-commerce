@@ -10,6 +10,7 @@
 sequenceDiagram
     participant Generator as Python 事件生成器
     participant Quality as 数据质量门禁
+    participant History as SQLite 质量历史
     participant Kafka as Kafka
     participant Flink as Flink 作业
     participant Store as ClickHouse
@@ -18,12 +19,14 @@ sequenceDiagram
 
     Generator->>Quality: NDJSON 批次
     Quality-->>Generator: 报告与退出码
+    Quality->>History: 运行摘要与规则指标
     Generator->>Kafka: 通过门禁的 order_created v1
     Kafka->>Flink: 按事件时间消费
     Flink->>Flink: 校验 去重 窗口聚合
     Flink->>Store: 分钟级经营指标
     API->>Store: 参数化查询
-    Dashboard->>API: 获取经营指标
+    API->>History: 只读质量历史
+    Dashboard->>API: 获取经营指标与质量趋势
 ```
 
 ## 事件时间策略
@@ -67,6 +70,8 @@ sequenceDiagram
 - 金额字段以十进制字符串返回，避免 JavaScript 浮点表示改变金额。
 - 空结果返回 `200`、`has_data=false` 或空数组；参数错误返回 `422`；ClickHouse 不可用返回 `503` 和稳定错误码，不向调用者泄露数据库错误详情。
 - 当前 API 使用同步标准库 HTTP 客户端。查询规模受范围与条数限制，足以支持个人作品集；若后续压测证明阻塞查询成为瓶颈，再依据数据决定是否引入连接池或异步客户端。
+- 质量历史接口读取 `quality_runs` 和单规则趋势，最多返回 500 条；公开响应只包含摘要与绘图字段，输入路径只保留文件名。历史库按需创建，并用进程内锁保护首次并行初始化。
+- ClickHouse 与 SQLite 采用独立错误边界：任一存储不可用时返回各自稳定的 `503` 错误码，前端可以分别降级。
 
 ## 看板展示层
 
@@ -77,6 +82,8 @@ sequenceDiagram
 - ECharts 使用固定版本和子资源完整性校验；页面设置 CSP、`nosniff` 和 `no-referrer` 响应头。
 - 图表启用 ARIA 与纹理模式，地区和渠道图提供可展开数据表；页面支持键盘焦点、深色模式、减少动画和移动端布局。
 - 独立预览入口使用内存数据，并通过 API 响应头驱动醒目的“演示数据”状态，不把预览结果冒充真实链路证据。
+- 质量诊断区展示最近门禁、近期通过率、失败规则计数、异常分类和渠道分布漂移；阈值线与失败节点同时编码，表格保留等价文本证据。
+- 经营指标和质量历史并行请求、独立处理失败，避免一个数据源异常导致另一类证据被清空。
 
 ## 数据质量门禁
 
@@ -86,6 +93,7 @@ sequenceDiagram
 - 报告只输出行号、规则原因和必要异常值，不复制整条事件负载；构建产物写入被 Git 忽略的 `build/data-quality`。
 - SQLite 历史库使用 `quality_runs` 与 `quality_rule_results` 两张表、外键和事务保存运行摘要；报告内容哈希形成确定性 `run_id`，相同报告重复写入不会产生重复运行。
 - 历史查询限制最多 500 条，所有值使用 SQL 参数绑定；趋势按规则 ID 查询并按时间正序返回，便于后续绘图。
+- FastAPI 对历史读取提供运行列表与规则趋势两个只读端点；预览应用使用确定性内存历史，明确标注为演示数据。
 - 当前门禁验证静态或重放批次；历史库也不能替代 Flink 侧流持久化、持续调度或生产告警。
 
 ## 版本选择

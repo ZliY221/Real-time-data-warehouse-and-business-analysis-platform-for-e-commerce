@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from data_quality.history import StoredRuleResult, StoredRun
 from metrics_api.app import create_app
 
 
@@ -127,4 +128,86 @@ class PreviewMetricsRepository:
         return sorted(items, key=lambda item: Decimal(item["gmv"]), reverse=True)[:limit]
 
 
-app = create_app(PreviewMetricsRepository(), data_mode="preview")
+class PreviewQualityHistory:
+    """Deterministic quality-history sample for the portfolio preview."""
+
+    def __init__(self, now: datetime | None = None) -> None:
+        self.now = (now or datetime.now(UTC)).replace(second=0, microsecond=0)
+        observed_values = (0.08, 0.12, 0.16, 0.11, 0.19, 0.23, 0.57, 0.18)
+        self.runs: list[StoredRun] = []
+        self.trend: list[StoredRuleResult] = []
+        for index, observed_value in enumerate(observed_values):
+            generated_at = self.now - timedelta(hours=7 - index)
+            passed = observed_value <= 0.35
+            run_id = f"preview-quality-{index + 1:02d}"
+            self.runs.append(
+                StoredRun(
+                    run_id=run_id,
+                    generated_at=generated_at.isoformat(),
+                    input_file="data/sample/order_events.ndjson",
+                    passed=passed,
+                    total_records=120 + index * 8,
+                    parsed_records=120 + index * 8,
+                    invalid_json_records=0,
+                    invalid_contract_records=0,
+                    duplicate_records=1 if index == 6 else 0,
+                    late_records=2 if index == 6 else index % 2,
+                    passed_rules=5 if index == 6 else 6,
+                    failed_rules=1 if index == 6 else 0,
+                )
+            )
+            self.trend.append(
+                StoredRuleResult(
+                    run_id=run_id,
+                    generated_at=generated_at.isoformat(),
+                    rule_id="channel-share-drift",
+                    rule_type="distribution",
+                    passed=passed,
+                    checked_records=120 + index * 8,
+                    violations=1 if index == 6 else 0,
+                    metric_name="max_channel_share_drift",
+                    observed_value=observed_value,
+                    threshold=0.35,
+                    message=(
+                        "channel share drift is within threshold"
+                        if passed
+                        else "channel share drift exceeds threshold"
+                    ),
+                    samples=(),
+                    metrics={"observed_share_drift": observed_value},
+                )
+            )
+
+    @staticmethod
+    def _check_limit(limit: int) -> None:
+        if isinstance(limit, bool) or not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+
+    def list_runs(
+        self,
+        *,
+        limit: int = 50,
+        passed: bool | None = None,
+    ) -> list[StoredRun]:
+        self._check_limit(limit)
+        rows = [row for row in self.runs if passed is None or row.passed is passed]
+        return list(reversed(rows))[:limit]
+
+    def rule_trend(
+        self,
+        rule_id: str,
+        *,
+        limit: int = 50,
+    ) -> list[StoredRuleResult]:
+        self._check_limit(limit)
+        if not rule_id.strip():
+            raise ValueError("rule_id must not be blank")
+        rows = [row for row in self.trend if row.rule_id == rule_id]
+        return rows[-limit:]
+
+
+app = create_app(
+    PreviewMetricsRepository(),
+    quality_history=PreviewQualityHistory(),
+    data_mode="preview",
+)

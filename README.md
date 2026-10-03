@@ -24,6 +24,7 @@
 - [x] 提供带筛选、KPI、趋势、地区渠道分析和明细表的 ECharts 经营看板
 - [x] 加入契约、完整性、唯一性、范围、及时性和分布漂移数据质量门禁
 - [x] 使用 SQLite 保存质量运行与规则明细，并支持幂等写入、历史筛选和单规则趋势导出
+- [x] 通过 FastAPI 与 ECharts 展示质量运行、异常计数和规则阈值趋势，并支持存储独立降级
 - [ ] 加入运行监控与压力测试
 
 ## 业务问题
@@ -124,6 +125,7 @@ python -m unittest discover -s tests -v
 - [学习单元 09 ECharts 经营看板与可信演示](docs/study-09-echarts-dashboard.md)
 - [学习单元 10 可配置数据质量门禁](docs/study-10-data-quality-gates.md)
 - [学习单元 11 SQLite 质量历史与趋势](docs/study-11-quality-history.md)
+- [学习单元 12 质量诊断 API 与看板](docs/study-12-quality-diagnostics-dashboard.md)
 
 ## 自动化验证
 
@@ -145,7 +147,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 和 ClickHouse JDBC Sink 作业入口已完成；质量与迟到侧流的外部存储仍待完成。
 
-当前验证基线：64 项 Python/API/数据质量测试、6 项 JavaScript 看板测试和 24 项 Java/Flink 测试全部通过，共 94 项。
+当前验证基线：71 项 Python/API/数据质量测试、8 项 JavaScript 看板测试和 24 项 Java/Flink 测试全部通过，共 103 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -232,9 +234,11 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 - `GET /api/v1/metrics/summary`：按相同时间和维度条件汇总订单量、GMV、客单价和最新处理时间。
 - `GET /api/v1/metrics/timeseries`：按时间桶汇总趋势；`auto` 会依据范围选择 `1m`、`5m`、`15m` 或 `1h`。
 - `GET /api/v1/metrics/breakdown`：按白名单中的 `region` 或 `channel` 维度汇总排行。
+- `GET /api/v1/quality/runs`：读取最近质量门禁摘要，支持 `limit` 和可选的 `passed` 过滤。
+- `GET /api/v1/quality/trend`：按必填的 `rule_id` 读取观测值、阈值和通过状态趋势。
 - `GET /docs`：FastAPI 自动生成的交互式 OpenAPI 文档。
 
-未提供时间参数时默认查询最近 24 小时；单次范围最多 31 天，明细最多返回 500 行。地区、渠道、时间和条数都通过 ClickHouse 命名参数绑定，不直接拼接用户输入。金额在 JSON 中以十进制字符串返回，避免浏览器端二进制浮点误差。
+未提供时间参数时默认查询最近 24 小时；单次范围最多 31 天，明细和质量历史最多返回 500 行。地区、渠道、时间和条数都通过 ClickHouse 命名参数绑定，不直接拼接用户输入；质量查询同样使用 SQLite 参数绑定。金额在 JSON 中以十进制字符串返回，避免浏览器端二进制浮点误差。质量 API 只返回摘要和绘图必需的指标，并把输入路径缩减为文件名；SQLite 不可用时返回稳定错误码，不泄露内部异常。
 
 API 默认读取 `CLICKHOUSE_HTTP_URL=http://localhost:8123`、`CLICKHOUSE_USER=default`、`CLICKHOUSE_DATABASE=ecommerce`，密码只从 `CLICKHOUSE_PASSWORD` 环境变量读取。由于本机没有 Docker，API 到真实 ClickHouse 的联调仍属于待验收项。
 
@@ -261,7 +265,9 @@ API 默认读取 `CLICKHOUSE_HTTP_URL=http://localhost:8123`、`CLICKHOUSE_USER=
 - 地区、渠道筛选和手动刷新。
 - GMV、有效订单量、客单价、数据新鲜度四项 KPI。
 - 成交额与订单量趋势、地区排行、渠道构成和最近分钟明细。
+- 最近质量门禁状态、通过率、失败规则数、异常计数和渠道分布漂移阈值趋势。
 - 空数据、参数错误、分析存储不可用和加载中状态。
+- 经营指标与质量历史独立降级：一侧不可用时，另一侧仍可展示。
 - 图表 ARIA 描述、纹理辅助、数据表替代视图、键盘焦点、深色模式和减少动画。
 
 ECharts 锁定为 6.1.0，通过带 SHA-384 完整性校验的 jsDelivr 地址加载；页面 CSP 只允许本站资源和该固定脚本来源。首次加载看板需要访问该 CDN。浏览器验收覆盖 375、768、1024、1440 像素宽度，均无横向溢出，并验证了深色模式、减少动画和筛选刷新。

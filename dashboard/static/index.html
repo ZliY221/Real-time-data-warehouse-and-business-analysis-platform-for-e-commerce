@@ -66,8 +66,8 @@
           <p class="eyebrow">Kafka · Flink · ClickHouse · FastAPI</p>
           <h1 id="page-title">电商实时经营指标</h1>
           <p class="hero__description">
-            用统一口径查看分钟级订单量、成交额和维度表现。页面仅展示 ClickHouse
-            最新版本视图中的可验证结果。
+            用统一口径查看分钟级经营指标与数据质量趋势。业务结果来自 ClickHouse
+            最新版本视图，质量诊断来自 SQLite 运行摘要。
           </p>
         </div>
         <div class="hero__meta" aria-label="数据口径说明">
@@ -369,12 +369,112 @@
         </div>
       </section>
 
+      <section class="quality-section" aria-labelledby="quality-title">
+        <div class="section-heading quality-section__heading">
+          <div>
+            <p class="section-kicker">质量可观测性</p>
+            <h2 id="quality-title">数据质量诊断</h2>
+            <p>
+              汇总每次门禁结果，并跟踪渠道分布漂移；历史只保存摘要和必要指标。
+            </p>
+          </div>
+          <span id="quality-rule-badge" class="data-badge"
+            >规则：渠道占比漂移</span
+          >
+        </div>
+
+        <div class="quality-summary-grid" aria-label="数据质量摘要">
+          <article class="quality-stat">
+            <span>最新门禁</span>
+            <strong id="quality-latest-status" class="quality-status">—</strong>
+            <small id="quality-latest-time">等待质量历史</small>
+          </article>
+          <article class="quality-stat">
+            <span>近期通过率</span>
+            <strong id="quality-pass-rate">—</strong>
+            <small>最近 12 次运行</small>
+          </article>
+          <article class="quality-stat">
+            <span>最新失败规则</span>
+            <strong id="quality-failed-rules">—</strong>
+            <small>六类规则统一门禁</small>
+          </article>
+          <article class="quality-stat">
+            <span>历史运行数</span>
+            <strong id="quality-run-count">—</strong>
+            <small>当前查询窗口</small>
+          </article>
+        </div>
+
+        <div class="quality-grid">
+          <article
+            class="chart-card quality-chart-card"
+            aria-labelledby="quality-trend-title"
+          >
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">规则趋势</p>
+                <h3 id="quality-trend-title">渠道分布漂移</h3>
+                <p>观测值超过阈值时，质量门禁失败。</p>
+              </div>
+            </div>
+            <div
+              id="quality-trend-chart"
+              class="chart chart--quality"
+              role="img"
+              aria-label="渠道分布漂移观测值与阈值趋势图"
+            ></div>
+            <div
+              id="quality-trend-empty"
+              class="empty-state empty-state--compact"
+              hidden
+            >
+              <strong>暂无该规则的趋势记录</strong>
+              <span>先运行数据质量检查，结果会写入 SQLite 历史库。</span>
+            </div>
+          </article>
+
+          <article
+            class="table-card quality-table-card"
+            aria-labelledby="quality-history-title"
+          >
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">运行留痕</p>
+                <h3 id="quality-history-title">最近质量检查</h3>
+                <p id="quality-history-note">读取 SQLite 本地历史摘要。</p>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">运行时间</th>
+                    <th scope="col">状态</th>
+                    <th scope="col">记录数</th>
+                    <th scope="col">失败规则</th>
+                    <th scope="col">无效记录</th>
+                    <th scope="col">重复</th>
+                    <th scope="col">迟到</th>
+                  </tr>
+                </thead>
+                <tbody id="quality-history-table-body">
+                  <tr>
+                    <td colspan="7" class="table-message">正在加载质量历史…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <p id="screen-reader-status" class="sr-only" aria-live="polite"></p>
     </main>
 
     <footer class="footer">
       <div class="footer__inner">
-        <p>作品集项目 · 所有指标均来自可复现的数据契约和聚合口径</p>
+        <p>作品集项目 · 经营指标和质量结果均有可复现口径</p>
         <p>查询上限与时间桶用于控制浏览器和数据库负载</p>
       </div>
     </footer>

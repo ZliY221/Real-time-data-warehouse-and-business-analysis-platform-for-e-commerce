@@ -4,7 +4,7 @@
 
 ## 30 秒项目介绍
 
-> 这是一个面向数据开发岗位的电商实时指标平台。我先定义可复现的订单事件契约，再用 Kafka 和 Flink 完成解析、事件时间、状态去重、一分钟窗口及异常侧流，使用 ClickHouse 保存最终指标，FastAPI 和 ECharts 提供查询与展示。项目还包含六类数据质量门禁、SQLite 历史趋势和独立的 Python 批流对账。重点不是组件数量，而是每个口径都有测试和证据，同时明确普通 JDBC Sink、预览数据和未运行的端到端链路不能被夸大。
+> 这是一个面向数据开发岗位的电商数据平台。我先定义可复现的订单事件契约，再用 Kafka 和 Flink 完成解析、事件时间、状态去重、一分钟窗口及异常侧流，使用 ClickHouse 保存实时指标；同一事件批次还能装载到 DuckDB 的 ODS、DIM、DWD、DWS、ADS 离线模型。项目还包含质量门禁、历史趋势和独立批流对账。重点不是组件数量，而是每个粒度、口径和边界都有测试与证据。
 
 ## 3 分钟讲解顺序
 
@@ -26,6 +26,10 @@ Python 固定事件
 同一批原始事件
   → Python 离线重算
   → 与 ClickHouse 结果逐键对账
+
+同一批原始事件
+  → DuckDB 事务型增量 ETL
+  → ODS / DIM / DWD / DWS / ADS
 ```
 
 ### 3. 三个重点设计
@@ -36,9 +40,11 @@ Python 固定事件
 
 第三，使用独立 Python 引擎复刻校验、去重、迟到剔除和分钟聚合，按 `(window_start, region, channel)` 精确核对流式结果。任务成功不等于指标正确，对账才是业务验收。
 
+第四，离线数仓明确区分订单粒度和订单商品明细粒度，通过文件哈希批次键、事件幂等与冲突回滚支持可重跑；DWS 从订单粒度汇总 GMV，ADS 从商品事实用窗口函数生成品类排名，避免一对多连接重复计算订单总额。
+
 ### 4. 工程化证据
 
-- Python/API/数据质量/对账、JavaScript、Java/Flink 分层测试。
+- Python/API/数据质量/对账/离线数仓、JavaScript、Java/Flink 分层测试，共 126 项。
 - GitHub Actions 配置 Python、Flink、Kafka、ClickHouse 四层验证。
 - 固定版本依赖、最小权限、超时、失败清理和可重复样例。
 - 里程碑提交保留从事件契约到端到端验收脚本的演进。
@@ -60,7 +66,13 @@ Python 固定事件
    ./scripts/test-all.ps1
    ```
 
-3. 展示离线基准：
+3. 构建离线维度数仓并查看聚合验收报告：
+
+   ```powershell
+   ./scripts/offline-warehouse-build.ps1
+   ```
+
+4. 展示批流对账的离线基准：
 
    ```powershell
    $env:PYTHONPATH = "src"
@@ -69,13 +81,13 @@ Python 固定事件
      --output build/reconciliation/expected_metrics.ndjson
    ```
 
-4. 启动明确标注的看板预览：
+5. 启动明确标注的看板预览：
 
    ```powershell
    ./scripts/dashboard-preview.ps1
    ```
 
-5. 打开正常和问题质量报告，解释退出码与失败规则。
+6. 打开正常和问题质量报告，解释退出码与失败规则。
 
 ### 具备 Docker 和 Flink 后演示
 
@@ -199,6 +211,12 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 
 至少缺少安全认证与密钥管理、Schema Registry 或兼容性治理、生产级 checkpoint/savepoint 存储、高可用部署、监控告警、数据保留与删除策略、容量和故障压测、回填流程、权限审计及真实 SLA。当前项目定位是可验证作品集，不是生产系统。
 
+### 26. 离线数仓为什么选 DuckDB，能不能说会 Hive/Spark 数仓
+
+选择 DuckDB 是因为评审者不需要 Docker 或集群就能复现分析型 SQL、事务、Decimal、窗口函数和分层模型。它证明我实际处理过粒度、维度键、增量幂等、坏数据隔离和一对多重复汇总风险，但不能直接证明分布式 Shuffle、容错、分区文件或小文件治理能力。因此简历写“使用 DuckDB 实现本地离线维度数仓”，不改写为 Hive/Spark 生产经验。
+
+证据：`src/offline_warehouse/`、`tests/test_offline_warehouse.py`、`docs/study-16-offline-dimensional-warehouse.md`。
+
 ## 三个 STAR 故事
 
 ### 故事一：Watermark 导致窗口没有输出
@@ -231,6 +249,7 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 | 实现 FastAPI 与响应式 ECharts 看板 | API/前端源码、浏览器验收、测试 | 真实看板已连接完整链路 |
 | 实现六类质量门禁与历史趋势 | 配置、正常/失败样例、SQLite、API | 生产级实时质量平台 |
 | 实现独立批流对账和隔离验收脚本 | Python 引擎、脚本、报告格式、测试 | 真实端到端验收已通过 |
+| 实现五层离线维度数仓与增量 ETL | DuckDB 模型、装载脚本、聚合报告、事务测试 | Hive/Spark 生产数仓经验 |
 | 配置四层 GitHub Actions | `.github/workflows/ci.yml` | 远程 CI 已通过 |
 
 ## 里程碑证据索引
@@ -252,10 +271,13 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 | `f072e09` | 异常侧流 ClickHouse 持久化 |
 | `ef119de` | 批流指标对账 |
 | `eb69541` | 隔离端到端验收流程 |
+| `45074de` | 项目讲解、追问与证据指南 |
 
 ## 面试前自检
 
 - 能不用文档画出链路和三张 ClickHouse 表。
+- 能区分 ODS 订单粒度、DWD 商品明细粒度及各自正确的聚合指标。
+- 能解释同文件重跑、跨批次重复与同 ID 冲突的不同处理方式。
 - 能计算为什么 20 条事件无法触发第一分钟窗口。
 - 能区分 checkpoint exactly-once、Sink at-least-once 和版本替换。
 - 能解释每个稳定键为什么这样选择。

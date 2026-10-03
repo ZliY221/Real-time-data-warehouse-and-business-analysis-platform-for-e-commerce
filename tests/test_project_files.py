@@ -127,6 +127,29 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("python -m reconciliation.cli baseline", workflow)
         self.assertIn("-m reconciliation.cli baseline", unified_test)
 
+    def test_offline_warehouse_is_pinned_and_wired_into_verification(self) -> None:
+        pyproject = (self.root / "pyproject.toml").read_text(encoding="utf-8")
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        unified_test = (self.root / "scripts" / "test-all.ps1").read_text(
+            encoding="utf-8"
+        )
+        build_script = (
+            self.root / "scripts" / "offline-warehouse-build.ps1"
+        ).read_text(encoding="utf-8")
+        schema = (self.root / "src" / "offline_warehouse" / "schema.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"duckdb==1.5.6"', pyproject)
+        self.assertIn("offline-warehouse-build.ps1", workflow)
+        self.assertIn('"offline-warehouse-build.ps1"', unified_test)
+        self.assertIn("offline_warehouse.cli", build_script)
+        self.assertIn("offline_warehouse.report", build_script)
+        for layer in ("meta", "ods", "dim", "dwd", "dws", "ads"):
+            self.assertIn(f"CREATE SCHEMA IF NOT EXISTS {layer}", schema)
+        self.assertIn("DENSE_RANK() OVER", schema)
+
     def test_e2e_acceptance_uses_isolated_resources_and_watermark_events(self) -> None:
         acceptance = (self.root / "scripts" / "e2e-acceptance.ps1").read_text(
             encoding="utf-8"

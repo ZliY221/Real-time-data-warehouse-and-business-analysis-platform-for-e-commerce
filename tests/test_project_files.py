@@ -75,10 +75,12 @@ class KafkaProjectFilesTests(unittest.TestCase):
 
     def test_required_clickhouse_scripts_exist(self) -> None:
         names = {
+            "clickhouse-export-reconciliation.ps1",
             "clickhouse-up.ps1",
             "clickhouse-query.ps1",
             "clickhouse-query-anomalies.ps1",
             "clickhouse-smoke-test.ps1",
+            "reconcile-metrics.ps1",
         }
         actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
         self.assertTrue(names.issubset(actual_names))
@@ -100,6 +102,27 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("event_anomaly_summary", anomaly_query)
         self.assertIn("rejected_order_events FINAL", anomaly_query)
         self.assertIn("late_order_events FINAL", anomaly_query)
+
+    def test_reconciliation_export_is_bounded_and_parameterized(self) -> None:
+        export_script = (
+            self.root / "scripts" / "clickhouse-export-reconciliation.ps1"
+        ).read_text(encoding="utf-8")
+        reconcile_script = (
+            self.root / "scripts" / "reconcile-metrics.ps1"
+        ).read_text(encoding="utf-8")
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        unified_test = (self.root / "scripts" / "test-all.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("{start:DateTime64(3, 'UTC')}", export_script)
+        self.assertIn("{end:DateTime64(3, 'UTC')}", export_script)
+        self.assertIn('"--param_start=$Start"', export_script)
+        self.assertIn("TotalDays -gt 7", export_script)
+        self.assertIn('"reconciliation.cli", "compare"', reconcile_script)
+        self.assertIn("python -m reconciliation.cli baseline", workflow)
+        self.assertIn("-m reconciliation.cli baseline", unified_test)
 
     def test_flink_anomaly_sinks_store_minimal_replay_safe_records(self) -> None:
         sink_root = (

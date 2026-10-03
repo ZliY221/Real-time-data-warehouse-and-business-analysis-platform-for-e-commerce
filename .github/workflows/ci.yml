@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   python-tests:
-    name: Python, data quality, API, and dashboard tests
+    name: Python, quality, reconciliation, API, and dashboard tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -42,6 +42,13 @@ jobs:
           --json-output build/data-quality/report.json
           --markdown-output build/data-quality/report.md
           --history-db build/data-quality/history.db
+      - name: Build the reference batch metric baseline
+        env:
+          PYTHONPATH: src
+        run: >-
+          python -m reconciliation.cli baseline
+          --events data/sample/order_events.ndjson
+          --output build/reconciliation/expected_metrics.ndjson
       - name: Run dashboard unit tests
         run: node --test dashboard/tests/data.test.mjs
 

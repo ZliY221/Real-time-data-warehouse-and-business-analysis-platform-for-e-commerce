@@ -14,6 +14,7 @@ sequenceDiagram
     participant Kafka as Kafka
     participant Flink as Flink 作业
     participant Store as ClickHouse
+    participant Reconcile as 批流对账
     participant API as FastAPI
     participant Dashboard as ECharts 看板
 
@@ -24,6 +25,9 @@ sequenceDiagram
     Kafka->>Flink: 按事件时间消费
     Flink->>Flink: 校验 去重 窗口聚合
     Flink->>Store: 分钟级指标 拒绝指纹 迟到事件
+    Generator->>Reconcile: 固定批次离线重算
+    Store->>Reconcile: FINAL 指标与迟到事件
+    Reconcile-->>Generator: 差异报告与退出码
     API->>Store: 参数化查询
     API->>History: 只读质量历史
     Dashboard->>API: 获取经营指标与质量趋势
@@ -73,6 +77,15 @@ sequenceDiagram
 - 当前 API 使用同步标准库 HTTP 客户端。查询规模受范围与条数限制，足以支持个人作品集；若后续压测证明阻塞查询成为瓶颈，再依据数据决定是否引入连接池或异步客户端。
 - 质量历史接口读取 `quality_runs` 和单规则趋势，最多返回 500 条；公开响应只包含摘要与绘图字段，输入路径只保留文件名。历史库按需创建，并用进程内锁保护首次并行初始化。
 - ClickHouse 与 SQLite 采用独立错误边界：任一存储不可用时返回各自稳定的 `503` 错误码，前端可以分别降级。
+
+## 批流对账边界
+
+- `reconciliation` 复用 v1 事件业务校验，并按“解析与校验 → `event_id` 去重 → 剔除迟到事件 → UTC 分钟窗口聚合”的顺序构建离线基准。
+- 金额全程使用 `Decimal`，不使用浮点容差掩盖分币差异；订单量和 GMV 都必须精确相等。
+- ClickHouse 导出读取 `minute_metrics_latest` 和 `late_order_events FINAL`，使用有类型的时间参数限定最多 7 天，不拼接用户输入。
+- 实际指标文件要求每个 `(window_start, region, channel)` 只出现一次，并校验 UTC 时区、一分钟窗口、枚举维度和两位小数金额。
+- 报告仅包含窗口、地区、渠道和聚合值，不复制订单、用户标识或事件负载。
+- 有界批次内假设 Flink 去重状态未因 TTL 过期；长期运行和 TTL 边界需要单独场景验证。
 
 ## 看板展示层
 

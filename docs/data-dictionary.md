@@ -99,3 +99,18 @@
 
 `ecommerce.event_anomaly_summary` 对两张表执行 `FINAL` 后按分钟、异常类型和原因汇总，供诊断脚本查询。
 
+## 批流对账指标文件
+
+格式：UTF-8 NDJSON / ClickHouse `JSONEachRow`，每行代表一个最终分钟指标键。
+
+| 字段 | 类型 | 规则 |
+| --- | --- | --- |
+| window_start | UTC ISO 8601 string | 必须对齐整分钟 |
+| window_end | UTC ISO 8601 string | 必须等于 `window_start + 1 minute` |
+| region | string | 使用事件契约地区枚举 |
+| channel | string | 使用事件契约渠道枚举 |
+| order_count | non-negative integer | 去重、校验并剔除迟到事件后的订单量 |
+| gmv | decimal string | 非负且恰好两位小数 |
+
+文件中不包含 `event_id`、`order_id` 或 `user_id`。迟到事件单独导出最小化的 `event_id` 集合，只用于让离线基准采用与实时窗口一致的排除口径。
+

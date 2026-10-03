@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、批流指标对账、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -18,6 +18,7 @@
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [x] 将拒绝事件指纹与迟到事件写入 ClickHouse，并提供重放安全的异常汇总查询
+- [x] 实现独立的 Python 离线重算与逐键批流对账，区分缺失、额外、订单量和 GMV 差异
 - [x] 配置 Python/API、Java/Flink、Kafka 与 ClickHouse 四层持续集成工作流
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
 - [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
@@ -50,6 +51,9 @@ flowchart LR
     F --> G[ECharts 经营看板]
     C --> H[拒绝与迟到侧流]
     H --> E
+    A --> I[Python 离线指标基准]
+    E --> J[批流逐键对账]
+    I --> J
 ```
 
 设计要点：
@@ -61,6 +65,7 @@ flowchart LR
 - 压测数字只有在仓库中存在环境说明、脚本和原始结果时才写入简历。
 - JDBC Sink 采用批量重试；ClickHouse 用稳定业务键和版本替换吸收重放，查询通过 `FINAL` 视图读取确定的最新结果。
 - 拒绝事件只持久化 SHA-256 指纹、错误类型和载荷大小，不把原始坏消息或解析器原因写入数据库；迟到事件按 `event_id` 替换。
+- 离线基准复刻实时校验、首次事件去重、迟到剔除和 UTC 分钟窗口口径，以 `Decimal` 精确核对 ClickHouse 最终指标。
 
 ## 目录结构
 
@@ -79,6 +84,7 @@ ecommerce-realtime-warehouse/
 ├─ scripts/                      测试、Kafka 与作业提交脚本
 ├─ src/event_generator/          事件生成器源码
 ├─ src/data_quality/             数据质量规则引擎、报告与 CLI
+├─ src/reconciliation/           批流指标基准、差异报告与 CLI
 ├─ src/metrics_api/              FastAPI 查询服务与 ClickHouse HTTP 仓库
 ├─ tests/                        自动化测试
 ├─ .gitignore
@@ -130,6 +136,7 @@ python -m unittest discover -s tests -v
 - [学习单元 11 SQLite 质量历史与趋势](docs/study-11-quality-history.md)
 - [学习单元 12 质量诊断 API 与看板](docs/study-12-quality-diagnostics-dashboard.md)
 - [学习单元 13 Flink 异常侧流持久化](docs/study-13-flink-anomaly-persistence.md)
+- [学习单元 14 批流指标一致性核对](docs/study-14-batch-stream-reconciliation.md)
 
 ## 自动化验证
 
@@ -151,7 +158,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
 
-当前验证基线：72 项 Python/API/数据质量测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 108 项。
+当前验证基线：80 项 Python/API/数据质量/批流对账测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 116 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -227,6 +234,28 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 ```powershell
 ./scripts/clickhouse-query-anomalies.ps1 -Limit 20
 ```
+
+## 批流指标一致性核对
+
+从固定事件独立重算离线分钟基准：
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m reconciliation.cli baseline `
+  --events data/sample/order_events.ndjson `
+  --output build/reconciliation/expected_metrics.ndjson
+```
+
+真实 Kafka、Flink 和 ClickHouse 链路运行后，按同一事件时间范围导出最终指标及迟到事件，再执行对账：
+
+```powershell
+./scripts/clickhouse-export-reconciliation.ps1 `
+  -Start "2026-10-02T10:00:00Z" `
+  -End "2026-10-02T10:01:00Z"
+./scripts/reconcile-metrics.ps1
+```
+
+对账使用 `(window_start, region, channel)` 作为键，对订单量和两位小数 GMV 进行精确比较；退出码 `0` 表示完全一致，`1` 表示存在业务差异，`2` 表示输入或运行错误。当前参考批次已稳定生成 10 个离线指标键，但本机没有 Docker/Flink 环境，因此尚未把它表述为真实批流一致性运行结果。
 
 ## FastAPI 查询服务
 

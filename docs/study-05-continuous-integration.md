@@ -15,13 +15,13 @@
 `.github/workflows/ci.yml` 包含四个 Job：
 
 ```text
-Python/API/quality/dashboard tests ─┐
-                                    ├─> Kafka smoke test
-                                    ├─> ClickHouse metric and anomaly replacement smoke test
-Java and Flink tests ───────────────┘
+Python/API/quality/reconciliation/dashboard tests ─┐
+                                                   ├─> Kafka smoke test
+                                                   ├─> ClickHouse metric and anomaly replacement smoke test
+Java and Flink tests ──────────────────────────────┘
 ```
 
-- Python Job 验证事件生成器、业务契约、FastAPI、预览仓库、Compose 静态约束和数据质量引擎，实际对参考 NDJSON 执行质量门禁，并使用 Node 内置测试运行看板 JavaScript 测试。
+- Python Job 验证事件生成器、业务契约、FastAPI、预览仓库、Compose 静态约束、数据质量引擎和批流对账引擎，实际对参考 NDJSON 执行质量门禁并生成离线指标基准，再使用 Node 内置测试运行看板 JavaScript 测试。
 - Flink Job 使用 JDK 17 和 Maven 缓存，执行真实 DataStream 测试。
 - Kafka Job 在前两个 Job 通过后启动官方 Kafka 容器，执行生产、消费和再次校验，最后始终清理容器与数据卷。
 - ClickHouse Job 在前两个 Job 通过后初始化指标表与异常审计表，分别向同一指标键、拒绝指纹和迟到事件键写入两个版本，并验证 `FINAL` 只返回最新版本。

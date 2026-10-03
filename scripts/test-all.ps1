@@ -48,6 +48,13 @@ try {
         throw "The reference data-quality gate failed."
     }
 
+    & $runtimePython @runtimePythonArguments -m reconciliation.cli baseline `
+        --events "data/sample/order_events.ndjson" `
+        --output "build/reconciliation/expected_metrics.ndjson"
+    if ($LASTEXITCODE -ne 0) {
+        throw "The reference batch metric baseline could not be built."
+    }
+
     if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
         throw "Node.js 20 or newer is required for dashboard tests."
     }

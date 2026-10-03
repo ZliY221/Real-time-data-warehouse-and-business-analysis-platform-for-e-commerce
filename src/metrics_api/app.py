@@ -1,19 +1,28 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from metrics_api.config import ApiSettings
 from metrics_api.models import (
+    BreakdownDimension,
+    BreakdownItem,
+    BreakdownResponse,
     ErrorResponse,
     HealthResponse,
     MetricFilters,
     MetricSummaryResponse,
     MinuteMetric,
     MinuteMetricsResponse,
+    ResolvedTimeBucket,
+    TimeBucket,
+    TimeSeriesPoint,
+    TimeSeriesResponse,
 )
 from metrics_api.repository import (
     ClickHouseHttpRepository,
@@ -23,6 +32,30 @@ from metrics_api.repository import (
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
+MAX_TIME_SERIES_POINTS = 1500
+BUCKET_SECONDS: dict[ResolvedTimeBucket, int] = {
+    "1m": 60,
+    "5m": 5 * 60,
+    "15m": 15 * 60,
+    "1h": 60 * 60,
+}
+DASHBOARD_DIRECTORY = Path(__file__).resolve().parents[2] / "dashboard" / "static"
+DASHBOARD_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self'; "
+        "connect-src 'self'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    ),
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+}
 
 
 def _utc(value: datetime) -> datetime:
@@ -46,6 +79,29 @@ def _resolve_range(
     return resolved_start, resolved_end
 
 
+def _resolve_bucket(
+    start: datetime,
+    end: datetime,
+    bucket: TimeBucket,
+) -> ResolvedTimeBucket:
+    duration = end - start
+    if bucket == "auto":
+        if duration <= timedelta(hours=6):
+            return "1m"
+        if duration <= timedelta(days=1):
+            return "5m"
+        if duration <= timedelta(days=7):
+            return "15m"
+        return "1h"
+
+    estimated_points = duration.total_seconds() / BUCKET_SECONDS[bucket]
+    if estimated_points > MAX_TIME_SERIES_POINTS:
+        raise ValueError(
+            f"bucket {bucket} would return too many points; use a coarser bucket"
+        )
+    return bucket
+
+
 def get_repository(request: Request) -> MetricsRepository:
     return request.app.state.repository
 
@@ -54,6 +110,7 @@ def create_app(
     repository: MetricsRepository | None = None,
     *,
     settings: ApiSettings | None = None,
+    data_mode: Literal["clickhouse", "preview"] = "clickhouse",
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
@@ -63,6 +120,20 @@ def create_app(
     app.state.repository = repository or ClickHouseHttpRepository(
         settings or ApiSettings.from_env()
     )
+    app.state.data_mode = data_mode
+    app.mount(
+        "/dashboard/assets",
+        StaticFiles(directory=DASHBOARD_DIRECTORY),
+        name="dashboard-assets",
+    )
+
+    @app.get("/", include_in_schema=False)
+    @app.get("/dashboard", include_in_schema=False)
+    def dashboard() -> FileResponse:
+        return FileResponse(
+            DASHBOARD_DIRECTORY / "index.html",
+            headers=DASHBOARD_SECURITY_HEADERS,
+        )
 
     @app.exception_handler(MetricsRepositoryError)
     async def repository_error_handler(
@@ -80,6 +151,13 @@ def create_app(
             },
         )
 
+    @app.middleware("http")
+    async def add_data_mode_header(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/") or request.url.path == "/health":
+            response.headers["X-Data-Mode"] = app.state.data_mode
+        return response
+
     @app.get(
         "/health",
         response_model=HealthResponse,
@@ -90,7 +168,17 @@ def create_app(
         metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
     ) -> HealthResponse:
         metrics_repository.ping()
-        return HealthResponse(status="ok", clickhouse="reachable")
+        if app.state.data_mode == "preview":
+            return HealthResponse(
+                status="ok",
+                data_source="preview",
+                analytics_store="in_memory",
+            )
+        return HealthResponse(
+            status="ok",
+            data_source="clickhouse",
+            analytics_store="reachable",
+        )
 
     @app.get(
         "/api/v1/metrics/minutes",
@@ -171,6 +259,89 @@ def create_app(
             gmv=str(row["gmv"]),
             average_order_value=str(row["average_order_value"]),
             latest_processed_at=row.get("latest_processed_at"),
+        )
+
+    @app.get(
+        "/api/v1/metrics/timeseries",
+        response_model=TimeSeriesResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["metrics"],
+    )
+    def metric_time_series(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        start: Annotated[datetime | None, Query(description="Inclusive UTC start time")] = None,
+        end: Annotated[datetime | None, Query(description="Exclusive UTC end time")] = None,
+        region: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
+        channel: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
+        bucket: Annotated[TimeBucket, Query()] = "auto",
+    ) -> TimeSeriesResponse:
+        try:
+            resolved_start, resolved_end = _resolve_range(start, end)
+            resolved_bucket = _resolve_bucket(resolved_start, resolved_end, bucket)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+        rows = metrics_repository.fetch_time_series(
+            start=resolved_start,
+            end=resolved_end,
+            region=region,
+            channel=channel,
+            bucket=resolved_bucket,
+        )
+        items = [TimeSeriesPoint.model_validate(row) for row in rows]
+        return TimeSeriesResponse(
+            generated_at=datetime.now(UTC),
+            filters=MetricFilters(
+                start=resolved_start,
+                end=resolved_end,
+                region=region,
+                channel=channel,
+            ),
+            bucket=resolved_bucket,
+            count=len(items),
+            items=items,
+        )
+
+    @app.get(
+        "/api/v1/metrics/breakdown",
+        response_model=BreakdownResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["metrics"],
+    )
+    def metric_breakdown(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        dimension: Annotated[BreakdownDimension, Query()],
+        start: Annotated[datetime | None, Query(description="Inclusive UTC start time")] = None,
+        end: Annotated[datetime | None, Query(description="Exclusive UTC end time")] = None,
+        region: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
+        channel: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
+        limit: Annotated[int, Query(ge=1, le=50)] = 12,
+    ) -> BreakdownResponse:
+        try:
+            resolved_start, resolved_end = _resolve_range(start, end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+        rows = metrics_repository.fetch_breakdown(
+            start=resolved_start,
+            end=resolved_end,
+            region=region,
+            channel=channel,
+            dimension=dimension,
+            limit=limit,
+        )
+        items = [BreakdownItem.model_validate(row) for row in rows]
+        return BreakdownResponse(
+            generated_at=datetime.now(UTC),
+            filters=MetricFilters(
+                start=resolved_start,
+                end=resolved_end,
+                region=region,
+                channel=channel,
+            ),
+            dimension=dimension,
+            count=len(items),
+            items=items,
         )
 
     return app

@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标表和 JDBC Sink，以及只读 FastAPI 指标查询服务。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标表和 JDBC Sink、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -21,7 +21,7 @@
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
 - [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
 - [x] 提供带参数校验、错误状态和 OpenAPI 文档的 FastAPI 查询接口
-- [ ] 提供 ECharts 经营看板
+- [x] 提供带筛选、KPI、趋势、地区渠道分析和明细表的 ECharts 经营看板
 - [ ] 加入数据质量检查、监控与压力测试
 
 ## 业务问题
@@ -62,6 +62,8 @@ flowchart LR
 ecommerce-realtime-warehouse/
 ├─ .github/workflows/             GitHub Actions 持续集成
 ├─ data/sample/                  脱敏示例事件
+├─ dashboard/                    ECharts 看板、样式与 JavaScript 测试
+├─ design-system/                看板设计令牌与页面级设计决策
 ├─ docs/                         需求、架构和数据字典
 ├─ flink-job/                    Java/Flink 实时计算作业
 ├─ infra/clickhouse/init/        ClickHouse 初始化 DDL
@@ -114,10 +116,11 @@ python -m unittest discover -s tests -v
 - [学习单元 06 Flink KafkaSource 与消费恢复](docs/study-06-flink-kafka-source.md)
 - [学习单元 07 ClickHouse 指标存储与重放安全](docs/study-07-clickhouse-sink.md)
 - [学习单元 08 FastAPI 参数化查询与接口边界](docs/study-08-fastapi-query-service.md)
+- [学习单元 09 ECharts 经营看板与可信演示](docs/study-09-echarts-dashboard.md)
 
 ## 自动化验证
 
-本地统一运行 Python 和 Java/Flink 测试：
+本地统一运行 Python/API、JavaScript 看板和 Java/Flink 测试：
 
 ```powershell
 ./scripts/test-all.ps1
@@ -135,7 +138,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 和 ClickHouse JDBC Sink 作业入口已完成；质量与迟到侧流的外部存储仍待完成。
 
-当前验证基线：34 项 Python/API 测试和 24 项 Java/Flink 测试全部通过。
+当前验证基线：48 项 Python/API 测试、6 项 JavaScript 看板测试和 24 项 Java/Flink 测试全部通过，共 78 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -198,11 +201,41 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 - `GET /health`：同时检查 API 与 ClickHouse 连通性；数据库不可用时返回 `503` 和稳定错误码。
 - `GET /api/v1/metrics/minutes`：查询分钟明细，支持 `start`、`end`、`region`、`channel`、`limit`。
 - `GET /api/v1/metrics/summary`：按相同时间和维度条件汇总订单量、GMV、客单价和最新处理时间。
+- `GET /api/v1/metrics/timeseries`：按时间桶汇总趋势；`auto` 会依据范围选择 `1m`、`5m`、`15m` 或 `1h`。
+- `GET /api/v1/metrics/breakdown`：按白名单中的 `region` 或 `channel` 维度汇总排行。
 - `GET /docs`：FastAPI 自动生成的交互式 OpenAPI 文档。
 
 未提供时间参数时默认查询最近 24 小时；单次范围最多 31 天，明细最多返回 500 行。地区、渠道、时间和条数都通过 ClickHouse 命名参数绑定，不直接拼接用户输入。金额在 JSON 中以十进制字符串返回，避免浏览器端二进制浮点误差。
 
-API 默认读取 `CLICKHOUSE_HTTP_URL=http://localhost:8123`、`CLICKHOUSE_USER=default`、`CLICKHOUSE_DATABASE=ecommerce`，密码只从 `CLICKHOUSE_PASSWORD` 环境变量读取。当前已完成 13 项接口、仓库与静态约束测试；由于本机没有 Docker，API 到真实 ClickHouse 的联调仍属于待验收项。
+API 默认读取 `CLICKHOUSE_HTTP_URL=http://localhost:8123`、`CLICKHOUSE_USER=default`、`CLICKHOUSE_DATABASE=ecommerce`，密码只从 `CLICKHOUSE_PASSWORD` 环境变量读取。由于本机没有 Docker，API 到真实 ClickHouse 的联调仍属于待验收项。
+
+## ECharts 经营看板
+
+真实数据模式下启动 ClickHouse 和 API，然后访问 `http://127.0.0.1:8000/dashboard`：
+
+```powershell
+./scripts/clickhouse-up.ps1
+./scripts/api-up.ps1
+```
+
+本机暂时没有 Docker 时，可以使用明确标注的内存预览模式检查界面和交互：
+
+```powershell
+./scripts/dashboard-preview.ps1
+```
+
+预览页面会显示“演示数据 · 非实时”和说明横幅；这些数据只用于界面展示，不能作为 Kafka、Flink 或 ClickHouse 已经真实运行的证据。
+
+看板功能包括：
+
+- 近 1、6、24 小时快捷范围，以及自定义开始和结束时间。
+- 地区、渠道筛选和手动刷新。
+- GMV、有效订单量、客单价、数据新鲜度四项 KPI。
+- 成交额与订单量趋势、地区排行、渠道构成和最近分钟明细。
+- 空数据、参数错误、分析存储不可用和加载中状态。
+- 图表 ARIA 描述、纹理辅助、数据表替代视图、键盘焦点、深色模式和减少动画。
+
+ECharts 锁定为 6.1.0，通过带 SHA-384 完整性校验的 jsDelivr 地址加载；页面 CSP 只允许本站资源和该固定脚本来源。首次加载看板需要访问该 CDN。浏览器验收覆盖 375、768、1024、1440 像素宽度，均无横向溢出，并验证了深色模式、减少动画和筛选刷新。
 
 ## 简历表述原则
 

@@ -38,6 +38,27 @@ class MetricsRepository(Protocol):
         channel: str | None,
     ) -> dict[str, Any]: ...
 
+    def fetch_time_series(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        region: str | None,
+        channel: str | None,
+        bucket: str,
+    ) -> list[dict[str, Any]]: ...
+
+    def fetch_breakdown(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        region: str | None,
+        channel: str | None,
+        dimension: str,
+        limit: int,
+    ) -> list[dict[str, Any]]: ...
+
 
 class ClickHouseHttpRepository:
     def __init__(
@@ -109,6 +130,72 @@ FORMAT JSONEachRow
         if len(rows) != 1:
             raise MetricsRepositoryError("ClickHouse returned an unexpected summary response")
         return rows[0]
+
+    def fetch_time_series(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        region: str | None,
+        channel: str | None,
+        bucket: str,
+    ) -> list[dict[str, Any]]:
+        bucket_sql = {
+            "1m": "toStartOfMinute(window_start)",
+            "5m": "toStartOfInterval(window_start, INTERVAL 5 MINUTE)",
+            "15m": "toStartOfInterval(window_start, INTERVAL 15 MINUTE)",
+            "1h": "toStartOfHour(window_start)",
+        }.get(bucket)
+        if bucket_sql is None:
+            raise ValueError(f"Unsupported time bucket: {bucket}")
+
+        where_sql, parameters = self._build_filters(start, end, region, channel)
+        sql = f"""
+SELECT
+    toString({bucket_sql}) AS bucket_start,
+    sum(order_count) AS order_count,
+    toString(sum(gmv)) AS gmv,
+    if(sum(order_count) = 0, '0.00', toString(round(sum(gmv) / sum(order_count), 2)))
+        AS average_order_value
+FROM minute_metrics_latest
+WHERE {where_sql}
+GROUP BY bucket_start
+ORDER BY bucket_start ASC
+FORMAT JSONEachRow
+""".strip()
+        return self._execute(sql, parameters)
+
+    def fetch_breakdown(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        region: str | None,
+        channel: str | None,
+        dimension: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        dimension_sql = {"region": "region", "channel": "channel"}.get(dimension)
+        if dimension_sql is None:
+            raise ValueError(f"Unsupported breakdown dimension: {dimension}")
+
+        where_sql, parameters = self._build_filters(start, end, region, channel)
+        parameters["limit"] = str(limit)
+        sql = f"""
+SELECT
+    {dimension_sql} AS name,
+    sum(order_count) AS order_count,
+    toString(sum(gmv)) AS gmv,
+    if(sum(order_count) = 0, '0.00', toString(round(sum(gmv) / sum(order_count), 2)))
+        AS average_order_value
+FROM minute_metrics_latest
+WHERE {where_sql}
+GROUP BY name
+ORDER BY sum(gmv) DESC, name ASC
+LIMIT {{limit:UInt32}}
+FORMAT JSONEachRow
+""".strip()
+        return self._execute(sql, parameters)
 
     @staticmethod
     def _build_filters(

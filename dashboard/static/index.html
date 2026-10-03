@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="电商实时数据仓库的经营指标看板，展示订单量、GMV、客单价和地区渠道表现。"
+    />
+    <title>实时经营脉搏｜电商指标看板</title>
+    <link
+      rel="icon"
+      href="/dashboard/assets/favicon.svg"
+      type="image/svg+xml"
+    />
+    <link rel="stylesheet" href="/dashboard/assets/styles.css" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js"
+      integrity="sha384-C2iskrW/uPW46KzOjrvJIQo4YkV8lkD+QS0CrDN18IIPIpT/g2USu8bTP3nvmIAD"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+      defer
+    ></script>
+    <script type="module" src="/dashboard/assets/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#dashboard-content">跳到主要内容</a>
+
+    <header class="topbar">
+      <div class="topbar__inner">
+        <a class="brand" href="/dashboard" aria-label="返回实时经营脉搏首页">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M3 16.5 8 11l4 3 8-8" />
+              <path d="M15 6h5v5" />
+            </svg>
+          </span>
+          <span>
+            <strong>实时经营脉搏</strong>
+            <small>Realtime commerce pulse</small>
+          </span>
+        </a>
+
+        <div class="topbar__actions">
+          <span
+            id="connection-status"
+            class="status-chip status-chip--pending"
+            role="status"
+          >
+            <span class="status-chip__dot" aria-hidden="true"></span>
+            <span id="connection-status-text">正在连接数据</span>
+          </span>
+          <a class="text-link" href="/docs" target="_blank" rel="noreferrer">
+            API 文档
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7 17 17 7M9 7h8v8" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main id="dashboard-content" class="shell" tabindex="-1">
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Kafka · Flink · ClickHouse · FastAPI</p>
+          <h1 id="page-title">电商实时经营指标</h1>
+          <p class="hero__description">
+            用统一口径查看分钟级订单量、成交额和维度表现。页面仅展示 ClickHouse
+            最新版本视图中的可验证结果。
+          </p>
+        </div>
+        <div class="hero__meta" aria-label="数据口径说明">
+          <span>时间口径：UTC 存储，本地时区展示</span>
+          <span>金额口径：人民币，保留两位小数</span>
+        </div>
+      </section>
+
+      <section class="filter-panel" aria-labelledby="filter-title">
+        <div class="section-heading section-heading--compact">
+          <div>
+            <p class="section-kicker">查询条件</p>
+            <h2 id="filter-title">筛选经营时段</h2>
+          </div>
+          <div class="quick-range" role="group" aria-label="快捷时间范围">
+            <button class="quick-range__button" type="button" data-hours="1">
+              近 1 小时
+            </button>
+            <button class="quick-range__button" type="button" data-hours="6">
+              近 6 小时
+            </button>
+            <button
+              class="quick-range__button is-active"
+              type="button"
+              data-hours="24"
+            >
+              近 24 小时
+            </button>
+          </div>
+        </div>
+
+        <form id="filter-form" class="filter-form">
+          <label class="field">
+            <span>开始时间</span>
+            <input
+              id="start-time"
+              name="start"
+              type="datetime-local"
+              required
+            />
+          </label>
+          <label class="field">
+            <span>结束时间</span>
+            <input id="end-time" name="end" type="datetime-local" required />
+          </label>
+          <label class="field">
+            <span>地区</span>
+            <select id="region-filter" name="region">
+              <option value="">全部地区</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>渠道</span>
+            <select id="channel-filter" name="channel">
+              <option value="">全部渠道</option>
+            </select>
+          </label>
+          <div class="filter-form__actions">
+            <button
+              id="reset-button"
+              class="button button--secondary"
+              type="button"
+            >
+              重置
+            </button>
+            <button
+              id="refresh-button"
+              class="button button--primary"
+              type="submit"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+                <path d="M20 4v7h-7" />
+              </svg>
+              <span>刷新数据</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <div id="error-banner" class="error-banner" role="alert" hidden>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 8v5M12 17h.01" />
+          <path
+            d="M10.3 3.7 2.4 17.4A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.6L13.7 3.7a2 2 0 0 0-3.4 0Z"
+          />
+        </svg>
+        <div>
+          <strong>暂时无法读取经营指标</strong>
+          <p id="error-message">请稍后重试。</p>
+        </div>
+        <button
+          id="retry-button"
+          class="button button--danger-outline"
+          type="button"
+        >
+          重新尝试
+        </button>
+      </div>
+
+      <div id="preview-banner" class="preview-banner" role="status" hidden>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5"
+          />
+          <path d="M8 6h8M8 10h6" />
+        </svg>
+        <p>
+          <strong>当前为界面预览模式</strong>
+          页面使用确定性的内存演示数据，不代表 Kafka、Flink 或 ClickHouse
+          已完成真实运行。
+        </p>
+      </div>
+
+      <section class="kpi-grid" aria-label="核心经营指标">
+        <article class="kpi-card kpi-card--primary">
+          <div class="kpi-card__header">
+            <span>成交额 GMV</span>
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 2v20M17 6.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                />
+              </svg>
+            </span>
+          </div>
+          <strong id="kpi-gmv" class="kpi-card__value skeleton-text">—</strong>
+          <span class="kpi-card__note">筛选时段内有效订单成交额</span>
+        </article>
+
+        <article class="kpi-card">
+          <div class="kpi-card__header">
+            <span>有效订单量</span>
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M6 3h12l2 5-2 13H6L4 8l2-5Z" />
+                <path d="M4 8h16M9 12v5M15 12v5" />
+              </svg>
+            </span>
+          </div>
+          <strong id="kpi-orders" class="kpi-card__value skeleton-text"
+            >—</strong
+          >
+          <span class="kpi-card__note">Flink 去重后的订单数量</span>
+        </article>
+
+        <article class="kpi-card">
+          <div class="kpi-card__header">
+            <span>平均客单价</span>
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 18 9 9l4 6 3-5 4 8" />
+                <path d="M3 21h18" />
+              </svg>
+            </span>
+          </div>
+          <strong id="kpi-aov" class="kpi-card__value skeleton-text">—</strong>
+          <span class="kpi-card__note">成交额 ÷ 有效订单量</span>
+        </article>
+
+        <article class="kpi-card">
+          <div class="kpi-card__header">
+            <span>数据新鲜度</span>
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </span>
+          </div>
+          <strong
+            id="kpi-lag"
+            class="kpi-card__value kpi-card__value--small skeleton-text"
+            >—</strong
+          >
+          <span id="kpi-updated-at" class="kpi-card__note"
+            >等待最近处理时间</span
+          >
+        </article>
+      </section>
+
+      <section
+        class="chart-card chart-card--wide"
+        aria-labelledby="trend-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">趋势变化</p>
+            <h2 id="trend-title">成交额与订单量趋势</h2>
+            <p id="trend-subtitle">系统会根据时间范围自动选择聚合粒度。</p>
+          </div>
+          <span id="bucket-badge" class="data-badge">自动时间桶</span>
+        </div>
+        <div
+          id="trend-chart"
+          class="chart chart--trend"
+          role="img"
+          aria-label="成交额与订单量时间趋势图"
+        ></div>
+        <div id="trend-empty" class="empty-state" hidden>
+          <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M7 38V10M7 38h34" />
+            <path d="m12 31 8-9 7 5 10-13" />
+          </svg>
+          <strong>当前筛选范围没有指标数据</strong>
+          <span>可以扩大时间范围，或清除地区和渠道筛选。</span>
+        </div>
+      </section>
+
+      <section class="chart-grid" aria-label="维度表现">
+        <article class="chart-card" aria-labelledby="region-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">地区维度</p>
+              <h2 id="region-title">地区成交额排行</h2>
+            </div>
+          </div>
+          <div
+            id="region-chart"
+            class="chart chart--compact"
+            role="img"
+            aria-label="地区成交额横向柱状图"
+          ></div>
+          <details class="data-details">
+            <summary>查看地区数据表</summary>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">地区</th>
+                    <th scope="col">订单量</th>
+                    <th scope="col">成交额</th>
+                  </tr>
+                </thead>
+                <tbody id="region-table-body"></tbody>
+              </table>
+            </div>
+          </details>
+        </article>
+
+        <article class="chart-card" aria-labelledby="channel-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">渠道维度</p>
+              <h2 id="channel-title">渠道成交额构成</h2>
+            </div>
+          </div>
+          <div
+            id="channel-chart"
+            class="chart chart--compact"
+            role="img"
+            aria-label="渠道成交额环形图"
+          ></div>
+          <details class="data-details">
+            <summary>查看渠道数据表</summary>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">渠道</th>
+                    <th scope="col">订单量</th>
+                    <th scope="col">成交额</th>
+                  </tr>
+                </thead>
+                <tbody id="channel-table-body"></tbody>
+              </table>
+            </div>
+          </details>
+        </article>
+      </section>
+
+      <section class="table-card" aria-labelledby="recent-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">明细核对</p>
+            <h2 id="recent-title">最近分钟指标</h2>
+            <p>用于快速核对图表与 ClickHouse 最新版本结果。</p>
+          </div>
+          <span id="last-refreshed" class="data-badge">尚未刷新</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">窗口开始</th>
+                <th scope="col">地区</th>
+                <th scope="col">渠道</th>
+                <th scope="col">订单量</th>
+                <th scope="col">成交额</th>
+                <th scope="col">客单价</th>
+              </tr>
+            </thead>
+            <tbody id="recent-table-body">
+              <tr>
+                <td colspan="6" class="table-message">正在加载指标…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="screen-reader-status" class="sr-only" aria-live="polite"></p>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__inner">
+        <p>作品集项目 · 所有指标均来自可复现的数据契约和聚合口径</p>
+        <p>查询上限与时间桶用于控制浏览器和数据库负载</p>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -4,11 +4,13 @@
 
 ClickHouse 中已经有分钟指标，但面试展示不能要求前端或评审者直接编写 SQL。查询服务负责把稳定的业务接口暴露给看板，同时约束查询范围、隔离数据库错误并提供 OpenAPI 文档。
 
-本阶段完成三个接口：
+查询服务目前提供五个接口：
 
 - `GET /health`：验证 API 进程和 ClickHouse 是否都可用。
 - `GET /api/v1/metrics/minutes`：返回按时间倒序排列的分钟指标。
 - `GET /api/v1/metrics/summary`：返回筛选范围内的订单量、GMV、客单价和最新处理时间。
+- `GET /api/v1/metrics/timeseries`：按安全的时间粒度聚合趋势数据；未指定粒度时按查询跨度自动选择。
+- `GET /api/v1/metrics/breakdown`：按地区或渠道返回排名与占比数据。
 
 ## 为什么不把用户输入直接拼进 SQL
 
@@ -20,6 +22,8 @@ LIMIT {limit:UInt32}
 ```
 
 参数值通过 ClickHouse HTTP 接口的 `param_region`、`param_limit` 传递。数据库根据占位符声明的类型解析值，因此输入只能成为值，不能变成 SQL 关键字。测试使用 `辽宁' OR 1=1 --` 这类输入，验证它不会出现在 SQL 正文中。
+
+时间粒度和分组维度不能作为普通值参数绑定，因此服务端分别使用固定白名单：时间粒度只允许 `1m`、`5m`、`15m`、`1h`，分组维度只允许 `region`、`channel`。这样既支持看板聚合，也不会让用户控制 SQL 结构。
 
 ## 时间范围怎样定义
 
@@ -72,6 +76,7 @@ python -m pip install -e ".[api,test]"
 
 - API 测试注入内存假仓库，验证响应模型、参数校验、空数据、错误脱敏与 OpenAPI，不依赖 Docker。
 - 仓库测试注入假的 HTTP opener，验证请求方法、超时、Basic Authentication、JSONEachRow 解析和命名参数绑定。
+- 聚合接口测试验证自动时间粒度、最大点数限制和结构化字段白名单，避免看板查询产生无界结果或结构注入。
 - CI 在 Python 3.11 下安装锁定依赖，并将所有 warning 当作错误，防止依赖升级警告长期积累。
 - 真实 ClickHouse 联调必须等待 Docker 或远程 CI；单元测试通过不能替代端到端证据。
 

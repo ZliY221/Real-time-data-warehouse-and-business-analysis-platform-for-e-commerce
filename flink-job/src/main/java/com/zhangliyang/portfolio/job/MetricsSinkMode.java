@@ -8,14 +8,18 @@ public enum MetricsSinkMode {
     BOTH;
 
     public static MetricsSinkMode parse(String value) {
+        return parse(value, "metrics sink");
+    }
+
+    public static MetricsSinkMode parse(String value, String optionName) {
         if (value == null) {
-            throw new IllegalArgumentException("metrics sink mode must not be null");
+            throw new IllegalArgumentException(optionName + " mode must not be null");
         }
         try {
             return valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException error) {
             throw new IllegalArgumentException(
-                    "metrics sink must be one of: clickhouse, print, both",
+                    optionName + " must be one of: clickhouse, print, both",
                     error);
         }
     }

@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标表和 JDBC Sink、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -17,6 +17,7 @@
 - [ ] 在真实 Kafka broker 上完成 Flink 端到端运行验收
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
+- [x] 将拒绝事件指纹与迟到事件写入 ClickHouse，并提供重放安全的异常汇总查询
 - [x] 配置 Python/API、Java/Flink、Kafka 与 ClickHouse 四层持续集成工作流
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
 - [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
@@ -47,7 +48,8 @@ flowchart LR
     D --> E[ClickHouse ReplacingMergeTree]
     E --> F[FastAPI 查询服务]
     F --> G[ECharts 经营看板]
-    C --> H[异常事件与质量结果]
+    C --> H[拒绝与迟到侧流]
+    H --> E
 ```
 
 设计要点：
@@ -58,6 +60,7 @@ flowchart LR
 - 金额使用十进制字符串传输，避免浮点误差。
 - 压测数字只有在仓库中存在环境说明、脚本和原始结果时才写入简历。
 - JDBC Sink 采用批量重试；ClickHouse 用稳定业务键和版本替换吸收重放，查询通过 `FINAL` 视图读取确定的最新结果。
+- 拒绝事件只持久化 SHA-256 指纹、错误类型和载荷大小，不把原始坏消息或解析器原因写入数据库；迟到事件按 `event_id` 替换。
 
 ## 目录结构
 
@@ -126,6 +129,7 @@ python -m unittest discover -s tests -v
 - [学习单元 10 可配置数据质量门禁](docs/study-10-data-quality-gates.md)
 - [学习单元 11 SQLite 质量历史与趋势](docs/study-11-quality-history.md)
 - [学习单元 12 质量诊断 API 与看板](docs/study-12-quality-diagnostics-dashboard.md)
+- [学习单元 13 Flink 异常侧流持久化](docs/study-13-flink-anomaly-persistence.md)
 
 ## 自动化验证
 
@@ -145,9 +149,9 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 ./scripts/test-flink.ps1
 ```
 
-Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 和 ClickHouse JDBC Sink 作业入口已完成；质量与迟到侧流的外部存储仍待完成。
+Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
 
-当前验证基线：71 项 Python/API/数据质量测试、8 项 JavaScript 看板测试和 24 项 Java/Flink 测试全部通过，共 103 项。
+当前验证基线：72 项 Python/API/数据质量测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 108 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -216,7 +220,13 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 
 本地 Compose 使用 `CLICKHOUSE_SKIP_USER_SETUP=1`，仅适合单机演示环境，不可直接用于公网或生产部署。若外部 ClickHouse 启用了认证，只通过 `CLICKHOUSE_PASSWORD` 环境变量提供密码；脚本、命令行参数和仓库均不保存密码。
 
-普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，以单调 `version` 进行替换；`minute_metrics_latest` 视图通过 `FINAL` 返回当前最新版本。当前开发机没有 Docker，因此该容器冒烟测试仍等待远程 CI 或安装 Docker 后实际运行。
+普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，拒绝事件使用载荷 SHA-256 指纹，迟到事件使用 `event_id`；三类数据都以单调 `version` 进行替换，查询通过 `FINAL` 返回当前最新版本。拒绝事件表不保存原始载荷和解析器原因。当前开发机没有 Docker，因此扩展后的容器冒烟测试仍等待远程 CI 或安装 Docker 后实际运行。
+
+查询异常分钟汇总和最近的不同异常记录：
+
+```powershell
+./scripts/clickhouse-query-anomalies.ps1 -Limit 20
+```
 
 ## FastAPI 查询服务
 

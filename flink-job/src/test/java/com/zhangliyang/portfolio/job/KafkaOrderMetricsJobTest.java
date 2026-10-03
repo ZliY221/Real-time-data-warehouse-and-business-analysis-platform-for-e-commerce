@@ -36,8 +36,10 @@ class KafkaOrderMetricsJobTest {
                 environment.getCheckpointConfig().getCheckpointingConsistencyMode());
         assertTrue(executionPlan.contains("consume-order-events-from-kafka"));
         assertTrue(executionPlan.contains("write-minute-metrics-to-clickhouse"));
-        assertTrue(executionPlan.contains("print-rejected-events"));
-        assertTrue(executionPlan.contains("print-late-events"));
+        assertTrue(executionPlan.contains("write-rejected-events-to-clickhouse"));
+        assertTrue(executionPlan.contains("write-late-events-to-clickhouse"));
+        assertFalse(executionPlan.contains("print-rejected-events"));
+        assertFalse(executionPlan.contains("print-late-events"));
     }
 
     @Test
@@ -45,13 +47,18 @@ class KafkaOrderMetricsJobTest {
         StreamExecutionEnvironment environment =
                 StreamExecutionEnvironment.getExecutionEnvironment();
         KafkaJobConfig config = KafkaJobConfig.fromArgs(new String[]{
-                "--metrics-sink", "print"
+                "--metrics-sink", "print",
+                "--anomaly-sink", "print"
         });
 
         KafkaOrderMetricsJob.configure(environment, config);
         String executionPlan = environment.getExecutionPlan();
 
         assertTrue(executionPlan.contains("print-minute-metrics"));
+        assertTrue(executionPlan.contains("print-rejected-events"));
+        assertTrue(executionPlan.contains("print-late-events"));
         assertFalse(executionPlan.contains("write-minute-metrics-to-clickhouse"));
+        assertFalse(executionPlan.contains("write-rejected-events-to-clickhouse"));
+        assertFalse(executionPlan.contains("write-late-events-to-clickhouse"));
     }
 }

@@ -28,10 +28,19 @@ try {
         throw "ClickHouse did not become healthy within 60 seconds."
     }
 
-    docker compose exec -T clickhouse clickhouse-client `
-        --query "DESCRIBE TABLE ecommerce.minute_metrics"
+    $schemaPath = Join-Path $repoRoot "infra\clickhouse\init\001_schema.sql"
+    $schema = Get-Content -LiteralPath $schemaPath -Raw
+    docker compose exec -T clickhouse clickhouse-client --multiquery --query $schema
     if ($LASTEXITCODE -ne 0) {
-        throw "The ClickHouse minute_metrics table was not initialized."
+        throw "The ClickHouse schema could not be applied."
+    }
+
+    foreach ($table in @("minute_metrics", "rejected_order_events", "late_order_events")) {
+        docker compose exec -T clickhouse clickhouse-client `
+            --query "DESCRIBE TABLE ecommerce.$table" | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "The ClickHouse $table table was not initialized."
+        }
     }
 }
 finally {

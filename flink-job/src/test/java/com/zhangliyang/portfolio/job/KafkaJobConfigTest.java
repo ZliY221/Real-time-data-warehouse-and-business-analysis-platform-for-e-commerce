@@ -6,6 +6,7 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KafkaJobConfigTest {
     @Test
@@ -23,6 +24,7 @@ class KafkaJobConfigTest {
         assertEquals(Duration.ofSeconds(10), config.getCheckpointInterval());
         assertEquals(1, config.getParallelism());
         assertEquals(MetricsSinkMode.CLICKHOUSE, config.getMetricsSinkMode());
+        assertEquals(MetricsSinkMode.CLICKHOUSE, config.getAnomalySinkMode());
         assertEquals(
                 "jdbc:clickhouse://localhost:8123/ecommerce",
                 config.getClickHouseUrl());
@@ -46,6 +48,7 @@ class KafkaJobConfigTest {
                 "--checkpoint-interval-seconds", "20",
                 "--parallelism", "3",
                 "--metrics-sink", "both",
+                "--anomaly-sink", "print",
                 "--clickhouse-url", "jdbc:clickhouse://clickhouse:8123/analytics",
                 "--clickhouse-user", "analytics",
                 "--clickhouse-batch-size", "250",
@@ -64,6 +67,7 @@ class KafkaJobConfigTest {
         assertEquals(Duration.ofSeconds(20), config.getCheckpointInterval());
         assertEquals(3, config.getParallelism());
         assertEquals(MetricsSinkMode.BOTH, config.getMetricsSinkMode());
+        assertEquals(MetricsSinkMode.PRINT, config.getAnomalySinkMode());
         assertEquals(
                 "jdbc:clickhouse://clickhouse:8123/analytics",
                 config.getClickHouseUrl());
@@ -100,6 +104,10 @@ class KafkaJobConfigTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> KafkaJobConfig.fromArgs(new String[]{"--metrics-sink", "file"}));
+        IllegalArgumentException anomalyError = assertThrows(
+                IllegalArgumentException.class,
+                () -> KafkaJobConfig.fromArgs(new String[]{"--anomaly-sink", "file"}));
+        assertTrue(anomalyError.getMessage().contains("anomaly sink"));
     }
 
     @Test

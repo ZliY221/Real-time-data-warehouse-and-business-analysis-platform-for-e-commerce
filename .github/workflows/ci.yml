@@ -96,7 +96,7 @@ jobs:
         run: ./scripts/kafka-down.ps1 -RemoveData
 
   clickhouse-smoke-test:
-    name: ClickHouse replacement smoke test
+    name: ClickHouse metric and anomaly replacement smoke test
     needs: [python-tests, flink-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -110,7 +110,7 @@ jobs:
       - name: Start ClickHouse and verify the schema
         shell: pwsh
         run: ./scripts/clickhouse-up.ps1
-      - name: Verify replay-safe replacement semantics
+      - name: Verify replay-safe metric and anomaly replacement semantics
         shell: pwsh
         run: ./scripts/clickhouse-smoke-test.ps1
       - name: Stop ClickHouse and remove the test volume

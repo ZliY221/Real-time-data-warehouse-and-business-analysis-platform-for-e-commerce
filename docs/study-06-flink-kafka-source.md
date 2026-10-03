@@ -49,7 +49,7 @@ Flink 在 checkpoint 中保存 Source 进度。恢复作业时，以 Flink check
 
 作业每 10 秒开启一次 `CheckpointingMode.EXACTLY_ONCE` checkpoint，并限制同一时刻只进行一个 checkpoint。它可以保证 Kafka Source 和 Flink 状态在故障恢复时保持一致。
 
-当前三个输出仍是演示用控制台 Sink。控制台输出没有事务提交协议，因此当前项目不能宣称端到端 exactly-once。以后写入分析数据库时，需要同时验证 Sink 的幂等键或两阶段提交能力。
+完成本单元时，三个输出仍是演示用控制台 Sink。后续单元已把分钟指标、拒绝事件和迟到事件接入 ClickHouse 至少一次 JDBC Sink，并用稳定键与版本替换吸收重试；普通 JDBC Sink 没有跨系统事务提交协议，因此项目仍不能宣称端到端 exactly-once。
 
 ## 构建与提交
 

@@ -52,7 +52,9 @@ OrderEvent
 ./scripts/test-flink.ps1
 ```
 
-## 当前边界
+## 完成本单元时的边界
+
+以下内容记录阶段 03 当时的增量范围，JSON 解析、Kafka 接入和异常侧流已在后续学习单元补齐：
 
 - 还没有把 NDJSON 字符串解析为 `OrderEvent`，下一阶段接入 JSON 解析并处理坏消息侧输出。
 - 还没有连接 Kafka Source 和 Sink。

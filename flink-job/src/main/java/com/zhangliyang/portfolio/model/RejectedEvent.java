@@ -1,6 +1,7 @@
 package com.zhangliyang.portfolio.model;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 public class RejectedEvent implements Serializable {
@@ -43,6 +44,10 @@ public class RejectedEvent implements Serializable {
         this.reason = reason;
     }
 
+    public int getPayloadSizeBytes() {
+        return rawPayload == null ? 0 : rawPayload.getBytes(StandardCharsets.UTF_8).length;
+    }
+
     @Override
     public boolean equals(Object value) {
         if (this == value) {
@@ -66,8 +71,7 @@ public class RejectedEvent implements Serializable {
     public String toString() {
         return "RejectedEvent{" +
                 "errorType='" + errorType + '\'' +
-                ", reason='" + reason + '\'' +
-                ", rawPayload='" + rawPayload + '\'' +
+                ", payloadSizeBytes=" + getPayloadSizeBytes() +
                 '}';
     }
 }

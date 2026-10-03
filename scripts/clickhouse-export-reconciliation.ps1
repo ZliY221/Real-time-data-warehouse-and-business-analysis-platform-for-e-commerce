@@ -2,6 +2,8 @@
 param(
     [string]$Start = "2026-10-02T10:00:00Z",
     [string]$End = "2026-10-02T10:01:00Z",
+    [ValidatePattern("^[a-z][a-z0-9_]{0,62}$")]
+    [string]$Database = "ecommerce",
     [string]$MetricsOutput = "build/reconciliation/actual_metrics.ndjson",
     [string]$LateEventsOutput = "build/reconciliation/late_events.ndjson"
 )
@@ -38,7 +40,7 @@ SELECT
     channel,
     order_count,
     toString(gmv) AS gmv
-FROM ecommerce.minute_metrics_latest
+FROM $Database.minute_metrics_latest
 WHERE window_start >= {start:DateTime64(3, 'UTC')}
   AND window_start < {end:DateTime64(3, 'UTC')}
 ORDER BY window_start, region, channel
@@ -47,7 +49,7 @@ FORMAT JSONEachRow
 
 $lateEventsQuery = @"
 SELECT event_id
-FROM ecommerce.late_order_events FINAL
+FROM $Database.late_order_events FINAL
 WHERE event_time >= {start:DateTime64(3, 'UTC')}
   AND event_time < {end:DateTime64(3, 'UTC')}
 ORDER BY event_id

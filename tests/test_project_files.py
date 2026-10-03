@@ -80,6 +80,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
             "clickhouse-query.ps1",
             "clickhouse-query-anomalies.ps1",
             "clickhouse-smoke-test.ps1",
+            "e2e-acceptance.ps1",
             "reconcile-metrics.ps1",
         }
         actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
@@ -119,10 +120,30 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("{start:DateTime64(3, 'UTC')}", export_script)
         self.assertIn("{end:DateTime64(3, 'UTC')}", export_script)
         self.assertIn('"--param_start=$Start"', export_script)
+        self.assertIn('[string]$Database = "ecommerce"', export_script)
+        self.assertIn("FROM $Database.minute_metrics_latest", export_script)
         self.assertIn("TotalDays -gt 7", export_script)
         self.assertIn('"reconciliation.cli", "compare"', reconcile_script)
         self.assertIn("python -m reconciliation.cli baseline", workflow)
         self.assertIn("-m reconciliation.cli baseline", unified_test)
+
+    def test_e2e_acceptance_uses_isolated_resources_and_watermark_events(self) -> None:
+        acceptance = (self.root / "scripts" / "e2e-acceptance.ps1").read_text(
+            encoding="utf-8"
+        )
+        producer = (
+            self.root / "scripts" / "kafka-produce-sample.ps1"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"order-events-e2e-$runId"', acceptance)
+        self.assertIn('"ecommerce_acceptance_$runId"', acceptance)
+        self.assertIn("--partitions 1", acceptance)
+        self.assertIn('"2026-10-02T10:01:15Z"', acceptance)
+        self.assertIn("Expected $expectedMetricKeys metric keys", acceptance)
+        self.assertIn("reconcile-metrics.ps1", acceptance)
+        self.assertIn("flink cancel $jobId", acceptance)
+        self.assertIn("DROP DATABASE IF EXISTS $database SYNC", acceptance)
+        self.assertIn("KeepDataResources", acceptance)
+        self.assertIn("[System.IO.Path]::IsPathRooted($InputPath)", producer)
 
     def test_flink_anomaly_sinks_store_minimal_replay_safe_records(self) -> None:
         sink_root = (

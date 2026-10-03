@@ -55,7 +55,17 @@ sequenceDiagram
 | 无效事件数 | 未通过契约或业务规则的事件数 | 分钟、错误类型 |
 | 迟到事件数 | Watermark 通过后到达的事件数 | 分钟 |
 
+## 查询服务边界
+
+- FastAPI 只读取 `minute_metrics_latest`，不向分析表写数据，读写职责分离。
+- 明细和汇总接口共用开始时间、结束时间、地区、渠道四类筛选条件。
+- API 将带时区和不带时区的输入统一为 UTC；无时区输入按 UTC 解释，并限制单次查询不超过 31 天。
+- ClickHouse 查询中的值使用 `{name:Type}` 占位符，通过 HTTP `param_name` 传递，用户输入不进入 SQL 结构。
+- 金额字段以十进制字符串返回，避免 JavaScript 浮点表示改变金额。
+- 空结果返回 `200`、`has_data=false` 或空数组；参数错误返回 `422`；ClickHouse 不可用返回 `503` 和稳定错误码，不向调用者泄露数据库错误详情。
+- 当前 API 使用同步标准库 HTTP 客户端。查询规模受范围与条数限制，足以支持个人作品集；若后续压测证明阻塞查询成为瓶颈，再依据数据决定是否引入连接池或异步客户端。
+
 ## 版本选择
 
-当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
+当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
 

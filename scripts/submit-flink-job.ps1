@@ -16,7 +16,17 @@ param(
     [ValidateRange(1, 3600)]
     [int]$CheckpointIntervalSeconds = 10,
     [ValidateRange(1, 128)]
-    [int]$Parallelism = 1
+    [int]$Parallelism = 1,
+    [ValidateSet("clickhouse", "print", "both")]
+    [string]$MetricsSink = "clickhouse",
+    [string]$ClickHouseUrl = "jdbc:clickhouse://localhost:8123/ecommerce",
+    [string]$ClickHouseUser = "default",
+    [ValidateRange(1, 10000)]
+    [int]$ClickHouseBatchSize = 100,
+    [ValidateRange(1, 60000)]
+    [int]$ClickHouseBatchIntervalMs = 1000,
+    [ValidateRange(0, 100)]
+    [int]$ClickHouseMaxRetries = 3
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,7 +52,13 @@ if (-not (Test-Path -LiteralPath $jobJar -PathType Leaf)) {
     --deduplication-ttl-hours $DeduplicationTtlHours `
     --allowed-lateness-seconds $AllowedLatenessSeconds `
     --checkpoint-interval-seconds $CheckpointIntervalSeconds `
-    --parallelism $Parallelism
+    --parallelism $Parallelism `
+    --metrics-sink $MetricsSink `
+    --clickhouse-url $ClickHouseUrl `
+    --clickhouse-user $ClickHouseUser `
+    --clickhouse-batch-size $ClickHouseBatchSize `
+    --clickhouse-batch-interval-ms $ClickHouseBatchIntervalMs `
+    --clickhouse-max-retries $ClickHouseMaxRetries
 
 if ($LASTEXITCODE -ne 0) {
     throw "The Flink job submission failed with exit code $LASTEXITCODE."

@@ -20,7 +20,13 @@ public final class KafkaJobConfig {
                     "deduplication-ttl-hours",
                     "allowed-lateness-seconds",
                     "checkpoint-interval-seconds",
-                    "parallelism")));
+                    "parallelism",
+                    "metrics-sink",
+                    "clickhouse-url",
+                    "clickhouse-user",
+                    "clickhouse-batch-size",
+                    "clickhouse-batch-interval-ms",
+                    "clickhouse-max-retries")));
 
     private final String bootstrapServers;
     private final String topic;
@@ -32,6 +38,12 @@ public final class KafkaJobConfig {
     private final Duration allowedLateness;
     private final Duration checkpointInterval;
     private final int parallelism;
+    private final MetricsSinkMode metricsSinkMode;
+    private final String clickHouseUrl;
+    private final String clickHouseUser;
+    private final int clickHouseBatchSize;
+    private final Duration clickHouseBatchInterval;
+    private final int clickHouseMaxRetries;
 
     public KafkaJobConfig(
             String bootstrapServers,
@@ -43,7 +55,13 @@ public final class KafkaJobConfig {
             Duration deduplicationTtl,
             Duration allowedLateness,
             Duration checkpointInterval,
-            int parallelism) {
+            int parallelism,
+            MetricsSinkMode metricsSinkMode,
+            String clickHouseUrl,
+            String clickHouseUser,
+            int clickHouseBatchSize,
+            Duration clickHouseBatchInterval,
+            int clickHouseMaxRetries) {
         this.bootstrapServers = requireText(bootstrapServers, "bootstrap servers");
         this.topic = requireText(topic, "topic");
         this.groupId = requireText(groupId, "group id");
@@ -60,6 +78,23 @@ public final class KafkaJobConfig {
             throw new IllegalArgumentException("parallelism must be greater than zero");
         }
         this.parallelism = parallelism;
+        if (metricsSinkMode == null) {
+            throw new IllegalArgumentException("metrics sink mode must not be null");
+        }
+        this.metricsSinkMode = metricsSinkMode;
+        this.clickHouseUrl = requireClickHouseUrl(clickHouseUrl);
+        this.clickHouseUser = requireText(clickHouseUser, "ClickHouse user");
+        if (clickHouseBatchSize <= 0) {
+            throw new IllegalArgumentException("ClickHouse batch size must be greater than zero");
+        }
+        this.clickHouseBatchSize = clickHouseBatchSize;
+        this.clickHouseBatchInterval = requirePositive(
+                clickHouseBatchInterval,
+                "ClickHouse batch interval");
+        if (clickHouseMaxRetries < 0) {
+            throw new IllegalArgumentException("ClickHouse max retries must not be negative");
+        }
+        this.clickHouseMaxRetries = clickHouseMaxRetries;
     }
 
     public static KafkaJobConfig fromArgs(String[] args) {
@@ -74,7 +109,15 @@ public final class KafkaJobConfig {
                 hours(options, "deduplication-ttl-hours", 24),
                 seconds(options, "allowed-lateness-seconds", 0),
                 seconds(options, "checkpoint-interval-seconds", 10),
-                integer(options, "parallelism", 1));
+                integer(options, "parallelism", 1),
+                MetricsSinkMode.parse(options.getOrDefault("metrics-sink", "clickhouse")),
+                options.getOrDefault(
+                        "clickhouse-url",
+                        "jdbc:clickhouse://localhost:8123/ecommerce"),
+                options.getOrDefault("clickhouse-user", "default"),
+                integer(options, "clickhouse-batch-size", 100),
+                milliseconds(options, "clickhouse-batch-interval-ms", 1_000),
+                integer(options, "clickhouse-max-retries", 3));
     }
 
     private static Map<String, String> parseOptions(String[] args) {
@@ -107,6 +150,13 @@ public final class KafkaJobConfig {
 
     private static Duration hours(Map<String, String> options, String key, long defaultValue) {
         return Duration.ofHours(longValue(options, key, defaultValue));
+    }
+
+    private static Duration milliseconds(
+            Map<String, String> options,
+            String key,
+            long defaultValue) {
+        return Duration.ofMillis(longValue(options, key, defaultValue));
     }
 
     private static int integer(Map<String, String> options, String key, int defaultValue) {
@@ -154,6 +204,15 @@ public final class KafkaJobConfig {
         return value;
     }
 
+    private static String requireClickHouseUrl(String value) {
+        String url = requireText(value, "ClickHouse URL");
+        if (!url.startsWith("jdbc:clickhouse://")) {
+            throw new IllegalArgumentException(
+                    "ClickHouse URL must begin with jdbc:clickhouse://");
+        }
+        return url;
+    }
+
     public String getBootstrapServers() {
         return bootstrapServers;
     }
@@ -192,5 +251,29 @@ public final class KafkaJobConfig {
 
     public int getParallelism() {
         return parallelism;
+    }
+
+    public MetricsSinkMode getMetricsSinkMode() {
+        return metricsSinkMode;
+    }
+
+    public String getClickHouseUrl() {
+        return clickHouseUrl;
+    }
+
+    public String getClickHouseUser() {
+        return clickHouseUser;
+    }
+
+    public int getClickHouseBatchSize() {
+        return clickHouseBatchSize;
+    }
+
+    public Duration getClickHouseBatchInterval() {
+        return clickHouseBatchInterval;
+    }
+
+    public int getClickHouseMaxRetries() {
+        return clickHouseMaxRetries;
     }
 }

@@ -22,6 +22,14 @@ class KafkaJobConfigTest {
         assertEquals(Duration.ZERO, config.getAllowedLateness());
         assertEquals(Duration.ofSeconds(10), config.getCheckpointInterval());
         assertEquals(1, config.getParallelism());
+        assertEquals(MetricsSinkMode.CLICKHOUSE, config.getMetricsSinkMode());
+        assertEquals(
+                "jdbc:clickhouse://localhost:8123/ecommerce",
+                config.getClickHouseUrl());
+        assertEquals("default", config.getClickHouseUser());
+        assertEquals(100, config.getClickHouseBatchSize());
+        assertEquals(Duration.ofSeconds(1), config.getClickHouseBatchInterval());
+        assertEquals(3, config.getClickHouseMaxRetries());
     }
 
     @Test
@@ -36,7 +44,13 @@ class KafkaJobConfigTest {
                 "--deduplication-ttl-hours", "48",
                 "--allowed-lateness-seconds", "5",
                 "--checkpoint-interval-seconds", "20",
-                "--parallelism", "3"
+                "--parallelism", "3",
+                "--metrics-sink", "both",
+                "--clickhouse-url", "jdbc:clickhouse://clickhouse:8123/analytics",
+                "--clickhouse-user", "analytics",
+                "--clickhouse-batch-size", "250",
+                "--clickhouse-batch-interval-ms", "2000",
+                "--clickhouse-max-retries", "5"
         });
 
         assertEquals("kafka:29092", config.getBootstrapServers());
@@ -49,6 +63,14 @@ class KafkaJobConfigTest {
         assertEquals(Duration.ofSeconds(5), config.getAllowedLateness());
         assertEquals(Duration.ofSeconds(20), config.getCheckpointInterval());
         assertEquals(3, config.getParallelism());
+        assertEquals(MetricsSinkMode.BOTH, config.getMetricsSinkMode());
+        assertEquals(
+                "jdbc:clickhouse://clickhouse:8123/analytics",
+                config.getClickHouseUrl());
+        assertEquals("analytics", config.getClickHouseUser());
+        assertEquals(250, config.getClickHouseBatchSize());
+        assertEquals(Duration.ofSeconds(2), config.getClickHouseBatchInterval());
+        assertEquals(5, config.getClickHouseMaxRetries());
     }
 
     @Test
@@ -75,6 +97,9 @@ class KafkaJobConfigTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> KafkaJobConfig.fromArgs(new String[]{"--starting-offsets", "middle"}));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> KafkaJobConfig.fromArgs(new String[]{"--metrics-sink", "file"}));
     }
 
     @Test
@@ -88,5 +113,20 @@ class KafkaJobConfigTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> KafkaJobConfig.fromArgs(new String[]{"--parallelism", "0"}));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> KafkaJobConfig.fromArgs(new String[]{
+                        "--clickhouse-url", "jdbc:postgresql://localhost/ecommerce"
+                }));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> KafkaJobConfig.fromArgs(new String[]{
+                        "--clickhouse-batch-size", "0"
+                }));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> KafkaJobConfig.fromArgs(new String[]{
+                        "--clickhouse-max-retries", "-1"
+                }));
     }
 }

@@ -78,3 +78,25 @@ jobs:
         if: ${{ always() }}
         shell: pwsh
         run: ./scripts/kafka-down.ps1 -RemoveData
+
+  clickhouse-smoke-test:
+    name: ClickHouse replacement smoke test
+    needs: [python-tests, flink-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Display container runtime versions
+        run: |
+          docker version
+          docker compose version
+      - name: Start ClickHouse and verify the schema
+        shell: pwsh
+        run: ./scripts/clickhouse-up.ps1
+      - name: Verify replay-safe replacement semantics
+        shell: pwsh
+        run: ./scripts/clickhouse-smoke-test.ps1
+      - name: Stop ClickHouse and remove the test volume
+        if: ${{ always() }}
+        run: docker compose down --volumes --remove-orphans

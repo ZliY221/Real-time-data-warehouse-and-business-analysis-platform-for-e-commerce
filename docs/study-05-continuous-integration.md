@@ -12,17 +12,19 @@
 
 ## 工作流结构
 
-`.github/workflows/ci.yml` 包含三个 Job：
+`.github/workflows/ci.yml` 包含四个 Job：
 
 ```text
 Python contract tests ─┐
                        ├─> Kafka smoke test
+                       ├─> ClickHouse replacement smoke test
 Java and Flink tests ──┘
 ```
 
 - Python Job 验证事件生成器、业务契约、Compose 静态约束和 NDJSON 校验工具。
 - Flink Job 使用 JDK 17 和 Maven 缓存，执行真实 DataStream 测试。
 - Kafka Job 在前两个 Job 通过后启动官方 Kafka 容器，执行生产、消费和再次校验，最后始终清理容器与数据卷。
+- ClickHouse Job 在前两个 Job 通过后初始化指标表，向同一业务键写入两个版本，并验证 `FINAL` 只返回最新版本。
 
 ## 安全和资源控制
 
@@ -50,13 +52,14 @@ Windows 环境运行：
 
 ## 当前验证状态
 
-工作流语法和关键配置已在本地进行静态检查，本地 Python 与 Flink 测试已经通过。只有把仓库推送到 GitHub 并看到三个 Job 全部成功，才能宣称 CI 和 Kafka 冒烟测试在远程环境通过。
+工作流语法和关键配置已在本地进行静态检查，本地 Python 与 Flink 测试已经通过。只有把仓库推送到 GitHub 并看到四个 Job 全部成功，才能宣称 CI、Kafka 和 ClickHouse 冒烟测试在远程环境通过。
 
 ## 面试自测
 
 1. 为什么 Kafka Job 要依赖两个单元测试 Job？
-2. 如果清理步骤没有 `always()`，失败后可能留下什么问题？
-3. 缓存 Maven 依赖与缓存 `target` 构建产物有什么区别？
-4. CI 全绿是否等于系统具备生产高可用能力？
-5. 如何把测试失败日志变成可追踪的质量改进记录？
+2. ClickHouse 冒烟测试为什么要写入同一个业务键的两个版本？
+3. 如果清理步骤没有 `always()`，失败后可能留下什么问题？
+4. 缓存 Maven 依赖与缓存 `target` 构建产物有什么区别？
+5. CI 全绿是否等于系统具备生产高可用能力？
+6. 如何把测试失败日志变成可追踪的质量改进记录？
 

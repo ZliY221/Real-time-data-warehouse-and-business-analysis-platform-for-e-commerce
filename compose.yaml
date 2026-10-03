@@ -50,5 +50,28 @@ services:
       --partitions 3
       --replication-factor 1
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8.33.6
+    container_name: ecommerce-clickhouse
+    hostname: clickhouse
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
+    environment:
+      CLICKHOUSE_DB: ecommerce
+      CLICKHOUSE_SKIP_USER_SETUP: 1
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - clickhouse-client --query 'SELECT 1' >/dev/null 2>&1
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/init:/docker-entrypoint-initdb.d:ro
+
 volumes:
   kafka-data:
+  clickhouse-data:

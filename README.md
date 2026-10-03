@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标表和 JDBC Sink、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标表和 JDBC Sink、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -23,6 +23,7 @@
 - [x] 提供带参数校验、错误状态和 OpenAPI 文档的 FastAPI 查询接口
 - [x] 提供带筛选、KPI、趋势、地区渠道分析和明细表的 ECharts 经营看板
 - [x] 加入契约、完整性、唯一性、范围、及时性和分布漂移数据质量门禁
+- [x] 使用 SQLite 保存质量运行与规则明细，并支持幂等写入、历史筛选和单规则趋势导出
 - [ ] 加入运行监控与压力测试
 
 ## 业务问题
@@ -122,6 +123,7 @@ python -m unittest discover -s tests -v
 - [学习单元 08 FastAPI 参数化查询与接口边界](docs/study-08-fastapi-query-service.md)
 - [学习单元 09 ECharts 经营看板与可信演示](docs/study-09-echarts-dashboard.md)
 - [学习单元 10 可配置数据质量门禁](docs/study-10-data-quality-gates.md)
+- [学习单元 11 SQLite 质量历史与趋势](docs/study-11-quality-history.md)
 
 ## 自动化验证
 
@@ -143,7 +145,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 和 ClickHouse JDBC Sink 作业入口已完成；质量与迟到侧流的外部存储仍待完成。
 
-当前验证基线：57 项 Python/API/数据质量测试、6 项 JavaScript 看板测试和 24 项 Java/Flink 测试全部通过，共 87 项。
+当前验证基线：64 项 Python/API/数据质量测试、6 项 JavaScript 看板测试和 24 项 Java/Flink 测试全部通过，共 94 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -162,7 +164,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 
 ## 数据质量门禁
 
-对参考数据执行六项可配置规则，并在 `build/data-quality/` 生成机器可读 JSON 和面试展示用 Markdown 报告：
+对参考数据执行六项可配置规则，在 `build/data-quality/` 生成机器可读 JSON、面试展示用 Markdown 报告，并把运行摘要写入 SQLite：
 
 ```powershell
 ./scripts/data-quality-check.ps1
@@ -171,6 +173,16 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 规则配置位于 `config/data-quality-rules.json`，覆盖订单 v1 契约、核心字段完整性、事件 ID 唯一性、订单金额范围、进入延迟和渠道分布漂移。CLI 使用退出码作为质量门禁：全部通过返回 `0`，规则失败返回 `1`，配置或输入错误返回 `2`。
 
 仓库还包含 `data/quality/order_events_with_quality_issues.ndjson`，它会同时触发六类失败路径，用于演示规则定位能力。报告只保存行号、规则和必要的异常值，不复制整条事件或用户标识。
+
+依次运行正常批次、预期失败批次并导出历史与单规则趋势：
+
+```powershell
+./scripts/data-quality-check.ps1
+./scripts/data-quality-demo.ps1
+./scripts/data-quality-history.ps1 -RuleId channel-share-drift
+```
+
+历史库为 `build/data-quality/history.db`，导出结果为 `history.json` 和 `history.md`。相同报告使用内容哈希生成同一个 `run_id`，重复写入不会产生重复运行；数据库只保存运行汇总、规则指标和必要样例，不保存完整事件负载。问题演示脚本把质量失败退出码 `1` 视为预期结果，但其他退出码仍会使脚本失败。
 
 ## Kafka 本地环境
 

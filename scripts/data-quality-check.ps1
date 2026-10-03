@@ -16,7 +16,8 @@ try {
         --input $InputPath `
         --config $ConfigPath `
         --json-output (Join-Path $OutputDirectory "report.json") `
-        --markdown-output (Join-Path $OutputDirectory "report.md")
+        --markdown-output (Join-Path $OutputDirectory "report.md") `
+        --history-db (Join-Path $OutputDirectory "history.db")
     if ($LASTEXITCODE -ne 0) {
         throw "Data-quality gate failed with exit code $LASTEXITCODE."
     }

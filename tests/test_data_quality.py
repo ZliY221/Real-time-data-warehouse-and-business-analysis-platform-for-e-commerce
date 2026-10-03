@@ -91,7 +91,7 @@ class DataQualityTests(unittest.TestCase):
         document = report.to_dict()
         markdown = report.to_markdown()
 
-        self.assertEqual(document["generated_at"], "2026-10-03T03:00:00Z")
+        self.assertEqual(document["generated_at"], "2026-10-03T03:00:00.000Z")
         self.assertEqual(document["summary"]["failed_rules"], 6)
         self.assertIn("# Data quality report", markdown)
         self.assertIn("channel-share-drift", markdown)

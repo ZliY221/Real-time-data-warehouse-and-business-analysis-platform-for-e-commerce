@@ -138,6 +138,12 @@ class KafkaProjectFilesTests(unittest.TestCase):
         build_script = (
             self.root / "scripts" / "offline-warehouse-build.ps1"
         ).read_text(encoding="utf-8")
+        benchmark_script = (
+            self.root / "scripts" / "benchmark-offline-warehouse.ps1"
+        ).read_text(encoding="utf-8")
+        loader = (self.root / "src" / "offline_warehouse" / "loader.py").read_text(
+            encoding="utf-8"
+        )
         schema = (self.root / "src" / "offline_warehouse" / "schema.py").read_text(
             encoding="utf-8"
         )
@@ -146,6 +152,10 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('"offline-warehouse-build.ps1"', unified_test)
         self.assertIn("offline_warehouse.cli", build_script)
         self.assertIn("offline_warehouse.report", build_script)
+        self.assertIn("offline_warehouse.benchmark", benchmark_script)
+        self.assertIn("read_json(?, format = 'newline_delimited'", loader)
+        self.assertIn("unnest(payload.items)", loader.lower())
+        self.assertIn("generate_subscripts(payload.items, 1)", loader)
         for layer in ("meta", "ods", "dim", "dwd", "dws", "ads"):
             self.assertIn(f"CREATE SCHEMA IF NOT EXISTS {layer}", schema)
         self.assertIn("DENSE_RANK() OVER", schema)

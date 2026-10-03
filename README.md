@@ -166,7 +166,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
 
-当前验证基线：90 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 126 项。
+当前验证基线：91 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 127 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -284,6 +284,16 @@ python -m pip install -e ".[warehouse]"
 - `meta.etl_runs` 与 `rejected_records`：批次审计及坏数据最小披露。
 
 文件 SHA-256 形成稳定 `run_id`，同一文件重跑不会重复入库；跨批次相同事件计为重复，复用同一 `event_id` 却改变业务负载会使整个批次事务回滚。参考数据的实际本机结果为 20 条 ODS 事件、41 条 DWD 明细、6 个商品维度，聚合 GMV 与原始订单金额精确相等。DuckDB 用于无需外部服务即可验证维度建模和 SQL 语义，当前没有把它冒充 Hive/Spark 生产数仓经验。
+
+装载器先在 Python 中完成契约校验和批内冲突判断，再把合法事件写入自动删除的临时 NDJSON，由 DuckDB 使用集合式 `INSERT ... SELECT`、连接和 `UNNEST` 完成维度及事实装载。该路径取代逐事件、逐商品 SQL 往返，同时保留文件幂等、跨批次冲突和事务回滚语义。
+
+运行可复现本机性能基线：
+
+```powershell
+./scripts/benchmark-offline-warehouse.ps1 -Events 50000 -Trials 5
+```
+
+当前 Windows 11、Python 3.14.6、DuckDB 1.5.6、16 逻辑 CPU 环境下，5 万条合成订单和 100323 条商品明细的五次独立冷数据库装载中位数为 5.105932 秒，约 9792.53 条订单事件/秒；每轮提交后都会重新核对行数和精确 GMV。相同 1000 条输入相对 `af54c57` 的逐行实现从 27.393944 秒降至 0.206895 秒，中位数提升 132.41 倍。完整逐轮数据、方法和限制见[性能证据](docs/evidence/offline-warehouse-performance.md)。这些数字只代表记录环境下的本地批量装载，不是生产 SLA。
 
 仅发送 20 条参考事件不足以关闭第一分钟窗口：最后一个事件时间为 `10:00:57`，减去 10 秒乱序容忍后，Watermark 仍早于 `10:01:00`。因此真实验收应使用一键脚本；它创建独立的单分区 Topic 和 ClickHouse 数据库，在业务批次之后发送 3 条下一分钟事件推进 Watermark，然后轮询 10 个指标键并执行精确对账：
 

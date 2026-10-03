@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "order-contract-v1",
+      "type": "contract",
+      "max_invalid_rate": 0.0
+    },
+    {
+      "id": "core-fields-present",
+      "type": "completeness",
+      "fields": [
+        "event_id",
+        "event_time",
+        "ingest_time",
+        "payload.order_id",
+        "payload.region",
+        "payload.channel",
+        "payload.total_amount"
+      ],
+      "max_missing_rate": 0.0
+    },
+    {
+      "id": "event-id-unique",
+      "type": "uniqueness",
+      "field": "event_id",
+      "max_duplicate_rate": 0.0
+    },
+    {
+      "id": "order-amount-range",
+      "type": "range",
+      "field": "payload.total_amount",
+      "min": "0.01",
+      "max": "10000.00",
+      "max_out_of_range_rate": 0.0
+    },
+    {
+      "id": "ingest-lag-within-60-seconds",
+      "type": "timeliness",
+      "event_time_field": "event_time",
+      "observed_time_field": "ingest_time",
+      "max_lag_seconds": 60,
+      "max_late_rate": 0.0
+    },
+    {
+      "id": "channel-share-drift",
+      "type": "distribution",
+      "field": "payload.channel",
+      "expected": {
+        "app": 0.34,
+        "web": 0.33,
+        "mini_program": 0.33
+      },
+      "max_absolute_deviation": 0.2,
+      "minimum_records": 10
+    }
+  ]
+}

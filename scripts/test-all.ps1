@@ -38,6 +38,15 @@ try {
         throw "Python tests failed."
     }
 
+    & $runtimePython @runtimePythonArguments -m data_quality.cli `
+        --input "data/sample/order_events.ndjson" `
+        --config "config/data-quality-rules.json" `
+        --json-output "build/data-quality/report.json" `
+        --markdown-output "build/data-quality/report.md"
+    if ($LASTEXITCODE -ne 0) {
+        throw "The reference data-quality gate failed."
+    }
+
     if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
         throw "Node.js 20 or newer is required for dashboard tests."
     }

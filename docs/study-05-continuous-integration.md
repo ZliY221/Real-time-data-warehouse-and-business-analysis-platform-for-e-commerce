@@ -5,7 +5,7 @@
 完成本单元后，应能够解释：
 
 1. 为什么本地测试通过不等于项目可交付。
-2. Python/API/看板、Flink 和 Kafka 测试为什么应该按成本拆分。
+2. Python/API/数据质量/看板、Flink 和 Kafka 测试为什么应该按成本拆分。
 3. `needs`、`concurrency`、`timeout-minutes` 和 `always()` 分别解决什么问题。
 4. 为什么工作流只授予 `contents: read` 权限。
 5. CI 通过后仍然不能证明哪些生产能力。
@@ -15,13 +15,13 @@
 `.github/workflows/ci.yml` 包含四个 Job：
 
 ```text
-Python/API/dashboard tests ─┐
-                            ├─> Kafka smoke test
-                            ├─> ClickHouse replacement smoke test
-Java and Flink tests ───────┘
+Python/API/quality/dashboard tests ─┐
+                                    ├─> Kafka smoke test
+                                    ├─> ClickHouse replacement smoke test
+Java and Flink tests ───────────────┘
 ```
 
-- Python Job 验证事件生成器、业务契约、FastAPI、预览仓库、Compose 静态约束和 NDJSON 校验工具，并使用 Node 内置测试运行看板 JavaScript 测试。
+- Python Job 验证事件生成器、业务契约、FastAPI、预览仓库、Compose 静态约束和数据质量引擎，实际对参考 NDJSON 执行质量门禁，并使用 Node 内置测试运行看板 JavaScript 测试。
 - Flink Job 使用 JDK 17 和 Maven 缓存，执行真实 DataStream 测试。
 - Kafka Job 在前两个 Job 通过后启动官方 Kafka 容器，执行生产、消费和再次校验，最后始终清理容器与数据卷。
 - ClickHouse Job 在前两个 Job 通过后初始化指标表，向同一业务键写入两个版本，并验证 `FINAL` 只返回最新版本。
@@ -42,7 +42,7 @@ Windows 环境运行：
 ./scripts/test-all.ps1
 ```
 
-该脚本依次运行 Python/API 测试、JavaScript 看板测试和 Java/Flink 测试。Kafka 冒烟测试仍需要 Docker，单独执行：
+该脚本依次运行 Python/API 测试、参考数据质量门禁、JavaScript 看板测试和 Java/Flink 测试。Kafka 冒烟测试仍需要 Docker，单独执行：
 
 ```powershell
 ./scripts/kafka-up.ps1

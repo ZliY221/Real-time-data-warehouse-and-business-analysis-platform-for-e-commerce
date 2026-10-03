@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -229,7 +230,11 @@ def _uniqueness_rule(
         value = str(raw_value)
         if value in seen:
             violations += 1
-            samples.append(f"line {line_number}: duplicates line {seen[value]} value {value}")
+            fingerprint = hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+            samples.append(
+                f"line {line_number}: duplicates line {seen[value]} "
+                f"value_sha256={fingerprint}"
+            )
         else:
             seen[value] = line_number
     observed = _rate(violations, checked)

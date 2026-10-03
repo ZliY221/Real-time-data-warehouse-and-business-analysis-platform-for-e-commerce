@@ -41,6 +41,7 @@ jobs:
           --config config/data-quality-rules.json
           --json-output build/data-quality/report.json
           --markdown-output build/data-quality/report.md
+          --history-db build/data-quality/history.db
       - name: Run dashboard unit tests
         run: node --test dashboard/tests/data.test.mjs
 

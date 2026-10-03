@@ -151,6 +151,33 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('"total_amount":"20000.00"', fixture)
         self.assertIn('"ingest_time":"2026-10-02T10:02:12Z"', fixture)
 
+    def test_quality_history_uses_sqlite_transactions_without_event_payloads(self) -> None:
+        history = (self.root / "src" / "data_quality" / "history.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("CREATE TABLE IF NOT EXISTS quality_runs", history)
+        self.assertIn("CREATE TABLE IF NOT EXISTS quality_rule_results", history)
+        self.assertIn("FOREIGN KEY (run_id)", history)
+        self.assertIn("connection.rollback()", history)
+        self.assertIn("connection.close()", history)
+        self.assertNotIn("event_payload", history)
+
+    def test_quality_history_scripts_store_failures_and_export_trends(self) -> None:
+        check_script = (self.root / "scripts" / "data-quality-check.ps1").read_text(
+            encoding="utf-8"
+        )
+        demo_script = (self.root / "scripts" / "data-quality-demo.ps1").read_text(
+            encoding="utf-8"
+        )
+        history_script = (self.root / "scripts" / "data-quality-history.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('--history-db (Join-Path $OutputDirectory "history.db")', check_script)
+        self.assertIn("order_events_with_quality_issues.ndjson", demo_script)
+        self.assertIn("$qualityExitCode -ne 1", demo_script)
+        self.assertIn("data_quality.history_cli", history_script)
+        self.assertIn("--rule-id $RuleId", history_script)
+
     def test_dashboard_preview_is_explicitly_marked_as_non_production_data(self) -> None:
         preview_script = (self.root / "scripts" / "dashboard-preview.ps1").read_text(
             encoding="utf-8"

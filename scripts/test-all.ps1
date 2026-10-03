@@ -42,7 +42,8 @@ try {
         --input "data/sample/order_events.ndjson" `
         --config "config/data-quality-rules.json" `
         --json-output "build/data-quality/report.json" `
-        --markdown-output "build/data-quality/report.md"
+        --markdown-output "build/data-quality/report.md" `
+        --history-db "build/data-quality/history.db"
     if ($LASTEXITCODE -ne 0) {
         throw "The reference data-quality gate failed."
     }

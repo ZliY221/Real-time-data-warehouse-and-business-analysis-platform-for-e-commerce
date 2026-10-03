@@ -9,16 +9,19 @@
 ```mermaid
 sequenceDiagram
     participant Generator as Python 事件生成器
+    participant Quality as 数据质量门禁
     participant Kafka as Kafka
     participant Flink as Flink 作业
     participant Store as ClickHouse
     participant API as FastAPI
     participant Dashboard as ECharts 看板
 
-    Generator->>Kafka: order_created v1
+    Generator->>Quality: NDJSON 批次
+    Quality-->>Generator: 报告与退出码
+    Generator->>Kafka: 通过门禁的 order_created v1
     Kafka->>Flink: 按事件时间消费
     Flink->>Flink: 校验 去重 窗口聚合
-    Flink->>Store: 分钟级指标与质量指标
+    Flink->>Store: 分钟级经营指标
     API->>Store: 参数化查询
     Dashboard->>API: 获取经营指标
 ```
@@ -74,6 +77,14 @@ sequenceDiagram
 - ECharts 使用固定版本和子资源完整性校验；页面设置 CSP、`nosniff` 和 `no-referrer` 响应头。
 - 图表启用 ARIA 与纹理模式，地区和渠道图提供可展开数据表；页面支持键盘焦点、深色模式、减少动画和移动端布局。
 - 独立预览入口使用内存数据，并通过 API 响应头驱动醒目的“演示数据”状态，不把预览结果冒充真实链路证据。
+
+## 数据质量门禁
+
+- `data_quality` 在进入中间件前对 NDJSON 批次执行配置化规则，规则结构固定，不执行配置中的任意表达式或 SQL。
+- 质量报告区分总记录、成功解析、非法 JSON、契约无效、重复和超时记录，并以退出码 `0/1/2` 区分通过、规则失败和运行配置错误。
+- 分布规则比较实际分类占比与基线占比的最大绝对偏差，并要求最小样本数，避免把小样本波动误判为稳定分布。
+- 报告只输出行号、规则原因和必要异常值，不复制整条事件负载；构建产物写入被 Git 忽略的 `build/data-quality`。
+- 当前门禁验证静态或重放批次；它不能替代 Flink 侧流持久化、持续质量趋势或生产告警。
 
 ## 版本选择
 

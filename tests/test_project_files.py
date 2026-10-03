@@ -121,6 +121,36 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('Get-Command "node"', test_all)
         self.assertIn('"dashboard\\tests\\data.test.mjs"', test_all)
 
+    def test_data_quality_gate_is_wired_into_local_and_ci_verification(self) -> None:
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        test_all = (self.root / "scripts" / "test-all.ps1").read_text(encoding="utf-8")
+        for content in (workflow, test_all):
+            self.assertIn("python -m data_quality.cli", content.replace("& $runtimePython @runtimePythonArguments", "python"))
+            self.assertIn("data/sample/order_events.ndjson", content)
+            self.assertIn("config/data-quality-rules.json", content)
+
+    def test_quality_issue_fixture_covers_every_configured_rule_type(self) -> None:
+        config = (self.root / "config" / "data-quality-rules.json").read_text(
+            encoding="utf-8"
+        )
+        fixture = (
+            self.root / "data" / "quality" / "order_events_with_quality_issues.ndjson"
+        ).read_text(encoding="utf-8")
+        for rule_type in (
+            "contract",
+            "completeness",
+            "uniqueness",
+            "range",
+            "timeliness",
+            "distribution",
+        ):
+            self.assertIn(f'"type": "{rule_type}"', config)
+        self.assertIn("evt_quality_001", fixture)
+        self.assertIn('"total_amount":"20000.00"', fixture)
+        self.assertIn('"ingest_time":"2026-10-02T10:02:12Z"', fixture)
+
     def test_dashboard_preview_is_explicitly_marked_as_non_production_data(self) -> None:
         preview_script = (self.root / "scripts" / "dashboard-preview.ps1").read_text(
             encoding="utf-8"

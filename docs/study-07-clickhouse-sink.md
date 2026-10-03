@@ -8,7 +8,8 @@
 2. Flink JDBC Sink 的批量、重试和 checkpoint 分别能证明什么。
 3. 为什么不能使用 `SummingMergeTree` 吸收作业重放。
 4. `ReplacingMergeTree(version)` 为什么仍然需要 `FINAL` 查询。
-5. 当前设计为什么不等于端到端 exactly-once。
+5. 如何让拒绝和迟到侧流在不保存原始坏消息的前提下可查询。
+6. 当前设计为什么不等于端到端 exactly-once。
 
 ## 版本与组件
 
@@ -38,6 +39,14 @@ ORDER BY (window_start, region, channel)
 Sink 为每次输出生成单调递增的 `version`。同一个业务键出现新版本时，后台合并最终保留最高版本。由于后台合并时间不确定，查询层必须使用 `FINAL` 或等价的显式最新版本逻辑。
 
 项目创建 `ecommerce.minute_metrics_latest` 视图，将 `FINAL` 约束集中在一个位置，并计算客单价，避免 API 层忘记去重。
+
+异常侧流使用同样的版本替换思路：
+
+- `rejected_order_events` 以原始载荷的 SHA-256 指纹作为稳定键，只保存错误类型、载荷字节数、检测时间和版本。
+- `late_order_events` 以契约中的唯一 `event_id` 作为稳定键，保存合成订单标识、事件时间、进入时间、地区、渠道和精确金额。
+- `event_anomaly_summary` 视图按分钟、异常类型和原因汇总 `FINAL` 后的不同异常记录。
+
+拒绝表不保存 `raw_payload` 和解析器原因，控制台对象也只显示错误类型与载荷大小。
 
 ## JDBC Sink 一致性边界
 
@@ -71,6 +80,7 @@ Sink 为每次输出生成单调递增的 `version`。同一个业务键出现�
 
 ```powershell
 ./scripts/clickhouse-query.ps1 -Limit 20
+./scripts/clickhouse-query-anomalies.ps1 -Limit 20
 ```
 
 若 Flink 运行在 Compose 网络内，使用：
@@ -81,7 +91,7 @@ Sink 为每次输出生成单调递增的 `version`。同一个业务键出现�
 
 ## 冒烟测试证明什么
 
-`clickhouse-smoke-test.ps1` 创建临时表，向同一个业务键写入版本 1 和版本 2，再用 `FINAL` 查询。验收条件是只返回一行，并且订单量、GMV 和版本均等于版本 2 的值。
+`clickhouse-smoke-test.ps1` 为分钟指标、拒绝事件和迟到事件分别创建临时表，向同一个稳定键写入版本 1 和版本 2，再用 `FINAL` 查询。验收条件是三张表都只返回最新一行，且版本与更新字段来自版本 2。
 
 它能证明表引擎和查询语义正确，但不能证明：
 

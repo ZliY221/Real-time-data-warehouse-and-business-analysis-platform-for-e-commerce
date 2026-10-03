@@ -23,7 +23,7 @@ sequenceDiagram
     Generator->>Kafka: 通过门禁的 order_created v1
     Kafka->>Flink: 按事件时间消费
     Flink->>Flink: 校验 去重 窗口聚合
-    Flink->>Store: 分钟级经营指标
+    Flink->>Store: 分钟级指标 拒绝指纹 迟到事件
     API->>Store: 参数化查询
     API->>History: 只读质量历史
     Dashboard->>API: 获取经营指标与质量趋势
@@ -48,6 +48,7 @@ sequenceDiagram
 - 开启 checkpoint，并使用 exactly-once checkpoint consistency mode。
 - 端到端 exactly-once 需要同时满足 source、state、sink 和外部系统条件；项目完成前不在简历中宣称端到端 exactly-once。
 - 当前 JDBC Sink 允许批量重试，ClickHouse 使用 `(window_start, region, channel)` 稳定键和单调版本降低重放影响。
+- 拒绝事件以载荷 SHA-256 指纹、迟到事件以 `event_id` 作为稳定键；ClickHouse 对三个 Sink 都使用 `ReplacingMergeTree(version)`，即时查询通过 `FINAL` 消除重试或重放版本。
 - `ReplacingMergeTree` 的物理去重发生在后台合并阶段；即时查询通过包含 `FINAL` 的视图获得最新版本，不能把“最终替换”误写成事务型 upsert。
 
 ## 指标定义
@@ -94,7 +95,8 @@ sequenceDiagram
 - SQLite 历史库使用 `quality_runs` 与 `quality_rule_results` 两张表、外键和事务保存运行摘要；报告内容哈希形成确定性 `run_id`，相同报告重复写入不会产生重复运行。
 - 历史查询限制最多 500 条，所有值使用 SQL 参数绑定；趋势按规则 ID 查询并按时间正序返回，便于后续绘图。
 - FastAPI 对历史读取提供运行列表与规则趋势两个只读端点；预览应用使用确定性内存历史，明确标注为演示数据。
-- 当前门禁验证静态或重放批次；历史库也不能替代 Flink 侧流持久化、持续调度或生产告警。
+- Flink 拒绝侧流只向 ClickHouse 写入载荷指纹、错误类型和大小，迟到侧流写入合成事件字段；不保存原始坏消息或解析器原因。
+- 当前批次门禁仍需要脚本触发；SQLite 历史和 Flink 异常账本都不能替代持续调度或生产告警。
 
 ## 版本选择
 

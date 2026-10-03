@@ -54,6 +54,12 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("ReplacingMergeTree(version)", schema)
         self.assertIn("ORDER BY (window_start, region, channel)", schema)
         self.assertIn("FROM ecommerce.minute_metrics FINAL", schema)
+        self.assertIn("CREATE TABLE IF NOT EXISTS ecommerce.rejected_order_events", schema)
+        self.assertIn("CREATE TABLE IF NOT EXISTS ecommerce.late_order_events", schema)
+        self.assertIn("CREATE VIEW IF NOT EXISTS ecommerce.event_anomaly_summary", schema)
+        self.assertIn("ORDER BY rejection_id", schema)
+        self.assertIn("ORDER BY event_id", schema)
+        self.assertNotIn("raw_payload", schema)
         self.assertNotIn("SummingMergeTree", schema)
 
     def test_required_kafka_scripts_exist(self) -> None:
@@ -71,6 +77,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
         names = {
             "clickhouse-up.ps1",
             "clickhouse-query.ps1",
+            "clickhouse-query-anomalies.ps1",
             "clickhouse-smoke-test.ps1",
         }
         actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
@@ -78,8 +85,51 @@ class KafkaProjectFilesTests(unittest.TestCase):
         smoke_test = (
             self.root / "scripts" / "clickhouse-smoke-test.ps1"
         ).read_text(encoding="utf-8")
+        startup = (self.root / "scripts" / "clickhouse-up.ps1").read_text(
+            encoding="utf-8"
+        )
+        anomaly_query = (
+            self.root / "scripts" / "clickhouse-query-anomalies.ps1"
+        ).read_text(encoding="utf-8")
         self.assertIn("FROM $testTable FINAL", smoke_test)
         self.assertIn("Expected one deduplicated metric row", smoke_test)
+        self.assertIn("$rejectedTestTable FINAL", smoke_test)
+        self.assertIn("$lateTestTable FINAL", smoke_test)
+        self.assertIn("001_schema.sql", startup)
+        self.assertIn("--multiquery --query $schema", startup)
+        self.assertIn("event_anomaly_summary", anomaly_query)
+        self.assertIn("rejected_order_events FINAL", anomaly_query)
+        self.assertIn("late_order_events FINAL", anomaly_query)
+
+    def test_flink_anomaly_sinks_store_minimal_replay_safe_records(self) -> None:
+        sink_root = (
+            self.root
+            / "flink-job"
+            / "src"
+            / "main"
+            / "java"
+            / "com"
+            / "zhangliyang"
+            / "portfolio"
+            / "sink"
+        )
+        anomaly_sink = (sink_root / "ClickHouseAnomalySink.java").read_text(
+            encoding="utf-8"
+        )
+        rejected_statement = (
+            sink_root / "ClickHouseRejectedEventStatement.java"
+        ).read_text(encoding="utf-8")
+        late_statement = (sink_root / "ClickHouseLateEventStatement.java").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("buildAtLeastOnce", anomaly_sink)
+        self.assertIn(".setParallelism(1)", anomaly_sink)
+        self.assertIn("rejection_id", anomaly_sink)
+        self.assertNotIn("raw_payload", anomaly_sink)
+        self.assertIn('MessageDigest.getInstance("SHA-256")', rejected_statement)
+        self.assertIn("getPayloadSizeBytes", rejected_statement)
+        self.assertNotIn("getReason()", rejected_statement)
+        self.assertIn("setBigDecimal", late_statement)
 
     def test_query_api_dependencies_and_start_script_are_pinned(self) -> None:
         pyproject = (self.root / "pyproject.toml").read_text(encoding="utf-8")
@@ -249,6 +299,9 @@ class KafkaProjectFilesTests(unittest.TestCase):
             / "job"
             / "KafkaOrderMetricsJob.java"
         ).read_text(encoding="utf-8")
+        submit_script = (self.root / "scripts" / "submit-flink-job.ps1").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("<flink.version>1.20.1</flink.version>", pom)
         self.assertIn(
             "<flink.kafka.connector.version>3.3.0-1.20</flink.kafka.connector.version>",
@@ -263,6 +316,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
             pom,
         )
         self.assertIn("KafkaSource<String>", job)
+        self.assertIn("ClickHouseAnomalySink.attach", job)
+        self.assertIn("--anomaly-sink $AnomalySink", submit_script)
         self.assertIn("CheckpointingMode.EXACTLY_ONCE", job)
         self.assertIn("WatermarkStrategy.noWatermarks()", job)
 

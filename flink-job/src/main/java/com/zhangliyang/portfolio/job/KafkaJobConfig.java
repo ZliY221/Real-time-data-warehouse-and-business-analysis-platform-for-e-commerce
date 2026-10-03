@@ -22,6 +22,7 @@ public final class KafkaJobConfig {
                     "checkpoint-interval-seconds",
                     "parallelism",
                     "metrics-sink",
+                    "anomaly-sink",
                     "clickhouse-url",
                     "clickhouse-user",
                     "clickhouse-batch-size",
@@ -39,6 +40,7 @@ public final class KafkaJobConfig {
     private final Duration checkpointInterval;
     private final int parallelism;
     private final MetricsSinkMode metricsSinkMode;
+    private final MetricsSinkMode anomalySinkMode;
     private final String clickHouseUrl;
     private final String clickHouseUser;
     private final int clickHouseBatchSize;
@@ -57,6 +59,7 @@ public final class KafkaJobConfig {
             Duration checkpointInterval,
             int parallelism,
             MetricsSinkMode metricsSinkMode,
+            MetricsSinkMode anomalySinkMode,
             String clickHouseUrl,
             String clickHouseUser,
             int clickHouseBatchSize,
@@ -82,6 +85,10 @@ public final class KafkaJobConfig {
             throw new IllegalArgumentException("metrics sink mode must not be null");
         }
         this.metricsSinkMode = metricsSinkMode;
+        if (anomalySinkMode == null) {
+            throw new IllegalArgumentException("anomaly sink mode must not be null");
+        }
+        this.anomalySinkMode = anomalySinkMode;
         this.clickHouseUrl = requireClickHouseUrl(clickHouseUrl);
         this.clickHouseUser = requireText(clickHouseUser, "ClickHouse user");
         if (clickHouseBatchSize <= 0) {
@@ -111,6 +118,9 @@ public final class KafkaJobConfig {
                 seconds(options, "checkpoint-interval-seconds", 10),
                 integer(options, "parallelism", 1),
                 MetricsSinkMode.parse(options.getOrDefault("metrics-sink", "clickhouse")),
+                MetricsSinkMode.parse(
+                        options.getOrDefault("anomaly-sink", "clickhouse"),
+                        "anomaly sink"),
                 options.getOrDefault(
                         "clickhouse-url",
                         "jdbc:clickhouse://localhost:8123/ecommerce"),
@@ -255,6 +265,10 @@ public final class KafkaJobConfig {
 
     public MetricsSinkMode getMetricsSinkMode() {
         return metricsSinkMode;
+    }
+
+    public MetricsSinkMode getAnomalySinkMode() {
+        return anomalySinkMode;
     }
 
     public String getClickHouseUrl() {

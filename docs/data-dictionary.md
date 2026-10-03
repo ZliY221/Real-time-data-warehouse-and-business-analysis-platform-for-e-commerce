@@ -63,3 +63,39 @@
 
 表引擎使用 `ReplacingMergeTree(version)`。物理去重是后台异步行为，因此对外查询使用 `ecommerce.minute_metrics_latest` 视图；该视图通过 `FINAL` 获取每个业务键的最新版本，并计算 `average_order_value = gmv / order_count`。
 
+## ClickHouse 拒绝事件审计表
+
+表名：`ecommerce.rejected_order_events`
+
+稳定键：`rejection_id`，即带类型域前缀的原始载荷 SHA-256 十六进制指纹。空值使用 `null:` 域，非空文本使用 `text:` 域，避免空值和字面文本发生语义碰撞。
+
+| 字段 | ClickHouse 类型 | 含义 |
+| --- | --- | --- |
+| rejection_id | FixedString(64) | 带类型域前缀的原始载荷 SHA-256 单向摘要，用于重放替换 |
+| error_type | LowCardinality(String) | `malformed_json`、`invalid_json_shape`、`invalid_field` 或 `business_validation_failed` |
+| payload_size_bytes | UInt32 | 原始载荷 UTF-8 字节数；不保存载荷本身 |
+| detected_at | DateTime64(3, UTC) | Sink 观察到该拒绝记录的处理时间 |
+| version | UInt64 | Sink 生成的单调版本 |
+
+表中不包含 `raw_payload` 和解析器原因。相同载荷会收敛为一条最新记录，因此它表示不同拒绝载荷签名，而不是精确的消息发生次数。
+
+## ClickHouse 迟到事件审计表
+
+表名：`ecommerce.late_order_events`
+
+稳定键：事件契约中的唯一 `event_id`。
+
+| 字段 | ClickHouse 类型 | 含义 |
+| --- | --- | --- |
+| event_id | String | 合成事件唯一标识，用于重放替换 |
+| order_id | String | 合成订单标识 |
+| event_time | DateTime64(3, UTC) | 业务事件时间 |
+| ingest_time | DateTime64(3, UTC) | 模拟进入链路时间 |
+| region | LowCardinality(String) | 地区维度 |
+| channel | LowCardinality(String) | 渠道维度 |
+| total_amount | Decimal(18, 2) | 订单金额，保持十进制精度 |
+| detected_at | DateTime64(3, UTC) | Sink 观察到迟到事件的处理时间 |
+| version | UInt64 | Sink 生成的单调版本 |
+
+`ecommerce.event_anomaly_summary` 对两张表执行 `FINAL` 后按分钟、异常类型和原因汇总，供诊断脚本查询。
+

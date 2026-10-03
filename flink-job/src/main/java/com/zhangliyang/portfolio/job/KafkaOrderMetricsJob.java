@@ -2,6 +2,7 @@ package com.zhangliyang.portfolio.job;
 
 import com.zhangliyang.portfolio.pipeline.OrderMetricsPipeline;
 import com.zhangliyang.portfolio.pipeline.OrderMetricsTopology;
+import com.zhangliyang.portfolio.sink.ClickHouseAnomalySink;
 import com.zhangliyang.portfolio.sink.ClickHouseMinuteMetricSink;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
@@ -70,12 +71,21 @@ public final class KafkaOrderMetricsJob {
                     .print("minute-metrics")
                     .name("print-minute-metrics");
         }
-        topology.getRejectedEvents()
-                .printToErr("rejected-events")
-                .name("print-rejected-events");
-        topology.getLateEvents()
-                .printToErr("late-events")
-                .name("print-late-events");
+        if (config.getAnomalySinkMode().writesClickHouse()) {
+            ClickHouseAnomalySink.attach(
+                    topology.getRejectedEvents(),
+                    topology.getLateEvents(),
+                    config,
+                    clickHousePassword);
+        }
+        if (config.getAnomalySinkMode().writesConsole()) {
+            topology.getRejectedEvents()
+                    .printToErr("rejected-events")
+                    .name("print-rejected-events");
+            topology.getLateEvents()
+                    .printToErr("late-events")
+                    .name("print-late-events");
+        }
         return topology;
     }
 }

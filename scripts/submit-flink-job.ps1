@@ -19,6 +19,8 @@ param(
     [int]$Parallelism = 1,
     [ValidateSet("clickhouse", "print", "both")]
     [string]$MetricsSink = "clickhouse",
+    [ValidateSet("clickhouse", "print", "both")]
+    [string]$AnomalySink = "clickhouse",
     [string]$ClickHouseUrl = "jdbc:clickhouse://localhost:8123/ecommerce",
     [string]$ClickHouseUser = "default",
     [ValidateRange(1, 10000)]
@@ -54,6 +56,7 @@ if (-not (Test-Path -LiteralPath $jobJar -PathType Leaf)) {
     --checkpoint-interval-seconds $CheckpointIntervalSeconds `
     --parallelism $Parallelism `
     --metrics-sink $MetricsSink `
+    --anomaly-sink $AnomalySink `
     --clickhouse-url $ClickHouseUrl `
     --clickhouse-user $ClickHouseUser `
     --clickhouse-batch-size $ClickHouseBatchSize `

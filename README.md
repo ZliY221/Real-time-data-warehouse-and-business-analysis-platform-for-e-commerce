@@ -139,6 +139,7 @@ python -m unittest discover -s tests -v
 - [学习单元 13 Flink 异常侧流持久化](docs/study-13-flink-anomaly-persistence.md)
 - [学习单元 14 批流指标一致性核对](docs/study-14-batch-stream-reconciliation.md)
 - [学习单元 15 真实链路验收与 Watermark 推进](docs/study-15-end-to-end-acceptance.md)
+- [项目面试讲解与证据指南](docs/interview-guide.md)
 
 ## 自动化验证
 

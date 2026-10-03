@@ -15,6 +15,7 @@ sequenceDiagram
     participant Flink as Flink 作业
     participant Store as ClickHouse
     participant Reconcile as 批流对账
+    participant Warehouse as DuckDB 离线数仓
     participant API as FastAPI
     participant Dashboard as ECharts 看板
 
@@ -26,8 +27,10 @@ sequenceDiagram
     Flink->>Flink: 校验 去重 窗口聚合
     Flink->>Store: 分钟级指标 拒绝指纹 迟到事件
     Generator->>Reconcile: 固定批次离线重算
+    Generator->>Warehouse: 事务型增量装载
     Store->>Reconcile: FINAL 指标与迟到事件
     Reconcile-->>Generator: 差异报告与退出码
+    Warehouse-->>Generator: 分层指标与验收报告
     API->>Store: 参数化查询
     API->>History: 只读质量历史
     Dashboard->>API: 获取经营指标与质量趋势
@@ -88,6 +91,17 @@ sequenceDiagram
 - 报告仅包含窗口、地区、渠道和聚合值，不复制订单、用户标识或事件负载。
 - 有界批次内假设 Flink 去重状态未因 TTL 过期；长期运行和 TTL 边界需要单独场景验证。
 
+## 离线维度模型
+
+- `ods.order_events` 的粒度是一条通过契约校验的订单创建事件；订单总额只在这一粒度聚合，避免展开商品后重复累计 GMV。
+- `dwd.fact_order_items` 的粒度是一个订单中的一行商品，使用 `(event_id, item_position)` 唯一确定事实记录。
+- 地区和渠道使用预置稳定代理键；日期键由 UTC 业务日期生成；商品使用递增代理键并校验同一 SKU 的品类和标价一致性。
+- 当前商品维度采用 Type 1 式静态约束：SKU 的品类或标价变化会使批次失败。需要分析历史变化时再引入有效期和当前标记，不能在没有业务需求时声称已实现 SCD2。
+- 文件内容 SHA-256 形成 `run_id`，完成过的同一文件直接返回历史统计；新批次中的已有同载荷事件计为重复。
+- 事件 ID 对应不同规范化负载属于完整性冲突，整个批次在 DuckDB 事务中回滚；坏 JSON 或契约错误则进入最小披露隔离表并允许其他合法记录继续装载。
+- DWS 从订单粒度计算订单数、客户数、GMV 和客单价；ADS 从商品事实计算品类销量与销售额，并用 `DENSE_RANK` 在每日分区内排名。
+- DuckDB 是本地嵌入式分析引擎，选择它是为了让评审者无需 Docker 即可复现建模和 SQL 语义；这不等同于 Hive/Spark 集群经验。
+
 ## 看板展示层
 
 - FastAPI 在 `/dashboard` 提供同源静态页面，浏览器访问 API 不需要开放跨域权限。
@@ -114,5 +128,5 @@ sequenceDiagram
 
 ## 版本选择
 
-当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1；展示层锁定 ECharts 6.1.0。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
+当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1；离线数仓锁定 DuckDB 1.5.6；展示层锁定 ECharts 6.1.0。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
 

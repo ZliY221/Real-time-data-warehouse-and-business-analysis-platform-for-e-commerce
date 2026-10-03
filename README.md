@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、批流指标对账、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、批流指标对账、DuckDB 离线维度数仓、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -19,6 +19,7 @@
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [x] 将拒绝事件指纹与迟到事件写入 ClickHouse，并提供重放安全的异常汇总查询
 - [x] 实现独立的 Python 离线重算与逐键批流对账，区分缺失、额外、订单量和 GMV 差异
+- [x] 实现 DuckDB ODS/DIM/DWD/DWS/ADS 分层、增量幂等装载、事务回滚和窗口函数品类排名
 - [x] 提供隔离 Topic、数据库、Watermark 推进、轮询、对账和定向清理的一键端到端验收脚本
 - [x] 配置 Python/API、Java/Flink、Kafka 与 ClickHouse 四层持续集成工作流
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
@@ -55,6 +56,8 @@ flowchart LR
     A --> I[Python 离线指标基准]
     E --> J[批流逐键对账]
     I --> J
+    A --> K[DuckDB 离线维度数仓]
+    K --> L[DWS 日指标与 ADS 品类排名]
 ```
 
 设计要点：
@@ -86,6 +89,7 @@ ecommerce-realtime-warehouse/
 ├─ src/event_generator/          事件生成器源码
 ├─ src/data_quality/             数据质量规则引擎、报告与 CLI
 ├─ src/reconciliation/           批流指标基准、差异报告与 CLI
+├─ src/offline_warehouse/        DuckDB 分层模型、增量 ETL 与验收报告
 ├─ src/metrics_api/              FastAPI 查询服务与 ClickHouse HTTP 仓库
 ├─ tests/                        自动化测试
 ├─ .gitignore
@@ -139,11 +143,12 @@ python -m unittest discover -s tests -v
 - [学习单元 13 Flink 异常侧流持久化](docs/study-13-flink-anomaly-persistence.md)
 - [学习单元 14 批流指标一致性核对](docs/study-14-batch-stream-reconciliation.md)
 - [学习单元 15 真实链路验收与 Watermark 推进](docs/study-15-end-to-end-acceptance.md)
+- [学习单元 16 离线维度数仓与增量 ETL](docs/study-16-offline-dimensional-warehouse.md)
 - [项目面试讲解与证据指南](docs/interview-guide.md)
 
 ## 自动化验证
 
-本地统一运行 Python/API、参考数据质量门禁、JavaScript 看板和 Java/Flink 测试：
+本地统一运行 Python/API/离线数仓测试、参考数据质量门禁、离线数仓构建、JavaScript 看板和 Java/Flink 测试：
 
 ```powershell
 ./scripts/test-all.ps1
@@ -161,7 +166,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
 
-当前验证基线：82 项 Python/API/数据质量/批流对账测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 118 项。
+当前验证基线：90 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 126 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -259,6 +264,26 @@ python -m reconciliation.cli baseline `
 ```
 
 对账使用 `(window_start, region, channel)` 作为键，对订单量和两位小数 GMV 进行精确比较；退出码 `0` 表示完全一致，`1` 表示存在业务差异，`2` 表示输入或运行错误。当前参考批次已稳定生成 10 个离线指标键，但本机没有 Docker/Flink 环境，因此尚未把它表述为真实批流一致性运行结果。
+
+## 离线维度数仓
+
+安装并构建本地分析数仓：
+
+```powershell
+python -m pip install -e ".[warehouse]"
+./scripts/offline-warehouse-build.ps1
+```
+
+脚本把固定 NDJSON 批次装载到 `build/offline-warehouse/ecommerce.duckdb`，并导出 JSON 与 Markdown 验收报告。当前模型包括：
+
+- `ods.order_events`：通过 v1 契约校验的订单事件粒度数据；
+- `dim.dim_date`、`dim_region`、`dim_channel`、`dim_product`：一致性维度；
+- `dwd.fact_order_items`：一行一个订单商品明细；
+- `dws.daily_sales_by_region_channel`：地区、渠道日订单量、客户数、GMV 和客单价；
+- `ads.daily_category_sales_rank`：使用 `DENSE_RANK` 计算每日品类销售排名；
+- `meta.etl_runs` 与 `rejected_records`：批次审计及坏数据最小披露。
+
+文件 SHA-256 形成稳定 `run_id`，同一文件重跑不会重复入库；跨批次相同事件计为重复，复用同一 `event_id` 却改变业务负载会使整个批次事务回滚。参考数据的实际本机结果为 20 条 ODS 事件、41 条 DWD 明细、6 个商品维度，聚合 GMV 与原始订单金额精确相等。DuckDB 用于无需外部服务即可验证维度建模和 SQL 语义，当前没有把它冒充 Hive/Spark 生产数仓经验。
 
 仅发送 20 条参考事件不足以关闭第一分钟窗口：最后一个事件时间为 `10:00:57`，减去 10 秒乱序容忍后，Watermark 仍早于 `10:01:00`。因此真实验收应使用一键脚本；它创建独立的单分区 Topic 和 ClickHouse 数据库，在业务批次之后发送 3 条下一分钟事件推进 Watermark，然后轮询 10 个指标键并执行精确对账：
 

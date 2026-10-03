@@ -55,6 +55,11 @@ try {
         throw "The reference batch metric baseline could not be built."
     }
 
+    & (Join-Path $PSScriptRoot "offline-warehouse-build.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        throw "The reference offline warehouse could not be built."
+    }
+
     if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
         throw "Node.js 20 or newer is required for dashboard tests."
     }

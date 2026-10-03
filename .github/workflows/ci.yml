@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   python-tests:
-    name: Python contract and API tests
+    name: Python, API, and dashboard tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -32,6 +32,8 @@ jobs:
         env:
           PYTHONPATH: src
         run: python -W error -m unittest discover -s tests -v
+      - name: Run dashboard unit tests
+        run: node --test dashboard/tests/data.test.mjs
 
   flink-tests:
     name: Java and Flink tests

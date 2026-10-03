@@ -38,6 +38,15 @@ try {
         throw "Python tests failed."
     }
 
+    if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
+        throw "Node.js 20 or newer is required for dashboard tests."
+    }
+
+    & node --test (Join-Path $repoRoot "dashboard\tests\data.test.mjs")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Dashboard tests failed."
+    }
+
     & (Join-Path $PSScriptRoot "test-flink.ps1")
     if ($LASTEXITCODE -ne 0) {
         throw "Java and Flink tests failed."

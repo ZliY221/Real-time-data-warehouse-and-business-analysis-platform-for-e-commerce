@@ -20,8 +20,12 @@ class FakeRepository:
             "average_order_value": "0.00",
             "latest_processed_at": None,
         }
+        self.time_series_rows: list[dict[str, Any]] = []
+        self.breakdown_rows: list[dict[str, Any]] = []
         self.last_minute_query: dict[str, Any] | None = None
         self.last_summary_query: dict[str, Any] | None = None
+        self.last_time_series_query: dict[str, Any] | None = None
+        self.last_breakdown_query: dict[str, Any] | None = None
         self.error: MetricsRepositoryError | None = None
 
     def ping(self) -> None:
@@ -40,6 +44,18 @@ class FakeRepository:
         self.last_summary_query = query
         return self.summary_row
 
+    def fetch_time_series(self, **query: Any) -> list[dict[str, Any]]:
+        if self.error:
+            raise self.error
+        self.last_time_series_query = query
+        return self.time_series_rows
+
+    def fetch_breakdown(self, **query: Any) -> list[dict[str, Any]]:
+        if self.error:
+            raise self.error
+        self.last_breakdown_query = query
+        return self.breakdown_rows
+
 
 class MetricsApiTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -54,9 +70,14 @@ class MetricsApiTests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(
-            {"status": "ok", "clickhouse": "reachable"},
+            {
+                "status": "ok",
+                "data_source": "clickhouse",
+                "analytics_store": "reachable",
+            },
             response.json(),
         )
+        self.assertEqual("clickhouse", response.headers["x-data-mode"])
 
     def test_minute_metrics_passes_validated_filters_and_returns_rows(self) -> None:
         self.repository.minute_rows = [
@@ -88,6 +109,7 @@ class MetricsApiTests(unittest.TestCase):
         body = response.json()
         self.assertEqual(1, body["count"])
         self.assertEqual("199.90", body["items"][0]["gmv"])
+        self.assertTrue(body["items"][0]["window_start"].endswith("Z"))
         self.assertEqual(25, body["limit"])
         self.assertEqual("辽宁", self.repository.last_minute_query["region"])
         self.assertEqual("app", self.repository.last_minute_query["channel"])
@@ -159,12 +181,95 @@ class MetricsApiTests(unittest.TestCase):
         )
         self.assertNotIn("internal database detail", response.text)
 
+    def test_time_series_selects_a_bounded_automatic_bucket(self) -> None:
+        self.repository.time_series_rows = [
+            {
+                "bucket_start": "2026-10-03 00:00:00.000",
+                "order_count": 8,
+                "gmv": "520.00",
+                "average_order_value": "65.00",
+            }
+        ]
+
+        response = self.client.get(
+            "/api/v1/metrics/timeseries",
+            params={
+                "start": "2026-10-02T00:00:00Z",
+                "end": "2026-10-03T00:00:00Z",
+                "bucket": "auto",
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("5m", response.json()["bucket"])
+        self.assertEqual("5m", self.repository.last_time_series_query["bucket"])
+        self.assertEqual("520.00", response.json()["items"][0]["gmv"])
+
+    def test_overly_fine_explicit_time_bucket_is_rejected(self) -> None:
+        response = self.client.get(
+            "/api/v1/metrics/timeseries",
+            params={
+                "start": "2026-09-01T00:00:00Z",
+                "end": "2026-10-01T00:00:00Z",
+                "bucket": "1m",
+            },
+        )
+
+        self.assertEqual(422, response.status_code)
+        self.assertIn("coarser bucket", response.json()["detail"])
+        self.assertIsNone(self.repository.last_time_series_query)
+
+    def test_breakdown_uses_an_allowlisted_dimension(self) -> None:
+        self.repository.breakdown_rows = [
+            {
+                "name": "辽宁",
+                "order_count": 10,
+                "gmv": "880.00",
+                "average_order_value": "88.00",
+            }
+        ]
+
+        response = self.client.get(
+            "/api/v1/metrics/breakdown",
+            params={"dimension": "region", "limit": 8},
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("region", response.json()["dimension"])
+        self.assertEqual("辽宁", response.json()["items"][0]["name"])
+        self.assertEqual("region", self.repository.last_breakdown_query["dimension"])
+        self.assertEqual(8, self.repository.last_breakdown_query["limit"])
+
+    def test_unknown_breakdown_dimension_is_rejected_by_fastapi(self) -> None:
+        response = self.client.get(
+            "/api/v1/metrics/breakdown",
+            params={"dimension": "gmv) FROM system.users --"},
+        )
+
+        self.assertEqual(422, response.status_code)
+        self.assertIsNone(self.repository.last_breakdown_query)
+
     def test_openapi_describes_both_metric_endpoints(self) -> None:
         document = self.client.get("/openapi.json").json()
 
         self.assertIn("/api/v1/metrics/minutes", document["paths"])
         self.assertIn("/api/v1/metrics/summary", document["paths"])
+        self.assertIn("/api/v1/metrics/timeseries", document["paths"])
+        self.assertIn("/api/v1/metrics/breakdown", document["paths"])
         self.assertIn("MinuteMetricsResponse", document["components"]["schemas"])
+
+    def test_dashboard_and_assets_are_served_with_security_headers(self) -> None:
+        page = self.client.get("/dashboard")
+        script = self.client.get("/dashboard/assets/app.js")
+
+        self.assertEqual(200, page.status_code)
+        self.assertIn("实时经营脉搏", page.text)
+        self.assertIn("echarts@6.1.0", page.text)
+        self.assertIn("default-src 'self'", page.headers["content-security-policy"])
+        self.assertIn("https://cdn.jsdelivr.net", page.headers["content-security-policy"])
+        self.assertEqual("nosniff", page.headers["x-content-type-options"])
+        self.assertEqual(200, script.status_code)
+        self.assertIn("refreshDashboard", script.text)
 
 
 if __name__ == "__main__":

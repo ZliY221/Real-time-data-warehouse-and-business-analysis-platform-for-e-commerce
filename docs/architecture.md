@@ -65,7 +65,17 @@ sequenceDiagram
 - 空结果返回 `200`、`has_data=false` 或空数组；参数错误返回 `422`；ClickHouse 不可用返回 `503` 和稳定错误码，不向调用者泄露数据库错误详情。
 - 当前 API 使用同步标准库 HTTP 客户端。查询规模受范围与条数限制，足以支持个人作品集；若后续压测证明阻塞查询成为瓶颈，再依据数据决定是否引入连接池或异步客户端。
 
+## 看板展示层
+
+- FastAPI 在 `/dashboard` 提供同源静态页面，浏览器访问 API 不需要开放跨域权限。
+- 看板不会下载最多 500 条分钟明细后重新计算总体指标；总体、时间序列和维度排行分别由 ClickHouse 聚合接口提供，避免截断数据造成图表口径错误。
+- `timeseries` 接口会根据查询范围自动选择 1 分钟、5 分钟、15 分钟或 1 小时时间桶，并限制显式细粒度查询最多约 1500 个点。
+- `breakdown` 只允许 `region` 和 `channel` 两个枚举值；列名来自服务端白名单，而不是用户输入。
+- ECharts 使用固定版本和子资源完整性校验；页面设置 CSP、`nosniff` 和 `no-referrer` 响应头。
+- 图表启用 ARIA 与纹理模式，地区和渠道图提供可展开数据表；页面支持键盘焦点、深色模式、减少动画和移动端布局。
+- 独立预览入口使用内存数据，并通过 API 响应头驱动醒目的“演示数据”状态，不把预览结果冒充真实链路证据。
+
 ## 版本选择
 
-当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
+当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1；展示层锁定 ECharts 6.1.0。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
 

@@ -99,6 +99,43 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("{limit:UInt32}", repository)
         self.assertIn('query_parameters[f"param_{name}"]', repository)
 
+    def test_dashboard_uses_pinned_echarts_with_integrity_and_accessible_charts(self) -> None:
+        dashboard = self.root / "dashboard" / "static"
+        html = (dashboard / "index.html").read_text(encoding="utf-8")
+        javascript = (dashboard / "app.js").read_text(encoding="utf-8")
+        css = (dashboard / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("echarts@6.1.0/dist/echarts.min.js", html)
+        self.assertIn("sha384-C2iskrW/", html)
+        self.assertIn('aria: {', javascript)
+        self.assertIn('decal: { show: true }', javascript)
+        self.assertIn("ResizeObserver", javascript)
+        self.assertIn("prefers-reduced-motion", css)
+        self.assertIn("@media (prefers-color-scheme: dark)", css)
+
+    def test_ci_and_unified_script_run_dashboard_tests(self) -> None:
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        test_all = (self.root / "scripts" / "test-all.ps1").read_text(encoding="utf-8")
+        self.assertIn("node --test dashboard/tests/data.test.mjs", workflow)
+        self.assertIn('Get-Command "node"', test_all)
+        self.assertIn('"dashboard\\tests\\data.test.mjs"', test_all)
+
+    def test_dashboard_preview_is_explicitly_marked_as_non_production_data(self) -> None:
+        preview_script = (self.root / "scripts" / "dashboard-preview.ps1").read_text(
+            encoding="utf-8"
+        )
+        preview_repository = (
+            self.root / "src" / "metrics_api" / "preview.py"
+        ).read_text(encoding="utf-8")
+        dashboard = (
+            self.root / "dashboard" / "static" / "index.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Preview data only", preview_script)
+        self.assertIn('data_mode="preview"', preview_repository)
+        self.assertIn('id="preview-banner"', dashboard)
+        self.assertIn("内存演示数据", dashboard)
+
     def test_ci_workflow_uses_least_privilege_and_pinned_actions(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"

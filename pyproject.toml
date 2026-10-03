@@ -4,6 +4,15 @@ version = "0.1.0"
 description = "A portfolio project for a reproducible real-time ecommerce data pipeline"
 requires-python = ">=3.11"
 
+[project.optional-dependencies]
+api = [
+    "fastapi==0.142.2",
+    "uvicorn==0.54.0",
+]
+test = [
+    "httpx2==2.13.1",
+]
+
 [tool.ruff]
 line-length = 100
 

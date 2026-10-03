@@ -81,6 +81,24 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("FROM $testTable FINAL", smoke_test)
         self.assertIn("Expected one deduplicated metric row", smoke_test)
 
+    def test_query_api_dependencies_and_start_script_are_pinned(self) -> None:
+        pyproject = (self.root / "pyproject.toml").read_text(encoding="utf-8")
+        api_script = (self.root / "scripts" / "api-up.ps1").read_text(encoding="utf-8")
+        self.assertIn('"fastapi==0.142.2"', pyproject)
+        self.assertIn('"uvicorn==0.54.0"', pyproject)
+        self.assertIn('"httpx2==2.13.1"', pyproject)
+        self.assertIn('"metrics_api.app:app"', api_script)
+        self.assertIn('"127.0.0.1"', api_script)
+
+    def test_query_api_uses_bound_clickhouse_parameters(self) -> None:
+        repository = (self.root / "src" / "metrics_api" / "repository.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("{region:String}", repository)
+        self.assertIn("{channel:String}", repository)
+        self.assertIn("{limit:UInt32}", repository)
+        self.assertIn('query_parameters[f"param_{name}"]', repository)
+
     def test_ci_workflow_uses_least_privilege_and_pinned_actions(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
@@ -89,6 +107,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("actions/checkout@v6", workflow)
         self.assertIn("actions/setup-python@v5", workflow)
         self.assertIn("actions/setup-java@v4", workflow)
+        self.assertIn('pip install --disable-pip-version-check -e ".[api,test]"', workflow)
+        self.assertIn("python -W error -m unittest", workflow)
         self.assertNotIn("@main", workflow)
         self.assertNotIn("@master", workflow)
 

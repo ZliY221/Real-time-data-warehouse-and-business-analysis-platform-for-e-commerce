@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口，以及 ClickHouse 分钟指标表和 JDBC Sink。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标表和 JDBC Sink，以及只读 FastAPI 指标查询服务。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -17,10 +17,11 @@
 - [ ] 在真实 Kafka broker 上完成 Flink 端到端运行验收
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
-- [x] 配置 Python、Java/Flink 与 Kafka 三层持续集成工作流
+- [x] 配置 Python/API、Java/Flink、Kafka 与 ClickHouse 四层持续集成工作流
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
 - [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
-- [ ] 提供 FastAPI 查询接口和经营看板
+- [x] 提供带参数校验、错误状态和 OpenAPI 文档的 FastAPI 查询接口
+- [ ] 提供 ECharts 经营看板
 - [ ] 加入数据质量检查、监控与压力测试
 
 ## 业务问题
@@ -67,6 +68,7 @@ ecommerce-realtime-warehouse/
 ├─ schemas/                      JSON Schema 事件契约
 ├─ scripts/                      测试、Kafka 与作业提交脚本
 ├─ src/event_generator/          事件生成器源码
+├─ src/metrics_api/              FastAPI 查询服务与 ClickHouse HTTP 仓库
 ├─ tests/                        自动化测试
 ├─ .gitignore
 ├─ pyproject.toml
@@ -84,14 +86,20 @@ $env:PYTHONPATH = "src"
 python -m event_generator.cli --count 20 --seed 2027 --output data/sample/order_events.ndjson
 ```
 
-运行测试：
+安装查询 API 和测试依赖：
+
+```powershell
+python -m pip install -e ".[api,test]"
+```
+
+运行全部 Python 测试：
 
 ```powershell
 $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 ```
 
-生成器只使用 Python 标准库，不需要安装依赖。相同 `seed`、`count` 和 `start-time` 会生成完全相同的事件，便于重放和测试。
+事件生成器本身只使用 Python 标准库。相同 `seed`、`count` 和 `start-time` 会生成完全一致的事件，便于重放和测试；FastAPI 查询服务的依赖在 `pyproject.toml` 中单独锁定。
 
 ## 文档
 
@@ -105,6 +113,7 @@ python -m unittest discover -s tests -v
 - [学习单元 05 持续集成与可验证交付](docs/study-05-continuous-integration.md)
 - [学习单元 06 Flink KafkaSource 与消费恢复](docs/study-06-flink-kafka-source.md)
 - [学习单元 07 ClickHouse 指标存储与重放安全](docs/study-07-clickhouse-sink.md)
+- [学习单元 08 FastAPI 参数化查询与接口边界](docs/study-08-fastapi-query-service.md)
 
 ## 自动化验证
 
@@ -126,7 +135,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 和 ClickHouse JDBC Sink 作业入口已完成；质量与迟到侧流的外部存储仍待完成。
 
-当前验证基线：21 项 Python 测试和 24 项 Java/Flink 测试全部通过。
+当前验证基线：34 项 Python/API 测试和 24 项 Java/Flink 测试全部通过。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -174,6 +183,26 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 本地 Compose 使用 `CLICKHOUSE_SKIP_USER_SETUP=1`，仅适合单机演示环境，不可直接用于公网或生产部署。若外部 ClickHouse 启用了认证，只通过 `CLICKHOUSE_PASSWORD` 环境变量提供密码；脚本、命令行参数和仓库均不保存密码。
 
 普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，以单调 `version` 进行替换；`minute_metrics_latest` 视图通过 `FINAL` 返回当前最新版本。当前开发机没有 Docker，因此该容器冒烟测试仍等待远程 CI 或安装 Docker 后实际运行。
+
+## FastAPI 查询服务
+
+先启动 ClickHouse，然后在另一个 PowerShell 窗口启动只监听本机回环地址的 API：
+
+```powershell
+./scripts/clickhouse-up.ps1
+./scripts/api-up.ps1
+```
+
+可用接口：
+
+- `GET /health`：同时检查 API 与 ClickHouse 连通性；数据库不可用时返回 `503` 和稳定错误码。
+- `GET /api/v1/metrics/minutes`：查询分钟明细，支持 `start`、`end`、`region`、`channel`、`limit`。
+- `GET /api/v1/metrics/summary`：按相同时间和维度条件汇总订单量、GMV、客单价和最新处理时间。
+- `GET /docs`：FastAPI 自动生成的交互式 OpenAPI 文档。
+
+未提供时间参数时默认查询最近 24 小时；单次范围最多 31 天，明细最多返回 500 行。地区、渠道、时间和条数都通过 ClickHouse 命名参数绑定，不直接拼接用户输入。金额在 JSON 中以十进制字符串返回，避免浏览器端二进制浮点误差。
+
+API 默认读取 `CLICKHOUSE_HTTP_URL=http://localhost:8123`、`CLICKHOUSE_USER=default`、`CLICKHOUSE_DATABASE=ecommerce`，密码只从 `CLICKHOUSE_PASSWORD` 环境变量读取。当前已完成 13 项接口、仓库与静态约束测试；由于本机没有 Docker，API 到真实 ClickHouse 的联调仍属于待验收项。
 
 ## 简历表述原则
 

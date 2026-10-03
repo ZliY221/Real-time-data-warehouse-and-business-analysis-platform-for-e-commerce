@@ -38,6 +38,24 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1", self.compose_text)
         self.assertIn("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1", self.compose_text)
 
+    def test_compose_uses_pinned_clickhouse_with_local_only_ports(self) -> None:
+        self.assertIn(
+            "image: clickhouse/clickhouse-server:25.8.33.6",
+            self.compose_text,
+        )
+        self.assertIn('"127.0.0.1:8123:8123"', self.compose_text)
+        self.assertIn('"127.0.0.1:9000:9000"', self.compose_text)
+        self.assertNotIn("clickhouse/clickhouse-server:latest", self.compose_text)
+
+    def test_clickhouse_schema_uses_replay_safe_replacement_semantics(self) -> None:
+        schema = (
+            self.root / "infra" / "clickhouse" / "init" / "001_schema.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("ReplacingMergeTree(version)", schema)
+        self.assertIn("ORDER BY (window_start, region, channel)", schema)
+        self.assertIn("FROM ecommerce.minute_metrics FINAL", schema)
+        self.assertNotIn("SummingMergeTree", schema)
+
     def test_required_kafka_scripts_exist(self) -> None:
         names = {
             "kafka-up.ps1",
@@ -48,6 +66,20 @@ class KafkaProjectFilesTests(unittest.TestCase):
         }
         actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
         self.assertTrue(names.issubset(actual_names))
+
+    def test_required_clickhouse_scripts_exist(self) -> None:
+        names = {
+            "clickhouse-up.ps1",
+            "clickhouse-query.ps1",
+            "clickhouse-smoke-test.ps1",
+        }
+        actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
+        self.assertTrue(names.issubset(actual_names))
+        smoke_test = (
+            self.root / "scripts" / "clickhouse-smoke-test.ps1"
+        ).read_text(encoding="utf-8")
+        self.assertIn("FROM $testTable FINAL", smoke_test)
+        self.assertIn("Expected one deduplicated metric row", smoke_test)
 
     def test_ci_workflow_uses_least_privilege_and_pinned_actions(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
@@ -60,13 +92,14 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertNotIn("@main", workflow)
         self.assertNotIn("@master", workflow)
 
-    def test_ci_runs_all_three_verification_layers(self) -> None:
+    def test_ci_runs_all_four_verification_layers(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
         )
         self.assertIn("python-tests:", workflow)
         self.assertIn("flink-tests:", workflow)
         self.assertIn("kafka-smoke-test:", workflow)
+        self.assertIn("clickhouse-smoke-test:", workflow)
         self.assertIn("needs: [python-tests, flink-tests]", workflow)
         self.assertIn("if: ${{ always() }}", workflow)
 
@@ -87,6 +120,14 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("<flink.version>1.20.1</flink.version>", pom)
         self.assertIn(
             "<flink.kafka.connector.version>3.3.0-1.20</flink.kafka.connector.version>",
+            pom,
+        )
+        self.assertIn(
+            "<flink.jdbc.connector.version>3.4.0-1.20</flink.jdbc.connector.version>",
+            pom,
+        )
+        self.assertIn(
+            "<clickhouse.jdbc.version>0.10.0</clickhouse.jdbc.version>",
             pom,
         )
         self.assertIn("KafkaSource<String>", job)

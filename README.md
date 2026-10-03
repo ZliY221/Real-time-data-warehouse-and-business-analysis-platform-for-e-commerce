@@ -2,7 +2,7 @@
 
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心和 Kafka Source 作业入口。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本已经完成事件契约、可复现数据生成、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口，以及 ClickHouse 分钟指标表和 JDBC Sink。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
 ## 当前进度
 
@@ -18,7 +18,8 @@
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [x] 配置 Python、Java/Flink 与 Kafka 三层持续集成工作流
-- [ ] 写入分析型数据库
+- [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
+- [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
 - [ ] 提供 FastAPI 查询接口和经营看板
 - [ ] 加入数据质量检查、监控与压力测试
 
@@ -39,7 +40,7 @@ flowchart LR
     A[Python 事件生成器] --> B[Kafka order-events]
     B --> C[Flink 清洗与去重]
     C --> D[Flink 事件时间窗口]
-    D --> E[Doris 或 ClickHouse]
+    D --> E[ClickHouse ReplacingMergeTree]
     E --> F[FastAPI 查询服务]
     F --> G[ECharts 经营看板]
     C --> H[异常事件与质量结果]
@@ -52,6 +53,7 @@ flowchart LR
 - 每条事件包含全局唯一的 `event_id`，Flink 阶段以此实现幂等去重。
 - 金额使用十进制字符串传输，避免浮点误差。
 - 压测数字只有在仓库中存在环境说明、脚本和原始结果时才写入简历。
+- JDBC Sink 采用批量重试；ClickHouse 用稳定业务键和版本替换吸收重放，查询通过 `FINAL` 视图读取确定的最新结果。
 
 ## 目录结构
 
@@ -61,6 +63,7 @@ ecommerce-realtime-warehouse/
 ├─ data/sample/                  脱敏示例事件
 ├─ docs/                         需求、架构和数据字典
 ├─ flink-job/                    Java/Flink 实时计算作业
+├─ infra/clickhouse/init/        ClickHouse 初始化 DDL
 ├─ schemas/                      JSON Schema 事件契约
 ├─ scripts/                      测试、Kafka 与作业提交脚本
 ├─ src/event_generator/          事件生成器源码
@@ -101,6 +104,7 @@ python -m unittest discover -s tests -v
 - [学习单元 04 JSON 解析 质量侧流与迟到数据](docs/study-04-quality-and-late-data.md)
 - [学习单元 05 持续集成与可验证交付](docs/study-05-continuous-integration.md)
 - [学习单元 06 Flink KafkaSource 与消费恢复](docs/study-06-flink-kafka-source.md)
+- [学习单元 07 ClickHouse 指标存储与重放安全](docs/study-07-clickhouse-sink.md)
 
 ## 自动化验证
 
@@ -110,7 +114,7 @@ python -m unittest discover -s tests -v
 ./scripts/test-all.ps1
 ```
 
-GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Python 与 Flink 测试，两者通过后再执行 Kafka 生产消费冒烟测试。工作流尚未在远程仓库运行，因此当前只证明配置已创建并通过本地静态检查，不能宣称远程 CI 已通过。
+GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Python 与 Flink 测试，两者通过后再分别执行 Kafka 生产消费和 ClickHouse 版本替换冒烟测试。工作流尚未在远程仓库运行，因此当前只证明配置已创建并通过本地静态检查，不能宣称远程 CI 已通过。
 
 ## Flink 核心测试
 
@@ -120,9 +124,9 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 ./scripts/test-flink.ps1
 ```
 
-Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 作业入口已完成；侧流外部存储和分析存储仍待完成。
+Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource 和 ClickHouse JDBC Sink 作业入口已完成；质量与迟到侧流的外部存储仍待完成。
 
-当前验证基线：18 项 Python 测试和 21 项 Java/Flink 测试全部通过。
+当前验证基线：21 项 Python 测试和 24 项 Java/Flink 测试全部通过。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -137,7 +141,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ./scripts/submit-flink-job.ps1 -StartingOffsets earliest
 ```
 
-默认配置使用 `localhost:9092`、`order-events` Topic、`ecommerce-order-metrics` Consumer Group、10 秒乱序容忍、60 秒空闲分区检测和 10 秒 checkpoint。完整参数与设计理由见学习单元 06。
+默认配置使用 `localhost:9092`、`order-events` Topic、`ecommerce-order-metrics` Consumer Group、10 秒乱序容忍、60 秒空闲分区检测、10 秒 checkpoint，并将分钟指标批量写入 `jdbc:clickhouse://localhost:8123/ecommerce`。完整参数与设计理由见学习单元 06 和 07。
 
 ## Kafka 本地环境
 
@@ -151,6 +155,25 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ```
 
 当前开发机没有 Docker CLI，也没有正在运行的 Flink 集群。因此 Kafka Compose、Kafka 冒烟测试和 Flink KafkaSource 只分别完成静态检查、构建与作业图测试，尚未通过真实端到端运行验收。完成验收前，不在简历中宣称 Kafka-Flink 链路已经完成。
+
+## ClickHouse 本地环境
+
+ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机回环地址。启动并检查初始化表：
+
+```powershell
+./scripts/clickhouse-up.ps1
+./scripts/clickhouse-smoke-test.ps1
+```
+
+运行 Flink 作业后查询最新的分钟指标：
+
+```powershell
+./scripts/clickhouse-query.ps1 -Limit 20
+```
+
+本地 Compose 使用 `CLICKHOUSE_SKIP_USER_SETUP=1`，仅适合单机演示环境，不可直接用于公网或生产部署。若外部 ClickHouse 启用了认证，只通过 `CLICKHOUSE_PASSWORD` 环境变量提供密码；脚本、命令行参数和仓库均不保存密码。
+
+普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，以单调 `version` 进行替换；`minute_metrics_latest` 视图通过 `FINAL` 返回当前最新版本。当前开发机没有 Docker，因此该容器冒烟测试仍等待远程 CI 或安装 Docker 后实际运行。
 
 ## 简历表述原则
 

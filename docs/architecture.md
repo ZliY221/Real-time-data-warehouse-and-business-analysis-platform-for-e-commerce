@@ -11,7 +11,7 @@ sequenceDiagram
     participant Generator as Python 事件生成器
     participant Kafka as Kafka
     participant Flink as Flink 作业
-    participant Store as 分析存储
+    participant Store as ClickHouse
     participant API as FastAPI
     participant Dashboard as ECharts 看板
 
@@ -41,6 +41,8 @@ sequenceDiagram
 - Flink 使用 `event_id` 作为去重键，并为状态设置合理 TTL。
 - 开启 checkpoint，并使用 exactly-once checkpoint consistency mode。
 - 端到端 exactly-once 需要同时满足 source、state、sink 和外部系统条件；项目完成前不在简历中宣称端到端 exactly-once。
+- 当前 JDBC Sink 允许批量重试，ClickHouse 使用 `(window_start, region, channel)` 稳定键和单调版本降低重放影响。
+- `ReplacingMergeTree` 的物理去重发生在后台合并阶段；即时查询通过包含 `FINAL` 的视图获得最新版本，不能把“最终替换”误写成事务型 upsert。
 
 ## 指标定义
 
@@ -55,5 +57,5 @@ sequenceDiagram
 
 ## 版本选择
 
-当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 连接器的 shaded 作业 JAR。Kafka broker 使用官方 3.9.1 KRaft 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
+当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
 

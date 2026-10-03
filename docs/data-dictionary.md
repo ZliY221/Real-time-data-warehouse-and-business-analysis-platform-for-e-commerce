@@ -44,3 +44,22 @@
 
 项目不生成或保存姓名、手机号、详细地址、邮箱、身份证号、设备号等个人敏感信息。所有用户、订单和商品标识均为模拟值。
 
+## ClickHouse 分钟指标表
+
+表名：`ecommerce.minute_metrics`
+
+业务唯一键：`(window_start, region, channel)`
+
+| 字段 | ClickHouse 类型 | 含义 |
+| --- | --- | --- |
+| window_start | DateTime64(3, UTC) | 一分钟事件时间窗口起点，左闭 |
+| window_end | DateTime64(3, UTC) | 一分钟事件时间窗口终点，右开 |
+| region | LowCardinality(String) | 地区维度 |
+| channel | LowCardinality(String) | 渠道维度 |
+| order_count | UInt64 | 去重后的有效订单数 |
+| gmv | Decimal(18, 2) | 去重后的成交额，保留两位小数 |
+| version | UInt64 | Sink 生成的单调版本，用于替换重放或迟到更新结果 |
+| processed_at | DateTime64(3, UTC) | 当前版本写入 Sink 的处理时间 |
+
+表引擎使用 `ReplacingMergeTree(version)`。物理去重是后台异步行为，因此对外查询使用 `ecommerce.minute_metrics_latest` 视图；该视图通过 `FINAL` 获取每个业务键的最新版本，并计算 `average_order_value = gmv / order_count`。
+

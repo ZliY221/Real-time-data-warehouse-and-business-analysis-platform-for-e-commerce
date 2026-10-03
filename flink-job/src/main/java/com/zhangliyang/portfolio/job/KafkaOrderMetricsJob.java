@@ -2,6 +2,7 @@ package com.zhangliyang.portfolio.job;
 
 import com.zhangliyang.portfolio.pipeline.OrderMetricsPipeline;
 import com.zhangliyang.portfolio.pipeline.OrderMetricsTopology;
+import com.zhangliyang.portfolio.sink.ClickHouseMinuteMetricSink;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.core.execution.CheckpointingMode;
@@ -16,13 +17,20 @@ public final class KafkaOrderMetricsJob {
         KafkaJobConfig config = KafkaJobConfig.fromArgs(args);
         StreamExecutionEnvironment environment =
                 StreamExecutionEnvironment.getExecutionEnvironment();
-        configure(environment, config);
+        configure(environment, config, System.getenv("CLICKHOUSE_PASSWORD"));
         environment.execute("ecommerce-order-metrics");
     }
 
     public static OrderMetricsTopology configure(
             StreamExecutionEnvironment environment,
             KafkaJobConfig config) {
+        return configure(environment, config, "");
+    }
+
+    public static OrderMetricsTopology configure(
+            StreamExecutionEnvironment environment,
+            KafkaJobConfig config,
+            String clickHousePassword) {
         if (environment == null) {
             throw new IllegalArgumentException("environment must not be null");
         }
@@ -51,9 +59,17 @@ public final class KafkaOrderMetricsJob {
                 config.getDeduplicationTtl(),
                 config.getAllowedLateness());
 
-        topology.getMetrics()
-                .print("minute-metrics")
-                .name("print-minute-metrics");
+        if (config.getMetricsSinkMode().writesClickHouse()) {
+            ClickHouseMinuteMetricSink.attach(
+                    topology.getMetrics(),
+                    config,
+                    clickHousePassword);
+        }
+        if (config.getMetricsSinkMode().writesConsole()) {
+            topology.getMetrics()
+                    .print("minute-metrics")
+                    .name("print-minute-metrics");
+        }
         topology.getRejectedEvents()
                 .printToErr("rejected-events")
                 .name("print-rejected-events");

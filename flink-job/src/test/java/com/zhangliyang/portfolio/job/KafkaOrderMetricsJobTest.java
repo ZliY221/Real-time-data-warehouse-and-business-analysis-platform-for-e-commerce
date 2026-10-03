@@ -5,6 +5,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,8 +35,23 @@ class KafkaOrderMetricsJobTest {
                 CheckpointingMode.EXACTLY_ONCE,
                 environment.getCheckpointConfig().getCheckpointingConsistencyMode());
         assertTrue(executionPlan.contains("consume-order-events-from-kafka"));
-        assertTrue(executionPlan.contains("print-minute-metrics"));
+        assertTrue(executionPlan.contains("write-minute-metrics-to-clickhouse"));
         assertTrue(executionPlan.contains("print-rejected-events"));
         assertTrue(executionPlan.contains("print-late-events"));
+    }
+
+    @Test
+    void canUseConsoleMetricsSinkForBrokerOnlyDebugging() {
+        StreamExecutionEnvironment environment =
+                StreamExecutionEnvironment.getExecutionEnvironment();
+        KafkaJobConfig config = KafkaJobConfig.fromArgs(new String[]{
+                "--metrics-sink", "print"
+        });
+
+        KafkaOrderMetricsJob.configure(environment, config);
+        String executionPlan = environment.getExecutionPlan();
+
+        assertTrue(executionPlan.contains("print-minute-metrics"));
+        assertFalse(executionPlan.contains("write-minute-metrics-to-clickhouse"));
     }
 }

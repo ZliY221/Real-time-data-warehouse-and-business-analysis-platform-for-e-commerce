@@ -6,7 +6,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$resolvedInput = Join-Path $repoRoot $InputPath
+$resolvedInput = if ([System.IO.Path]::IsPathRooted($InputPath)) {
+    [System.IO.Path]::GetFullPath($InputPath)
+}
+else {
+    [System.IO.Path]::GetFullPath((Join-Path $repoRoot $InputPath))
+}
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker CLI was not found."

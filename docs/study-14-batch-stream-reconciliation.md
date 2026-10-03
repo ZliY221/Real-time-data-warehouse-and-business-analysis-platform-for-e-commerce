@@ -60,7 +60,15 @@ python -m reconciliation.cli baseline `
 
 ## 真实链路对账步骤
 
-在固定事件已经通过 Kafka 和 Flink 写入 ClickHouse 后，导出同一事件时间范围的最终指标与迟到事件：
+推荐直接运行隔离的一键验收：
+
+```powershell
+./scripts/e2e-acceptance.ps1
+```
+
+脚本会创建单分区临时 Topic 和独立 ClickHouse 数据库，提交 Flink 作业，发送业务事件及 Watermark 推进事件，等待第一分钟 10 个指标键落库，执行对账并定向清理本次资源。详细原理见学习单元 15。
+
+若需要人工分步排查，在固定事件已经通过 Kafka 和 Flink 写入 ClickHouse 后，导出同一事件时间范围的最终指标与迟到事件：
 
 ```powershell
 ./scripts/clickhouse-export-reconciliation.ps1 `
@@ -105,6 +113,7 @@ python -m reconciliation.cli baseline `
 ## 当前边界
 
 - 本机没有 Docker CLI 和本地 Flink 集群，尚无真实流式结果文件。
+- 20 条参考事件本身不足以让 10 秒乱序 Watermark 越过第一分钟窗口；真实验收必须发送下一分钟推进事件，不能靠固定等待时间假设窗口会关闭。
 - 当前核对针对一个有界输入批次，未模拟长时间运行后的状态 TTL 过期。
 - 迟到事件以 ClickHouse 审计表导出的 `event_id` 为准，前提是实时作业与指标写入来自同一次受控实验。
 - 尚未生成远程 CI 运行记录、截图或演示视频。

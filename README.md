@@ -19,6 +19,7 @@
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [x] 将拒绝事件指纹与迟到事件写入 ClickHouse，并提供重放安全的异常汇总查询
 - [x] 实现独立的 Python 离线重算与逐键批流对账，区分缺失、额外、订单量和 GMV 差异
+- [x] 提供隔离 Topic、数据库、Watermark 推进、轮询、对账和定向清理的一键端到端验收脚本
 - [x] 配置 Python/API、Java/Flink、Kafka 与 ClickHouse 四层持续集成工作流
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
 - [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
@@ -137,6 +138,7 @@ python -m unittest discover -s tests -v
 - [学习单元 12 质量诊断 API 与看板](docs/study-12-quality-diagnostics-dashboard.md)
 - [学习单元 13 Flink 异常侧流持久化](docs/study-13-flink-anomaly-persistence.md)
 - [学习单元 14 批流指标一致性核对](docs/study-14-batch-stream-reconciliation.md)
+- [学习单元 15 真实链路验收与 Watermark 推进](docs/study-15-end-to-end-acceptance.md)
 
 ## 自动化验证
 
@@ -158,7 +160,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
 
-当前验证基线：80 项 Python/API/数据质量/批流对账测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 116 项。
+当前验证基线：82 项 Python/API/数据质量/批流对账测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 118 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
@@ -256,6 +258,14 @@ python -m reconciliation.cli baseline `
 ```
 
 对账使用 `(window_start, region, channel)` 作为键，对订单量和两位小数 GMV 进行精确比较；退出码 `0` 表示完全一致，`1` 表示存在业务差异，`2` 表示输入或运行错误。当前参考批次已稳定生成 10 个离线指标键，但本机没有 Docker/Flink 环境，因此尚未把它表述为真实批流一致性运行结果。
+
+仅发送 20 条参考事件不足以关闭第一分钟窗口：最后一个事件时间为 `10:00:57`，减去 10 秒乱序容忍后，Watermark 仍早于 `10:01:00`。因此真实验收应使用一键脚本；它创建独立的单分区 Topic 和 ClickHouse 数据库，在业务批次之后发送 3 条下一分钟事件推进 Watermark，然后轮询 10 个指标键并执行精确对账：
+
+```powershell
+./scripts/e2e-acceptance.ps1
+```
+
+脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前环境不具备 Docker，因此脚本已通过语法、静态约束和 Watermark 时间测试，但尚未实际运行。
 
 ## FastAPI 查询服务
 

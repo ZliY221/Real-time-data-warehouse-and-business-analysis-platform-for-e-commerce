@@ -81,6 +81,26 @@ class ReconciliationTests(unittest.TestCase):
         with self.assertRaisesRegex(ReconciliationInputError, "event_id"):
             load_late_event_ids(['{"event_id":""}'])
 
+    def test_acceptance_trigger_advances_watermark_past_the_business_window(self) -> None:
+        business_events = generate_order_events(20)
+        trigger_events = generate_order_events(
+            3,
+            seed=9090,
+            start_time=datetime(2026, 10, 2, 10, 1, 15, tzinfo=UTC),
+        )
+        business_timestamps = [
+            datetime.fromisoformat(event["event_time"].replace("Z", "+00:00"))
+            for event in business_events
+        ]
+        trigger_timestamps = [
+            datetime.fromisoformat(event["event_time"].replace("Z", "+00:00"))
+            for event in trigger_events
+        ]
+        window_end = datetime(2026, 10, 2, 10, 1, tzinfo=UTC)
+
+        self.assertLess(max(business_timestamps) - timedelta(seconds=10), window_end)
+        self.assertGreater(max(trigger_timestamps) - timedelta(seconds=10), window_end)
+
     def test_matching_metrics_pass_with_deterministic_safe_report(self) -> None:
         baseline = build_batch_baseline(event_lines())
         report = reconcile_metrics(

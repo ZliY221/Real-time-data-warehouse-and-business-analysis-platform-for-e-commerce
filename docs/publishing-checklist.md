@@ -24,7 +24,7 @@ git log --oneline -20
 
 - 工作树无未提交修改；
 - 发布审计不存在高置信密钥或超过 20 MiB 的跟踪文件；`PASS_WITH_REVIEW` 项逐条确认是合成测试内容；
-- 当前基线为 92 项 Python/API/质量/对账/离线数仓测试、8 项 JavaScript 测试、28 项 Java/Flink 测试，共 128 项；
+- 当前基线为 93 项 Python/API/质量/对账/离线数仓测试、8 项 JavaScript 测试、28 项 Java/Flink 测试，共 129 项；
 - 5 万条离线数仓基准的原始多轮结果与 README 数字一致；
 - 仓库中没有 `.env`、访问令牌、个人简历、证书原图、学籍验证码或真实订单数据；
 - README 继续明确真实 Kafka/Flink/ClickHouse 链路尚未在本机验收。
@@ -70,7 +70,7 @@ git push origin main
 
 ## 可公开截图
 
-- 128 项本地测试最终摘要；
+- 129 项本地测试最终摘要；
 - DuckDB 5 万条多轮基准报告；
 - 数据质量失败样例与趋势看板；
 - 批流对账报告格式；

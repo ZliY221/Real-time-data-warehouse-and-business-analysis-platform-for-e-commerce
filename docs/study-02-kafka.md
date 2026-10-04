@@ -69,5 +69,5 @@ Smoke test 会：
 
 ## 当前验证状态
 
-配置、脚本和静态测试已经完成。由于开发机当前没有 Docker CLI，尚未执行真实 Kafka smoke test。安装 Docker 后必须完成运行验证，才可以在 README 中勾选“接入 Kafka”。
+配置、脚本和静态测试已经完成；GitHub Actions 已在 `apache/kafka:3.9.1` 容器中完成 Topic 创建、20 条事件生产、消费和契约校验。开发机仍没有 Docker CLI，且该证据不等同于 Kafka → Flink → ClickHouse 整链路验收。
 

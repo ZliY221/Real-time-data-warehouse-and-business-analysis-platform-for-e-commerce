@@ -122,4 +122,4 @@ ClickHouse 和 SQLite 的职责不同，故障也分别处理：
 - 数据质量检查仍由脚本触发，没有定时调度和通知渠道。
 - Flink 的拒绝侧流与迟到侧流已接入 ClickHouse JDBC Sink，但本机尚未完成真实中间件端到端运行；拒绝侧按载荷指纹去重，不能当作精确发生次数。
 - 预览历史是确定性演示数据，不是 Kafka、Flink 或 ClickHouse 真实运行证据。
-- 本机未安装 Docker，因此完整链路仍需在具备 Docker 的环境或远程 CI 中验收。
+- GitHub Actions 已分别验证 Kafka 和 ClickHouse 容器冒烟测试；本机未安装 Docker，完整 Kafka → Flink → ClickHouse → API 链路仍需在具备 Docker 与 Flink 集群的环境验收。

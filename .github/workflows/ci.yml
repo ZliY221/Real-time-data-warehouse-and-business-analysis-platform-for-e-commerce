@@ -15,7 +15,7 @@ concurrency:
 jobs:
   python-tests:
     name: Python, quality, reconciliation, API, and dashboard tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check out repository
@@ -57,7 +57,7 @@ jobs:
 
   flink-tests:
     name: Java and Flink tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -79,7 +79,7 @@ jobs:
   kafka-smoke-test:
     name: Kafka production and consumption smoke test
     needs: [python-tests, flink-tests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - name: Check out repository
@@ -108,7 +108,7 @@ jobs:
   clickhouse-smoke-test:
     name: ClickHouse metric and anomaly replacement smoke test
     needs: [python-tests, flink-tests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - name: Check out repository

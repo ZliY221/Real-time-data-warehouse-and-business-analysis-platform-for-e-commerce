@@ -219,7 +219,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ./scripts/kafka-smoke-test.ps1 -Count 20
 ```
 
-当前开发机没有 Docker CLI，也没有正在运行的 Flink 集群。因此 Kafka Compose、Kafka 冒烟测试和 Flink KafkaSource 只分别完成静态检查、构建与作业图测试，尚未通过真实端到端运行验收。完成验收前，不在简历中宣称 Kafka-Flink 链路已经完成。
+当前开发机没有 Docker CLI，也没有正在运行的 Flink 集群。GitHub Actions 已实际完成 Kafka 容器生产/消费和 ClickHouse 容器替换语义冒烟测试，Flink KafkaSource 已完成构建与作业图测试；但 Kafka → Flink → ClickHouse 组合链路尚未通过真实端到端验收。完成整链路验收前，不在简历中宣称该链路已经完成。
 
 ## ClickHouse 本地环境
 
@@ -238,7 +238,7 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 
 本地 Compose 使用 `CLICKHOUSE_SKIP_USER_SETUP=1`，仅适合单机演示环境，不可直接用于公网或生产部署。若外部 ClickHouse 启用了认证，只通过 `CLICKHOUSE_PASSWORD` 环境变量提供密码；脚本、命令行参数和仓库均不保存密码。
 
-普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，拒绝事件使用载荷 SHA-256 指纹，迟到事件使用 `event_id`；三类数据都以单调 `version` 进行替换，查询通过 `FINAL` 返回当前最新版本。拒绝事件表不保存原始载荷和解析器原因。当前开发机没有 Docker，因此扩展后的容器冒烟测试仍等待远程 CI 或安装 Docker 后实际运行。
+普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，拒绝事件使用载荷 SHA-256 指纹，迟到事件使用 `event_id`；三类数据都以单调 `version` 进行替换，查询通过 `FINAL` 返回当前最新版本。拒绝事件表不保存原始载荷和解析器原因。ClickHouse 容器替换语义已在 GitHub Actions 通过，Flink JDBC 写入的组合链路仍需端到端验收。
 
 查询异常分钟汇总和最近的不同异常记录：
 

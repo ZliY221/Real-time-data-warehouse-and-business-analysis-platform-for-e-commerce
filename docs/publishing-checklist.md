@@ -1,6 +1,6 @@
 # 远程仓库发布与验收清单
 
-当前仓库已于 2026 年 10 月 4 日公开发布到 GitHub，包含完整源码、自动化测试、离线数仓基准和真实链路验收脚本。本机仍没有 Docker CLI 与运行中的 Flink 集群，因此必须继续把“已实现”“本地已验证”“远程 CI 已验证”和“仍待真实环境运行”分开表达。
+当前仓库已于 2026 年 10 月 4 日公开发布到 GitHub，包含完整源码、自动化测试、离线数仓基准和真实链路验收脚本。本机仍没有 Docker CLI 与运行中的 Flink 集群，但远程 CI 已完成单节点真实链路验收；必须继续把“本机已验证”“远程单节点已验证”和“生产级未验证”分开表达。
 
 ## 推荐仓库信息
 
@@ -27,7 +27,7 @@ git log --oneline -20
 - 当前基线为 93 项 Python/API/质量/对账/离线数仓测试、8 项 JavaScript 测试、28 项 Java/Flink 测试，共 129 项；
 - 5 万条离线数仓基准的原始多轮结果与 README 数字一致；
 - 仓库中没有 `.env`、访问令牌、个人简历、证书原图、学籍验证码或真实订单数据；
-- README 继续明确真实 Kafka/Flink/ClickHouse 链路尚未在本机验收。
+- README 继续明确链路已在远程单节点 CI 验收，但尚未在本机复现，也不是生产环境证据。
 
 ## 当前审计结果
 
@@ -36,7 +36,7 @@ git log --oneline -20
 ## 仍需本人决定
 
 - 开源许可证。没有本人选择前不自动添加；
-- 是否在具备 Docker 与 Flink 1.20.1 的另一台机器完成首次真实链路验收；
+- 是否在自己的可用 Docker/Flink 环境再次复现远程链路验收；
 - 是否录制看板与端到端流程演示视频。
 
 ## 后续推送与远程验证
@@ -51,7 +51,7 @@ git push origin main
 
 推送后依次确认：
 
-1. Python、Flink、Kafka 和 ClickHouse 四个 CI Job 的实际状态；
+1. Python、Flink、Kafka、ClickHouse 和完整端到端验收五个 CI Job 的实际状态；
 2. CI 失败时保留运行 URL、日志结论和修复提交，不只重复运行；
 3. README Mermaid、文档链接、ECharts 静态资源和性能证据可以公开访问；
 4. About、Topics、仓库简介和置顶顺序已经设置；
@@ -74,7 +74,7 @@ git push origin main
 - DuckDB 5 万条多轮基准报告；
 - 数据质量失败样例与趋势看板；
 - 批流对账报告格式；
-- 真实链路验收成功后，再截取 JobID、指标键和对账 PASS。
+- 远程真实链路的 JobID、指标键和对账 PASS，并明确它来自单节点 CI。
 
 截图不得暴露 Windows 用户目录、令牌、密码、私有仓库地址或个人证件。
 
@@ -85,6 +85,8 @@ git push origin main
 - 首次推送日期：2026 年 10 月 4 日
 - 首次四层成功 CI：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37186145537>
 - 首次四层成功提交：`4fd0660c25ba840cb4f3471be8d28a37f437dbba`
-- 真实端到端验收机器环境、日期、报告路径与提交 SHA；
+- 首次五 Job 及真实端到端验收成功 CI：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37188134524>
+- 真实端到端验收提交：`963be45ef4163de26868effe565418b4cca0fcb5`
+- 验收摘要：Flink JobID `7eaef8f77086847befded3990b9e1df1`，20 条业务事件、3 条推进事件、10 个指标键全部匹配；
 - 发布版本标签；
 - README 中根据新证据更新了哪些边界。

@@ -12,12 +12,13 @@
 
 ## 工作流结构
 
-`.github/workflows/ci.yml` 包含四个 Job：
+`.github/workflows/ci.yml` 包含五个 Job：
 
 ```text
 Python/API/quality/reconciliation/dashboard tests ─┐
                                                    ├─> Kafka smoke test
                                                    ├─> ClickHouse metric and anomaly replacement smoke test
+                                                   ├─> Kafka → Flink → ClickHouse → reconciliation acceptance
 Java and Flink tests ──────────────────────────────┘
 ```
 
@@ -25,6 +26,7 @@ Java and Flink tests ───────────────────�
 - Flink Job 使用 JDK 17 和 Maven 缓存，执行真实 DataStream 测试。
 - Kafka Job 在前两个 Job 通过后启动官方 Kafka 容器，执行生产、消费和再次校验，最后始终清理容器与数据卷。
 - ClickHouse Job 在前两个 Job 通过后初始化指标表与异常审计表，分别向同一指标键、拒绝指纹和迟到事件键写入两个版本，并验证 `FINAL` 只返回最新版本。
+- 端到端 Job 校验并启动 Flink 1.20.1 单节点集群，创建隔离 Topic 和数据库，提交真实作业，并要求 10 个指标键精确对账通过。
 
 ## 安全和资源控制
 
@@ -52,7 +54,7 @@ Windows 环境运行：
 
 ## 当前验证状态
 
-工作流语法和关键配置已在本地进行静态检查，本地 Python 与 Flink 测试已经通过。只有把仓库推送到 GitHub 并看到四个 Job 全部成功，才能宣称 CI、Kafka 和 ClickHouse 冒烟测试在远程环境通过。
+工作流语法和关键配置已在本地进行静态检查，本地 Python 与 Flink 测试已经通过。提交 `963be45` 的五个 Job 已在 GitHub 全部成功，包括真实单节点链路及批流对账；这仍不能证明生产高可用、长期运行或性能 SLA。
 
 ## 面试自测
 

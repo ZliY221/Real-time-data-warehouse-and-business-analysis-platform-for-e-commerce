@@ -128,5 +128,5 @@ sequenceDiagram
 
 ## 版本选择
 
-当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1；离线数仓锁定 DuckDB 1.5.6；展示层锁定 ECharts 6.1.0。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；真实集群兼容性仍需通过端到端运行验收后确认。
+当前已在 Maven 中锁定 Apache Flink 1.20.1、Flink Kafka Connector 3.3.0-1.20、Flink JDBC Connector 3.4.0-1.20、ClickHouse JDBC 0.10.0、Java 11 编译目标和 Jackson 2.19.1，并生成包含 Kafka 与 JDBC 连接器的 shaded 作业 JAR。查询层锁定 FastAPI 0.142.2、Uvicorn 0.54.0 和测试客户端 httpx2 2.13.1；离线数仓锁定 DuckDB 1.5.6；展示层锁定 ECharts 6.1.0。Kafka broker 使用官方 3.9.1 KRaft 镜像，ClickHouse 使用官方 25.8.33.6 镜像；这些版本已在 GitHub Actions 单节点端到端验收中组合通过，但未验证生产集群兼容性与高可用。
 

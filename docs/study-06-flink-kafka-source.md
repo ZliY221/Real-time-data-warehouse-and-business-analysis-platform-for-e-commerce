@@ -83,12 +83,13 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 - 包含 Source、三类输出和 checkpoint 的 Flink 作业图测试。
 - 可部署 shaded JAR 的本地构建记录。
 
+远程单节点验收已具备：真实 Kafka broker、Flink 1.20.1 作业提交、ClickHouse JDBC 写入和 10 个指标键一致性结果。
+
 仍然缺少：
 
-- 真实 Kafka broker 与 Flink 集群的端到端运行结果。
 - 作业 checkpoint 成功截图或 REST API 证据。
 - Kafka offset、坏消息侧流和迟到侧流的运行观测结果。
-- 外部分析存储 Sink 及一致性验收。
+- 长时间运行、故障恢复和多分区压力下的行为证据。
 
 ## 面试自测
 

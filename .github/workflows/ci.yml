@@ -132,6 +132,9 @@ jobs:
     needs: [python-tests, flink-tests]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      actions: write
+      contents: read
     env:
       FLINK_VERSION: "1.20.1"
     steps:
@@ -200,6 +203,37 @@ jobs:
           if (-not $report) { throw "The end-to-end report was not created." }
           Get-Content -LiteralPath $report.FullName | Out-File `
             -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+      - name: Upload sanitized end-to-end evidence
+        if: ${{ success() }}
+        id: upload-e2e-evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/e2e/*/expected_metrics.ndjson
+            build/e2e/*/actual_metrics.ndjson
+            build/e2e/*/report.json
+            build/e2e/*/report.md
+            build/e2e/*/manifest.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 9
+      - name: Publish the evidence artifact link
+        if: ${{ success() }}
+        shell: pwsh
+        env:
+          ARTIFACT_URL: ${{ steps.upload-e2e-evidence.outputs.artifact-url }}
+          ARTIFACT_DIGEST: ${{ steps.upload-e2e-evidence.outputs.artifact-digest }}
+        run: |
+          @"
+
+          ## Sanitized evidence artifact
+
+          - Download: [$env:ARTIFACT_URL]($env:ARTIFACT_URL)
+          - SHA-256: ``$env:ARTIFACT_DIGEST``
+          - Retention: 90 days
+          - Excludes raw business events, watermark events, and late-event identifiers
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
       - name: Print Flink diagnostics after failure
         if: ${{ failure() }}
         shell: bash

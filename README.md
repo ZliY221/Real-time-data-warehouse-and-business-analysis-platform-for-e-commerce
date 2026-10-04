@@ -304,7 +304,7 @@ python -m pip install -e ".[warehouse]"
 ./scripts/e2e-acceptance.ps1
 ```
 
-脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前开发机不具备 Docker，但 GitHub Actions 已下载并校验官方 Flink 1.20.1、启动单节点集群并真实运行脚本；成功运行记录为 [37188134524](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37188134524)。
+脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前开发机不具备 Docker，但 GitHub Actions 已下载并校验官方 Flink 1.20.1、启动单节点集群并真实运行脚本；成功运行记录为 [37188134524](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37188134524)。后续成功运行还会保存 90 天的脱敏 Artifact，只包含预期/实际聚合指标、对账报告和 manifest，不包含原始事件或迟到事件标识。
 
 ## FastAPI 查询服务
 

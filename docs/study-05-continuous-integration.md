@@ -30,11 +30,12 @@ Java and Flink tests ───────────────────�
 
 ## 安全和资源控制
 
-- `permissions: contents: read`：工作流只需要读取代码，不授予写仓库或操作 Issue 的权限。
+- 全局 `permissions: contents: read`：普通 Job 只读取代码；端到端 Job 额外获得 `actions: write`，仅用于上传脱敏验收 Artifact，不授予源码、Issue 或 PR 写权限。
 - `timeout-minutes`：防止 Maven、Kafka 启动或消费异常时无限占用 Runner。
 - `concurrency.cancel-in-progress`：同一分支有新提交时取消旧运行，减少重复消耗。
 - `if: ${{ always() }}`：即使冒烟测试失败，也执行 Kafka 清理步骤。
 - 所有依赖版本和容器镜像均固定，不使用 `latest`。
+- 完整链路成功后只上传聚合指标、对账报告和 manifest，排除原始业务事件、Watermark 事件与迟到事件标识；Artifact 保留 90 天并在 Job Summary 记录下载链接和 SHA-256。
 
 ## 本地统一测试
 

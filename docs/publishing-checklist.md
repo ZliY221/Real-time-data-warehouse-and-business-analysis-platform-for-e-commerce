@@ -83,7 +83,8 @@ git push origin main
 - 远程仓库 URL：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce>
 - 首次公开提交：`9617a0ca46e8f72ae11bb35bf05bcab1a34bee84`
 - 首次推送日期：2026 年 10 月 4 日
-- 首次成功 CI 运行 URL 和提交 SHA；
+- 首次四层成功 CI：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37186145537>
+- 首次四层成功提交：`4fd0660c25ba840cb4f3471be8d28a37f437dbba`
 - 真实端到端验收机器环境、日期、报告路径与提交 SHA；
 - 发布版本标签；
 - README 中根据新证据更新了哪些边界。

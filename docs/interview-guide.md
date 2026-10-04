@@ -44,14 +44,14 @@ Python 固定事件
 
 ### 4. 工程化证据
 
-- Python/API/数据质量/对账/离线数仓、JavaScript、Java/Flink 分层测试，共 127 项。
+- Python/API/数据质量/对账/离线数仓、JavaScript、Java/Flink 分层测试，共 129 项。
 - GitHub Actions 配置 Python、Flink、Kafka、ClickHouse 四层验证。
 - 固定版本依赖、最小权限、超时、失败清理和可重复样例。
 - 里程碑提交保留从事件契约到端到端验收脚本的演进。
 
 ### 5. 主动说明边界
 
-> 当前本机没有 Docker 和本地 Flink 集群，所以 Kafka → Flink → ClickHouse 真实验收及远程 CI 还没有运行。我已经准备了隔离 Topic、独立数据库、Watermark 推进、逐键对账和定向清理脚本，但在生成真实报告前，不把它写成已完成的运行成果。
+> 当前 GitHub Actions 已通过 Python、Java/Flink、Kafka 生产消费和 ClickHouse 替换语义四层验证；但本机没有 Docker 和本地 Flink 集群，所以 Kafka → Flink → ClickHouse 真实组合验收仍未运行。我已经准备了隔离 Topic、独立数据库、Watermark 推进、逐键对账和定向清理脚本，但在生成真实报告前，不把整链路写成已完成成果。
 
 主动说明边界不会削弱项目，反而能证明能够区分代码实现、自动化测试和真实环境证据。
 
@@ -197,7 +197,7 @@ Python 基准和 ClickHouse 最终结果按相同业务键比较。报告区分�
 
 ### 22. 测试分哪几层
 
-Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStream 测试覆盖解析、Watermark、去重、窗口和侧流；JavaScript 测试覆盖金额、查询参数、状态文案和质量计算；Kafka 与 ClickHouse 冒烟脚本验证真实容器行为。远程 CI 尚未运行，因此只能说工作流已配置、本地可运行部分已通过。
+Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStream 测试覆盖解析、Watermark、去重、窗口和侧流；JavaScript 测试覆盖金额、查询参数、状态文案和质量计算；Kafka 与 ClickHouse 冒烟脚本验证真实容器行为。远程 CI 四层均已通过，但它仍不包含本地 Flink 集群中的整链路作业提交与批流对账。
 
 ### 23. 项目中真实发现过什么问题
 

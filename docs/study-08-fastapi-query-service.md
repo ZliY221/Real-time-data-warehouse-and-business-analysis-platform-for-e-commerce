@@ -78,7 +78,7 @@ python -m pip install -e ".[api,test]"
 - 仓库测试注入假的 HTTP opener，验证请求方法、超时、Basic Authentication、JSONEachRow 解析和命名参数绑定。
 - 聚合接口测试验证自动时间粒度、最大点数限制和结构化字段白名单，避免看板查询产生无界结果或结构注入。
 - CI 在 Python 3.11 下安装锁定依赖，并将所有 warning 当作错误，防止依赖升级警告长期积累。
-- 真实 ClickHouse 联调必须等待 Docker 或远程 CI；单元测试通过不能替代端到端证据。
+- GitHub Actions 已验证 ClickHouse 表结构和替换语义，但 FastAPI 到真实 ClickHouse 的联调仍待具备 Docker 的环境执行；单元测试和数据库冒烟测试都不能替代该组合链路证据。
 
 ## 面试高频追问
 

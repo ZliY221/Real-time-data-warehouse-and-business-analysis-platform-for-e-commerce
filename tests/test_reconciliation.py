@@ -163,9 +163,11 @@ class ReconciliationTests(unittest.TestCase):
             "gmv": "10.00",
         }
         row = json.dumps(valid, ensure_ascii=False)
-        self.assertEqual(len(load_metric_rows([row])), 1)
+        self.assertEqual(load_metric_rows([row])[0].gmv, Decimal("10.00"))
         numeric_decimal_row = row.replace('"gmv": "10.00"', '"gmv": 10.00')
-        self.assertEqual(len(load_metric_rows([numeric_decimal_row])), 1)
+        self.assertEqual(load_metric_rows([numeric_decimal_row])[0].gmv, Decimal("10.00"))
+        compact_decimal_row = row.replace('"gmv": "10.00"', '"gmv": 10')
+        self.assertEqual(load_metric_rows([compact_decimal_row])[0].gmv, Decimal("10.00"))
 
         with self.assertRaisesRegex(ReconciliationInputError, "duplicates"):
             load_metric_rows([row, row])
@@ -173,7 +175,7 @@ class ReconciliationTests(unittest.TestCase):
             ("window_start", "2026-10-02T10:00:00", "timezone"),
             ("window_start", "2026-10-02T10:00:30Z", "minute-aligned"),
             ("window_end", "2026-10-02T10:02:00Z", "one minute"),
-            ("gmv", "10.0", "two decimals"),
+            ("gmv", "10.001", "at most two decimals"),
             ("order_count", True, "non-negative integer"),
         ):
             with self.subTest(field=field):

@@ -66,11 +66,16 @@ def _parse_money(value: Any, line_number: int) -> Decimal:
         raise ReconciliationInputError(
             f"actual metrics line {line_number} gmv must be a decimal value"
         ) from error
-    if not amount.is_finite() or amount < 0 or amount.as_tuple().exponent != -2:
+    if not amount.is_finite() or amount < 0 or amount.as_tuple().exponent < -2:
         raise ReconciliationInputError(
-            f"actual metrics line {line_number} gmv must be non-negative with two decimals"
+            f"actual metrics line {line_number} gmv must be non-negative with at most two decimals"
         )
-    return amount
+    try:
+        return amount.quantize(Decimal("0.01"))
+    except InvalidOperation as error:
+        raise ReconciliationInputError(
+            f"actual metrics line {line_number} gmv is outside the supported decimal range"
+        ) from error
 
 
 def build_batch_baseline(

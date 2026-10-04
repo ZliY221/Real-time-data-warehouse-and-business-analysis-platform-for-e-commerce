@@ -31,6 +31,12 @@ if (-not [DateTimeOffset]::TryParse($Start, [ref]$parsedStart) `
 if (($parsedEnd - $parsedStart).TotalDays -gt 7) {
     throw "The reconciliation export range must not exceed 7 days."
 }
+$clickHouseStart = $parsedStart.UtcDateTime.ToString(
+    "yyyy-MM-dd HH:mm:ss.fff",
+    [Globalization.CultureInfo]::InvariantCulture)
+$clickHouseEnd = $parsedEnd.UtcDateTime.ToString(
+    "yyyy-MM-dd HH:mm:ss.fff",
+    [Globalization.CultureInfo]::InvariantCulture)
 
 $metricsQuery = @"
 SELECT
@@ -66,14 +72,18 @@ try {
         Out-Null
 
     $metrics = docker compose exec -T clickhouse clickhouse-client `
-        "--param_start=$Start" "--param_end=$End" --query $metricsQuery
+        "--param_start=$clickHouseStart" `
+        "--param_end=$clickHouseEnd" `
+        --query $metricsQuery
     if ($LASTEXITCODE -ne 0) {
         throw "ClickHouse minute metrics could not be exported."
     }
     [System.IO.File]::WriteAllLines($metricsPath, [string[]]@($metrics))
 
     $lateEvents = docker compose exec -T clickhouse clickhouse-client `
-        "--param_start=$Start" "--param_end=$End" --query $lateEventsQuery
+        "--param_start=$clickHouseStart" `
+        "--param_end=$clickHouseEnd" `
+        --query $lateEventsQuery
     if ($LASTEXITCODE -ne 0) {
         throw "ClickHouse late events could not be exported."
     }

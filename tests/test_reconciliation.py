@@ -164,6 +164,8 @@ class ReconciliationTests(unittest.TestCase):
         }
         row = json.dumps(valid, ensure_ascii=False)
         self.assertEqual(len(load_metric_rows([row])), 1)
+        numeric_decimal_row = row.replace('"gmv": "10.00"', '"gmv": 10.00')
+        self.assertEqual(len(load_metric_rows([numeric_decimal_row])), 1)
 
         with self.assertRaisesRegex(ReconciliationInputError, "duplicates"):
             load_metric_rows([row, row])

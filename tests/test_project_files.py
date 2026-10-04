@@ -138,6 +138,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('[string]$Database = "ecommerce"', export_script)
         self.assertIn("FROM $Database.minute_metrics_latest AS m", export_script)
         self.assertIn("WHERE m.window_start >=", export_script)
+        self.assertIn("m.gmv AS gmv", export_script)
         self.assertIn("TotalDays -gt 7", export_script)
         self.assertIn('"reconciliation.cli", "compare"', reconcile_script)
         self.assertIn("python -m reconciliation.cli baseline", workflow)

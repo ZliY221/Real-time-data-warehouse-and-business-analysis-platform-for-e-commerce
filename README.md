@@ -145,6 +145,7 @@ python -m unittest discover -s tests -v
 - [学习单元 15 真实链路验收与 Watermark 推进](docs/study-15-end-to-end-acceptance.md)
 - [学习单元 16 离线维度数仓与增量 ETL](docs/study-16-offline-dimensional-warehouse.md)
 - [项目面试讲解与证据指南](docs/interview-guide.md)
+- [远程仓库发布与验收清单](docs/publishing-checklist.md)
 
 ## 自动化验证
 

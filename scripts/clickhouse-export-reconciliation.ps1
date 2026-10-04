@@ -40,15 +40,15 @@ $clickHouseEnd = $parsedEnd.UtcDateTime.ToString(
 
 $metricsQuery = @"
 SELECT
-    formatDateTime(window_start, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS window_start,
-    formatDateTime(window_end, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS window_end,
-    region,
-    channel,
-    order_count,
-    toString(gmv) AS gmv
-FROM $Database.minute_metrics_latest
-WHERE window_start >= {start:DateTime64(3, 'UTC')}
-  AND window_start < {end:DateTime64(3, 'UTC')}
+    formatDateTime(m.window_start, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS window_start,
+    formatDateTime(m.window_end, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS window_end,
+    m.region,
+    m.channel,
+    m.order_count,
+    toString(m.gmv) AS gmv
+FROM $Database.minute_metrics_latest AS m
+WHERE m.window_start >= {start:DateTime64(3, 'UTC')}
+  AND m.window_start < {end:DateTime64(3, 'UTC')}
 ORDER BY window_start, region, channel
 FORMAT JSONEachRow
 "@

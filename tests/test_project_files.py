@@ -364,7 +364,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertNotIn("@main", workflow)
         self.assertNotIn("@master", workflow)
 
-    def test_ci_runs_all_four_verification_layers(self) -> None:
+    def test_ci_runs_unit_smoke_and_end_to_end_verification_layers(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
         )
@@ -372,7 +372,13 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("flink-tests:", workflow)
         self.assertIn("kafka-smoke-test:", workflow)
         self.assertIn("clickhouse-smoke-test:", workflow)
+        self.assertIn("e2e-acceptance:", workflow)
         self.assertIn("needs: [python-tests, flink-tests]", workflow)
+        self.assertIn("flink-${FLINK_VERSION}-bin-scala_2.12.tgz", workflow)
+        self.assertIn("sha512sum --check", workflow)
+        self.assertIn('"${FLINK_HOME}/bin/start-cluster.sh"', workflow)
+        self.assertIn("./scripts/e2e-acceptance.ps1 -SkipBuild", workflow)
+        self.assertIn('"${FLINK_HOME}/bin/stop-cluster.sh"', workflow)
         self.assertIn("if: ${{ always() }}", workflow)
 
     def test_flink_kafka_source_dependency_and_entrypoint_are_pinned(self) -> None:

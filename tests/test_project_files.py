@@ -80,6 +80,12 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("docker compose exec -T kafka", kafka_up)
         self.assertNotIn("docker compose --profile tools run --rm kafka-init", kafka_up)
 
+    def test_kafka_producers_use_the_supported_kafka_39_cli_option(self) -> None:
+        for name in ("kafka-produce-sample.ps1", "kafka-smoke-test.ps1"):
+            script = (self.root / "scripts" / name).read_text(encoding="utf-8")
+            self.assertIn("--producer-property acks=all", script)
+            self.assertNotIn("--command-property", script)
+
     def test_required_clickhouse_scripts_exist(self) -> None:
         names = {
             "clickhouse-export-reconciliation.ps1",
@@ -351,8 +357,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
         )
         self.assertIn("contents: read", workflow)
         self.assertIn("actions/checkout@v6", workflow)
-        self.assertIn("actions/setup-python@v5", workflow)
-        self.assertIn("actions/setup-java@v4", workflow)
+        self.assertIn("actions/setup-python@v6", workflow)
+        self.assertIn("actions/setup-java@v5", workflow)
         self.assertIn('pip install --disable-pip-version-check -e ".[api,test]"', workflow)
         self.assertIn("python -W error -m unittest", workflow)
         self.assertNotIn("@main", workflow)

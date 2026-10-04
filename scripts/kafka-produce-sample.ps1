@@ -31,7 +31,7 @@ try {
         /opt/kafka/bin/kafka-console-producer.sh `
         --bootstrap-server kafka:29092 `
         --topic $Topic `
-        --command-property acks=all
+        --producer-property acks=all
     if ($LASTEXITCODE -ne 0) {
         throw "Kafka producer failed."
     }

@@ -14,6 +14,7 @@
 
 ```powershell
 git status --short
+python scripts/audit-publication.py
 ./scripts/test-all.ps1
 git log --oneline -20
 ```
@@ -21,10 +22,15 @@ git log --oneline -20
 必须确认：
 
 - 工作树无未提交修改；
+- 发布审计不存在高置信密钥或超过 20 MiB 的跟踪文件；`PASS_WITH_REVIEW` 项逐条确认是合成测试内容；
 - 当前基线为 91 项 Python/API/质量/对账/离线数仓测试、8 项 JavaScript 测试、28 项 Java/Flink 测试，共 127 项；
 - 5 万条离线数仓基准的原始多轮结果与 README 数字一致；
 - 仓库中没有 `.env`、访问令牌、个人简历、证书原图、学籍验证码或真实订单数据；
 - README 继续明确真实 Kafka/Flink/ClickHouse 链路尚未在本机验收。
+
+## 当前审计结果
+
+2026 年 10 月 4 日已实际运行发布审计：没有高置信密钥、私钥、本机用户路径或超过 5 MiB 的 Git 跟踪文件。唯一人工复核项是 `ClickHouseRejectedEventStatementTest.java` 中的合成邮箱字符串，它用于验证拒绝载荷不会被持久化，不是真实联系方式。
 
 ## 需要本人决定
 

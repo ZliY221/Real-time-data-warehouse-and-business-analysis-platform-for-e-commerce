@@ -254,7 +254,7 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 | 实现至少一次 JDBC Sink 与版本替换 | Sink、DDL、Statement 测试 | 端到端 exactly-once |
 | 实现 FastAPI 与响应式 ECharts 看板 | API/前端源码、浏览器验收、测试 | 真实看板已连接完整链路 |
 | 实现六类质量门禁与历史趋势 | 配置、正常/失败样例、SQLite、API | 生产级实时质量平台 |
-| 在单节点 CI 完成独立批流对账和隔离验收 | Python 引擎、脚本、运行 `37188134524` | 生产级、长期运行、性能 SLA |
+| 在单节点 CI 完成独立批流对账和隔离验收 | Python 引擎、脚本、运行 `37189195478` 及脱敏 Artifact | 生产级、长期运行、性能 SLA |
 | 实现五层离线维度数仓与增量 ETL | DuckDB 模型、装载脚本、聚合报告、事务测试 | Hive/Spark 生产数仓经验 |
 | 配置五个 Job 的 GitHub Actions | `.github/workflows/ci.yml`、成功运行记录 | 团队级发布流水线经验 |
 

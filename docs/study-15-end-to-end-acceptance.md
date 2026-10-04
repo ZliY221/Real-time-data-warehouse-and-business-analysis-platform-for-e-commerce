@@ -128,5 +128,6 @@ Kafka Source 是无界流，不会因为“当前暂时没有更多消息”自�
 
 - Watermark 时间关系、脚本语法、隔离资源约束和对账逻辑已有本地自动化测试。
 - 当前开发机没有 Docker CLI 和本地 Flink 集群，但远程 CI 已真实启动 Kafka、ClickHouse 与 Flink 1.20.1 并运行验收脚本。
-- 成功证据为运行 [37188134524](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37188134524)：JobID `7eaef8f77086847befded3990b9e1df1`，20 条业务事件、3 条推进事件、10 个指标键全部匹配。
+- 首次完整链路成功证据为运行 [37188134524](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37188134524)：JobID `7eaef8f77086847befded3990b9e1df1`，20 条业务事件、3 条推进事件、10 个指标键全部匹配。
+- 运行 [37189195478](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37189195478) 进一步上传了保留 90 天的脱敏 Artifact；下载审计确认只有 5 个聚合与报告文件、无原始事件文件，SHA-256 为 `b58e134b7ddf5ca32e79632103f73fc8b37b4675708f693e14d713b32aa5901a`。
 - 该证据只覆盖单节点受控批次，不证明生产高可用、端到端 exactly-once、长期状态 TTL 边界或性能 SLA。

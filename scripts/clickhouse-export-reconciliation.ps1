@@ -45,7 +45,7 @@ SELECT
     m.region,
     m.channel,
     m.order_count,
-    toString(m.gmv) AS gmv
+    m.gmv AS gmv
 FROM $Database.minute_metrics_latest AS m
 WHERE m.window_start >= {start:DateTime64(3, 'UTC')}
   AND m.window_start < {end:DateTime64(3, 'UTC')}

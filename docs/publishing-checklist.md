@@ -59,7 +59,7 @@ git push origin main
 
 ## 真实链路验收条件
 
-运行 `scripts/run-e2e-acceptance.ps1` 前需要：
+运行 `scripts/e2e-acceptance.ps1` 前需要：
 
 - Docker 与 Compose 可用；
 - 本地 Flink 1.20.1 集群正在运行；

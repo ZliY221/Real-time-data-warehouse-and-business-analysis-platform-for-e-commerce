@@ -363,6 +363,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("actions/checkout@v6", workflow)
         self.assertIn("actions/setup-python@v6", workflow)
         self.assertIn("actions/setup-java@v5", workflow)
+        self.assertIn("actions/upload-artifact@v7", workflow)
         self.assertIn('pip install --disable-pip-version-check -e ".[api,test]"', workflow)
         self.assertIn("python -W error -m unittest", workflow)
         self.assertNotIn("@main", workflow)
@@ -382,6 +383,16 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("sha512sum --check", workflow)
         self.assertIn('"${FLINK_HOME}/bin/start-cluster.sh"', workflow)
         self.assertIn("./scripts/e2e-acceptance.ps1 -SkipBuild", workflow)
+        self.assertIn("Upload sanitized end-to-end evidence", workflow)
+        self.assertIn("if-no-files-found: error", workflow)
+        self.assertIn("retention-days: 90", workflow)
+        self.assertIn("artifact-digest", workflow)
+        artifact_section = workflow.split("Upload sanitized end-to-end evidence", 1)[1].split(
+            "Publish the evidence artifact link", 1
+        )[0]
+        self.assertNotIn("business_events.ndjson", artifact_section)
+        self.assertNotIn("watermark_events.ndjson", artifact_section)
+        self.assertNotIn("late_events.ndjson", artifact_section)
         self.assertIn('"${FLINK_HOME}/bin/stop-cluster.sh"', workflow)
         self.assertIn("if: ${{ always() }}", workflow)
 

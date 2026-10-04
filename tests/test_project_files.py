@@ -73,6 +73,13 @@ class KafkaProjectFilesTests(unittest.TestCase):
         actual_names = {path.name for path in (self.root / "scripts").glob("*.ps1")}
         self.assertTrue(names.issubset(actual_names))
 
+    def test_kafka_up_creates_topic_in_the_healthy_broker_container(self) -> None:
+        kafka_up = (self.root / "scripts" / "kafka-up.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("docker compose exec -T kafka", kafka_up)
+        self.assertNotIn("docker compose --profile tools run --rm kafka-init", kafka_up)
+
     def test_required_clickhouse_scripts_exist(self) -> None:
         names = {
             "clickhouse-export-reconciliation.ps1",

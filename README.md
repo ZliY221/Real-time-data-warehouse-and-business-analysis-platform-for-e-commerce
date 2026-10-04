@@ -1,5 +1,7 @@
 # 电商实时数据仓库与经营分析平台
 
+[![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
+
 这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
 当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、批流指标对账、DuckDB 离线维度数仓、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
@@ -155,7 +157,7 @@ python -m unittest discover -s tests -v
 ./scripts/test-all.ps1
 ```
 
-GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Python 与 Flink 测试，两者通过后再分别执行 Kafka 生产消费和 ClickHouse 版本替换冒烟测试。工作流尚未在远程仓库运行，因此当前只证明配置已创建并通过本地静态检查，不能宣称远程 CI 已通过。
+GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Python 与 Flink 测试，两者通过后再分别执行 Kafka 生产消费和 ClickHouse 版本替换冒烟测试。远程状态以 README 顶部徽章和 Actions 运行记录为准；只有目标提交的四层验证全部成功时，才对外表述“远程 CI 已通过”。
 
 ## Flink 核心测试
 
@@ -167,7 +169,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
 
-当前验证基线：91 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 127 项。
+当前验证基线：92 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 128 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 

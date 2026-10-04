@@ -1,14 +1,15 @@
 # 远程仓库发布与验收清单
 
-当前本地仓库包含完整源码、127 项本地测试、离线数仓基准和真实链路验收脚本，但尚未配置远程地址，本机也没有 Docker CLI 与运行中的 Flink 集群。发布时必须把“已实现”“本地已验证”“仍待真实环境运行”分开表达。
+当前仓库已于 2026 年 10 月 4 日公开发布到 GitHub，包含完整源码、自动化测试、离线数仓基准和真实链路验收脚本。本机仍没有 Docker CLI 与运行中的 Flink 集群，因此必须继续把“已实现”“本地已验证”“远程 CI 已验证”和“仍待真实环境运行”分开表达。
 
 ## 推荐仓库信息
 
-- 仓库名：`ecommerce-realtime-warehouse`
+- 远程仓库：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce>
+- 仓库名：`Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce`
 - 简介：`Event-time ecommerce data platform with Flink, ClickHouse, reconciliation, data quality and a DuckDB dimensional warehouse.`
 - 建议 Topics：`apache-flink`、`kafka`、`clickhouse`、`data-engineering`、`data-quality`、`duckdb`、`fastapi`、`echarts`
 - 默认分支：`main`
-- 可见性：求职作品集使用 Public；发布前再次检查隐私与许可证。
+- 可见性：Public
 
 ## 发布前本地验收
 
@@ -23,7 +24,7 @@ git log --oneline -20
 
 - 工作树无未提交修改；
 - 发布审计不存在高置信密钥或超过 20 MiB 的跟踪文件；`PASS_WITH_REVIEW` 项逐条确认是合成测试内容；
-- 当前基线为 91 项 Python/API/质量/对账/离线数仓测试、8 项 JavaScript 测试、28 项 Java/Flink 测试，共 127 项；
+- 当前基线为 92 项 Python/API/质量/对账/离线数仓测试、8 项 JavaScript 测试、28 项 Java/Flink 测试，共 128 项；
 - 5 万条离线数仓基准的原始多轮结果与 README 数字一致；
 - 仓库中没有 `.env`、访问令牌、个人简历、证书原图、学籍验证码或真实订单数据；
 - README 继续明确真实 Kafka/Flink/ClickHouse 链路尚未在本机验收。
@@ -32,23 +33,23 @@ git log --oneline -20
 
 2026 年 10 月 4 日已实际运行发布审计：没有高置信密钥、私钥、本机用户路径或超过 5 MiB 的 Git 跟踪文件。唯一人工复核项是 `ClickHouseRejectedEventStatementTest.java` 中的合成邮箱字符串，它用于验证拒绝载荷不会被持久化，不是真实联系方式。
 
-## 需要本人决定
+## 仍需本人决定
 
-- GitHub 或 Gitee 账号与仓库可见性；
 - 开源许可证。没有本人选择前不自动添加；
 - 是否在具备 Docker 与 Flink 1.20.1 的另一台机器完成首次真实链路验收；
 - 是否录制看板与端到端流程演示视频。
 
-## 创建远程后
+## 后续推送与远程验证
 
-将占位符替换成本人创建的真实地址：
+`origin` 已指向上述 GitHub 仓库，后续提交使用：
 
 ```powershell
-git remote add origin <REMOTE_REPOSITORY_URL>
-git push -u origin main
+git remote -v
+git status --short
+git push origin main
 ```
 
-不要直接执行占位命令。推送后依次确认：
+推送后依次确认：
 
 1. Python、Flink、Kafka 和 ClickHouse 四个 CI Job 的实际状态；
 2. CI 失败时保留运行 URL、日志结论和修复提交，不只重复运行；
@@ -69,7 +70,7 @@ git push -u origin main
 
 ## 可公开截图
 
-- 127 项本地测试最终摘要；
+- 128 项本地测试最终摘要；
 - DuckDB 5 万条多轮基准报告；
 - 数据质量失败样例与趋势看板；
 - 批流对账报告格式；
@@ -79,7 +80,9 @@ git push -u origin main
 
 ## 发布后证据记录
 
-- 远程仓库 URL；
+- 远程仓库 URL：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce>
+- 首次公开提交：`9617a0ca46e8f72ae11bb35bf05bcab1a34bee84`
+- 首次推送日期：2026 年 10 月 4 日
 - 首次成功 CI 运行 URL 和提交 SHA；
 - 真实端到端验收机器环境、日期、报告路径与提交 SHA；
 - 发布版本标签；

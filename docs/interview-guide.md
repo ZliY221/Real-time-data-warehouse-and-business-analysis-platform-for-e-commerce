@@ -45,13 +45,13 @@ Python 固定事件
 ### 4. 工程化证据
 
 - Python/API/数据质量/对账/离线数仓、JavaScript、Java/Flink 分层测试，共 129 项。
-- GitHub Actions 配置 Python、Flink、Kafka、ClickHouse 四层验证。
+- GitHub Actions 配置 Python、Flink、Kafka、ClickHouse 冒烟与完整链路五个 Job。
 - 固定版本依赖、最小权限、超时、失败清理和可重复样例。
 - 里程碑提交保留从事件契约到端到端验收脚本的演进。
 
 ### 5. 主动说明边界
 
-> 当前 GitHub Actions 已通过 Python、Java/Flink、Kafka 生产消费和 ClickHouse 替换语义四层验证；但本机没有 Docker 和本地 Flink 集群，所以 Kafka → Flink → ClickHouse 真实组合验收仍未运行。我已经准备了隔离 Topic、独立数据库、Watermark 推进、逐键对账和定向清理脚本，但在生成真实报告前，不把整链路写成已完成成果。
+> 当前 GitHub Actions 已通过 Python、Java/Flink、Kafka 生产消费、ClickHouse 替换语义和完整链路五个 Job。隔离验收真实提交了 Flink 作业，发送 20 条业务事件和 3 条 Watermark 推进事件，最终 10 个指标键全部匹配；但这是单节点受控批次，不能扩大成生产高可用、端到端 exactly-once 或性能 SLA。
 
 主动说明边界不会削弱项目，反而能证明能够区分代码实现、自动化测试和真实环境证据。
 
@@ -197,7 +197,7 @@ Python 基准和 ClickHouse 最终结果按相同业务键比较。报告区分�
 
 ### 22. 测试分哪几层
 
-Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStream 测试覆盖解析、Watermark、去重、窗口和侧流；JavaScript 测试覆盖金额、查询参数、状态文案和质量计算；Kafka 与 ClickHouse 冒烟脚本验证真实容器行为。远程 CI 四层均已通过，但它仍不包含本地 Flink 集群中的整链路作业提交与批流对账。
+Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStream 测试覆盖解析、Watermark、去重、窗口和侧流；JavaScript 测试覆盖金额、查询参数、状态文案和质量计算；Kafka 与 ClickHouse 冒烟脚本验证真实容器行为。远程 CI 还会下载校验 Flink 1.20.1、启动单节点集群、提交真实作业并执行 10 个指标键批流对账。
 
 ### 23. 项目中真实发现过什么问题
 
@@ -230,7 +230,7 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 - **Situation：** 计划用固定 20 条事件做端到端验收。
 - **Task：** 确保第一分钟指标能确定落库并与离线基准对账。
 - **Action：** 计算最后事件时间与 Watermark，发现无法越过窗口终点；设计单分区隔离 Topic，添加下一分钟推进事件、轮询、JobID 取消和定向清理，并补测试。
-- **Result：** 验收流程不再依赖盲目等待，能够明确区分窗口未触发与 Sink 故障；真实运行仍待 Docker/Flink 环境。
+- **Result：** 验收流程不再依赖盲目等待，能够明确区分窗口未触发与 Sink 故障；远程单节点真实运行得到 10 matched、0 mismatched。
 
 ### 故事二：质量历史文件在 Windows 被占用
 
@@ -254,9 +254,9 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 | 实现至少一次 JDBC Sink 与版本替换 | Sink、DDL、Statement 测试 | 端到端 exactly-once |
 | 实现 FastAPI 与响应式 ECharts 看板 | API/前端源码、浏览器验收、测试 | 真实看板已连接完整链路 |
 | 实现六类质量门禁与历史趋势 | 配置、正常/失败样例、SQLite、API | 生产级实时质量平台 |
-| 实现独立批流对账和隔离验收脚本 | Python 引擎、脚本、报告格式、测试 | 真实端到端验收已通过 |
+| 在单节点 CI 完成独立批流对账和隔离验收 | Python 引擎、脚本、运行 `37188134524` | 生产级、长期运行、性能 SLA |
 | 实现五层离线维度数仓与增量 ETL | DuckDB 模型、装载脚本、聚合报告、事务测试 | Hive/Spark 生产数仓经验 |
-| 配置四层 GitHub Actions | `.github/workflows/ci.yml` | 远程 CI 已通过 |
+| 配置五个 Job 的 GitHub Actions | `.github/workflows/ci.yml`、成功运行记录 | 团队级发布流水线经验 |
 
 ## 里程碑证据索引
 

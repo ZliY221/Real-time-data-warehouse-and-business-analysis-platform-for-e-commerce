@@ -51,7 +51,7 @@
 - JSON 解析只提取实时指标所需字段，商品明细的跨字段金额校验仍由上游 Python 契约校验器完成；后续可共享生成的 Schema 校验逻辑。
 - 质量侧流和迟到侧流已经通过至少一次 JDBC Sink 接入 ClickHouse，并用稳定键和 `ReplacingMergeTree(version)` 吸收重试或重放；这不是事务型 upsert。
 - 相同原始坏消息会映射为同一指纹，因此质量表统计的是“不同拒绝载荷签名”，不是包含重复消息在内的精确发生次数；若需要精确次数，应把 Kafka topic、partition、offset 保留到解析侧流。
-- Kafka Source 已接入作业图，但当前机器没有 Docker 和本地 Flink 集群，真实 broker 到 ClickHouse 的端到端运行仍待验收。
+- Kafka Source 已接入作业图；当前机器没有 Docker 和本地 Flink 集群，但真实 broker 到 ClickHouse 的单节点端到端运行已由远程 CI 验收。
 - `allowedLateness` 的最终数值需要根据模拟延迟分布实验确定。
 
 ## 面试自测

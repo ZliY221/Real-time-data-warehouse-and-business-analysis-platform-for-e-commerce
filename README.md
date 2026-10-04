@@ -16,16 +16,16 @@
 - [x] 提供 Kafka KRaft Compose 配置和生产、消费、冒烟测试脚本
 - [x] 实现可脱离 Kafka 测试的 Flink 事件时间、去重与一分钟窗口聚合核心
 - [x] 实现可配置的 Flink KafkaSource、消费位置策略和 checkpoint 作业入口
-- [ ] 在真实 Kafka broker 上完成 Flink 端到端运行验收
+- [x] 在 GitHub Actions 单节点隔离环境完成真实 Kafka broker 上的 Flink 端到端运行验收
 - [x] 使用 Flink 完成事件时间窗口聚合
 - [x] 处理重复事件、乱序事件和迟到事件，并输出质量与迟到侧流
 - [x] 将拒绝事件指纹与迟到事件写入 ClickHouse，并提供重放安全的异常汇总查询
 - [x] 实现独立的 Python 离线重算与逐键批流对账，区分缺失、额外、订单量和 GMV 差异
 - [x] 实现 DuckDB ODS/DIM/DWD/DWS/ADS 分层、增量幂等装载、事务回滚和窗口函数品类排名
 - [x] 提供隔离 Topic、数据库、Watermark 推进、轮询、对账和定向清理的一键端到端验收脚本
-- [x] 配置 Python/API、Java/Flink、Kafka 与 ClickHouse 四层持续集成工作流
+- [x] 配置 Python/API、Java/Flink、Kafka、ClickHouse 与完整链路五层持续集成工作流
 - [x] 实现 ClickHouse `ReplacingMergeTree` 指标表、最新版本视图和 Flink JDBC Sink
-- [ ] 在真实环境完成 Kafka、Flink、ClickHouse 端到端运行验收
+- [x] 在 GitHub Actions 完成 Kafka、Flink、ClickHouse 端到端运行和 10 个指标键批流对账
 - [x] 提供带参数校验、错误状态和 OpenAPI 文档的 FastAPI 查询接口
 - [x] 提供带筛选、KPI、趋势、地区渠道分析和明细表的 ECharts 经营看板
 - [x] 加入契约、完整性、唯一性、范围、及时性和分布漂移数据质量门禁
@@ -157,7 +157,7 @@ python -m unittest discover -s tests -v
 ./scripts/test-all.ps1
 ```
 
-GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Python 与 Flink 测试，两者通过后再分别执行 Kafka 生产消费和 ClickHouse 版本替换冒烟测试。远程状态以 README 顶部徽章和 Actions 运行记录为准；只有目标提交的四层验证全部成功时，才对外表述“远程 CI 已通过”。
+GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会先并行运行 Python 与 Flink 测试，再执行 Kafka 生产消费、ClickHouse 版本替换冒烟测试，以及隔离的 Kafka → Flink → ClickHouse → 批流对账验收。远程状态以 README 顶部徽章和 Actions 运行记录为准；只有目标提交的五个 Job 全部成功时，才对外表述“远程 CI 已通过”。
 
 ## Flink 核心测试
 
@@ -167,7 +167,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会并行运行 Pyth
 ./scripts/test-flink.ps1
 ```
 
-Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；真实中间件端到端运行仍待具备 Docker 与 Flink 集群的环境验收。
+Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；提交 `963be45` 已在 GitHub Actions 单节点隔离环境完成真实中间件端到端运行与批流对账。
 
 当前验证基线：93 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 129 项。
 
@@ -219,7 +219,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ./scripts/kafka-smoke-test.ps1 -Count 20
 ```
 
-当前开发机没有 Docker CLI，也没有正在运行的 Flink 集群。GitHub Actions 已实际完成 Kafka 容器生产/消费和 ClickHouse 容器替换语义冒烟测试，Flink KafkaSource 已完成构建与作业图测试；但 Kafka → Flink → ClickHouse 组合链路尚未通过真实端到端验收。完成整链路验收前，不在简历中宣称该链路已经完成。
+当前开发机没有 Docker CLI，也没有正在运行的 Flink 集群，因此不能在本机复现容器链路。GitHub Actions 已实际完成 Kafka 容器生产/消费、ClickHouse 替换语义，以及 Kafka → Flink → ClickHouse 组合链路与批流对账；这是单节点 CI 验收，不代表生产部署、长期稳定性或吞吐能力。
 
 ## ClickHouse 本地环境
 
@@ -238,7 +238,7 @@ ClickHouse 使用已锁定的官方镜像 `25.8.33.6`，端口只绑定到本机
 
 本地 Compose 使用 `CLICKHOUSE_SKIP_USER_SETUP=1`，仅适合单机演示环境，不可直接用于公网或生产部署。若外部 ClickHouse 启用了认证，只通过 `CLICKHOUSE_PASSWORD` 环境变量提供密码；脚本、命令行参数和仓库均不保存密码。
 
-普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，拒绝事件使用载荷 SHA-256 指纹，迟到事件使用 `event_id`；三类数据都以单调 `version` 进行替换，查询通过 `FINAL` 返回当前最新版本。拒绝事件表不保存原始载荷和解析器原因。ClickHouse 容器替换语义已在 GitHub Actions 通过，Flink JDBC 写入的组合链路仍需端到端验收。
+普通 JDBC Sink 具有批量与重试语义，不能据此宣称端到端 exactly-once。`minute_metrics` 使用 `(window_start, region, channel)` 作为稳定键，拒绝事件使用载荷 SHA-256 指纹，迟到事件使用 `event_id`；三类数据都以单调 `version` 进行替换，查询通过 `FINAL` 返回当前最新版本。拒绝事件表不保存原始载荷和解析器原因。ClickHouse 容器替换语义及 Flink JDBC 组合写入均已在 GitHub Actions 验收，但仍只属于单节点、受控批次证据。
 
 查询异常分钟汇总和最近的不同异常记录：
 
@@ -266,7 +266,7 @@ python -m reconciliation.cli baseline `
 ./scripts/reconcile-metrics.ps1
 ```
 
-对账使用 `(window_start, region, channel)` 作为键，对订单量和两位小数 GMV 进行精确比较；退出码 `0` 表示完全一致，`1` 表示存在业务差异，`2` 表示输入或运行错误。当前参考批次已稳定生成 10 个离线指标键，但本机没有 Docker/Flink 环境，因此尚未把它表述为真实批流一致性运行结果。
+对账使用 `(window_start, region, channel)` 作为键，对订单量和两位小数 GMV 进行精确比较；退出码 `0` 表示完全一致，`1` 表示存在业务差异，`2` 表示输入或运行错误。提交 `963be45` 的远程验收实际生成并匹配 10 个指标键，结果为 `10 matched, 0 mismatched`；本机仍因没有 Docker/Flink 环境而无法直接复现。
 
 ## 离线维度数仓
 
@@ -304,7 +304,7 @@ python -m pip install -e ".[warehouse]"
 ./scripts/e2e-acceptance.ps1
 ```
 
-脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前环境不具备 Docker，因此脚本已通过语法、静态约束和 Watermark 时间测试，但尚未实际运行。
+脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前开发机不具备 Docker，但 GitHub Actions 已下载并校验官方 Flink 1.20.1、启动单节点集群并真实运行脚本；成功运行记录为 [37188134524](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37188134524)。
 
 ## FastAPI 查询服务
 
@@ -362,5 +362,5 @@ ECharts 锁定为 6.1.0，通过带 SHA-384 完整性校验的 jsDelivr 地址�
 
 ## 简历表述原则
 
-在 Kafka、Flink、数据库、测试和压测尚未完成前，不把计划能力写入简历。每完成一个里程碑，再根据仓库中的可验证证据更新项目描述。
+简历可以写“在 GitHub Actions 单节点隔离环境完成 Kafka → Flink → ClickHouse 链路及 10 个指标键批流一致性验收”，并附运行链接。仍不能写生产级、端到端 exactly-once、真实业务 TPS/SLA、长期稳定运行或本机 Docker 部署经验。
 

@@ -14,6 +14,12 @@ $database = "ecommerce_acceptance_$runId"
 $businessStart = "2026-10-02T10:00:00Z"
 $businessEnd = "2026-10-02T10:01:00Z"
 $triggerStart = "2026-10-02T10:01:15Z"
+$clickHouseStart = [DateTimeOffset]::Parse($businessStart).UtcDateTime.ToString(
+    "yyyy-MM-dd HH:mm:ss.fff",
+    [Globalization.CultureInfo]::InvariantCulture)
+$clickHouseEnd = [DateTimeOffset]::Parse($businessEnd).UtcDateTime.ToString(
+    "yyyy-MM-dd HH:mm:ss.fff",
+    [Globalization.CultureInfo]::InvariantCulture)
 $runDirectory = Join-Path $repoRoot "build\e2e\$runId"
 $businessEvents = Join-Path $runDirectory "business_events.ndjson"
 $triggerEvents = Join-Path $runDirectory "watermark_events.ndjson"
@@ -141,8 +147,8 @@ WHERE window_start >= {start:DateTime64(3, 'UTC')}
     $observedMetricKeys = 0
     foreach ($attempt in 1..45) {
         $countOutput = docker compose exec -T clickhouse clickhouse-client `
-            "--param_start=$businessStart" `
-            "--param_end=$businessEnd" `
+            "--param_start=$clickHouseStart" `
+            "--param_end=$clickHouseEnd" `
             --query $countQuery
         $countText = ($countOutput | Out-String).Trim()
         if ($LASTEXITCODE -eq 0 -and $countText -match '^\d+$') {

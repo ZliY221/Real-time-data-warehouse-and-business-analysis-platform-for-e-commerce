@@ -166,33 +166,55 @@ class FlinkRestClient:
         return _metric_map(self.get_json(path, {"get": ",".join(names)}))
 
     def vertex_metrics(
-        self, path: str
+        self, paths: tuple[str, ...]
     ) -> tuple[dict[str, int | float | None], dict[str, Any]]:
-        available_ids = _metric_ids(self.get_json(path))
+        available_by_path = {
+            path: _metric_ids(self.get_json(path))
+            for path in paths
+        }
+        unique_available_ids = tuple(
+            sorted({identifier for identifiers in available_by_path.values() for identifier in identifiers})
+        )
         selected_ids = {
             name: tuple(
-                identifier
-                for identifier in available_ids
+                f"{path}#{identifier}"
+                for path, identifiers in available_by_path.items()
+                for identifier in identifiers
                 if identifier == name or identifier.endswith(f".{name}")
             )
             for name in VERTEX_METRICS
         }
-        requested_ids = tuple(
-            identifier
-            for name in VERTEX_METRICS
-            for identifier in selected_ids[name]
-        )
-        rows = self.get_json(path, {"get": ",".join(requested_ids)}) if requested_ids else []
+        rows = []
+        for path in paths:
+            path_ids = tuple(
+                identifier
+                for identifier in available_by_path[path]
+                if any(
+                    identifier == name or identifier.endswith(f".{name}")
+                    for name in VERTEX_METRICS
+                )
+            )
+            if path_ids:
+                path_rows = self.get_json(path, {"get": ",".join(path_ids)})
+                if not isinstance(path_rows, list):
+                    raise FlinkRestError("Flink metric response must be a list")
+                rows.extend(
+                    {**row, "id": f"{path}#{row.get('id')}"}
+                    if isinstance(row, dict)
+                    else row
+                    for row in path_rows
+                )
         return (
             _aggregate_vertex_metrics(rows, selected_ids),
             {
-                "available_count": len(available_ids),
+                "available_count": sum(len(ids) for ids in available_by_path.values()),
+                "queried_subtasks": len(paths),
                 "selected_series": {
                     name: len(selected_ids[name]) for name in VERTEX_METRICS
                 },
                 "relevant_candidates": [
                     identifier
-                    for identifier in available_ids
+                    for identifier in unique_available_ids
                     if any(
                         token in identifier.lower()
                         for token in ("record", "busy", "idle", "backpress")
@@ -274,8 +296,14 @@ def collect_runtime_snapshot(
         if not isinstance(raw_vertex, dict) or not isinstance(raw_vertex.get("id"), str):
             raise FlinkRestError("Flink job response contains an invalid vertex")
         vertex_id = raw_vertex["id"]
+        parallelism = raw_vertex.get("parallelism")
+        if not isinstance(parallelism, int) or parallelism < 1:
+            raise FlinkRestError("Flink vertex response contains invalid parallelism")
         metrics, metric_discovery = client.vertex_metrics(
-            f"/jobs/{job_id}/vertices/{vertex_id}/metrics"
+            tuple(
+                f"/jobs/{job_id}/vertices/{vertex_id}/subtasks/{subtask}/metrics"
+                for subtask in range(parallelism)
+            )
         )
         backpressure = _backpressure_summary(
             client.get_json(f"/jobs/{job_id}/vertices/{vertex_id}/backpressure")
@@ -292,7 +320,7 @@ def collect_runtime_snapshot(
                 "id": vertex_id,
                 "name": raw_vertex.get("name"),
                 "status": raw_vertex.get("status"),
-                "parallelism": raw_vertex.get("parallelism"),
+                "parallelism": parallelism,
                 "metrics": {name: metrics.get(name) for name in VERTEX_METRICS},
                 "metric_discovery": metric_discovery,
                 "backpressure": backpressure,

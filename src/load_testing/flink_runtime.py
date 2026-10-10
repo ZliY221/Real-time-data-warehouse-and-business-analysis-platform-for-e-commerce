@@ -165,7 +165,9 @@ class FlinkRestClient:
     def metrics(self, path: str, names: tuple[str, ...]) -> dict[str, int | float | None]:
         return _metric_map(self.get_json(path, {"get": ",".join(names)}))
 
-    def vertex_metrics(self, path: str) -> tuple[dict[str, int | float | None], dict[str, int]]:
+    def vertex_metrics(
+        self, path: str
+    ) -> tuple[dict[str, int | float | None], dict[str, Any]]:
         available_ids = _metric_ids(self.get_json(path))
         selected_ids = {
             name: tuple(
@@ -183,7 +185,20 @@ class FlinkRestClient:
         rows = self.get_json(path, {"get": ",".join(requested_ids)}) if requested_ids else []
         return (
             _aggregate_vertex_metrics(rows, selected_ids),
-            {name: len(selected_ids[name]) for name in VERTEX_METRICS},
+            {
+                "available_count": len(available_ids),
+                "selected_series": {
+                    name: len(selected_ids[name]) for name in VERTEX_METRICS
+                },
+                "relevant_candidates": [
+                    identifier
+                    for identifier in available_ids
+                    if any(
+                        token in identifier.lower()
+                        for token in ("record", "busy", "idle", "backpress")
+                    )
+                ][:50],
+            },
         )
 
 
@@ -259,7 +274,7 @@ def collect_runtime_snapshot(
         if not isinstance(raw_vertex, dict) or not isinstance(raw_vertex.get("id"), str):
             raise FlinkRestError("Flink job response contains an invalid vertex")
         vertex_id = raw_vertex["id"]
-        metrics, metric_series = client.vertex_metrics(
+        metrics, metric_discovery = client.vertex_metrics(
             f"/jobs/{job_id}/vertices/{vertex_id}/metrics"
         )
         backpressure = _backpressure_summary(
@@ -279,7 +294,7 @@ def collect_runtime_snapshot(
                 "status": raw_vertex.get("status"),
                 "parallelism": raw_vertex.get("parallelism"),
                 "metrics": {name: metrics.get(name) for name in VERTEX_METRICS},
-                "metric_series": metric_series,
+                "metric_discovery": metric_discovery,
                 "backpressure": backpressure,
             }
         )

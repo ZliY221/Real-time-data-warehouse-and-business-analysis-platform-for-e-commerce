@@ -31,7 +31,8 @@
 - [x] 加入契约、完整性、唯一性、范围、及时性和分布漂移数据质量门禁
 - [x] 使用 SQLite 保存质量运行与规则明细，并支持幂等写入、历史筛选和单规则趋势导出
 - [x] 通过 FastAPI 与 ECharts 展示质量运行、异常计数和规则阈值趋势，并支持存储独立降级
-- [ ] 加入运行监控与压力测试
+- [x] 提供确定性负载数据集、参数/哈希清单和脱敏 Flink REST 运行快照
+- [ ] 完成分档、限速的 Kafka → Flink → ClickHouse 压力测试并保存原始结果
 
 ## 业务问题
 
@@ -146,6 +147,7 @@ python -m unittest discover -s tests -v
 - [学习单元 14 批流指标一致性核对](docs/study-14-batch-stream-reconciliation.md)
 - [学习单元 15 真实链路验收与 Watermark 推进](docs/study-15-end-to-end-acceptance.md)
 - [学习单元 16 离线维度数仓与增量 ETL](docs/study-16-offline-dimensional-warehouse.md)
+- [学习单元 17 可复现负载输入与 Flink 运行快照](docs/study-17-flink-runtime-observability.md)
 - [项目面试讲解与证据指南](docs/interview-guide.md)
 - [远程仓库发布与验收清单](docs/publishing-checklist.md)
 
@@ -157,7 +159,7 @@ python -m unittest discover -s tests -v
 ./scripts/test-all.ps1
 ```
 
-GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会先并行运行 Python 与 Flink 测试，再执行 Kafka 生产消费、ClickHouse 版本替换冒烟测试，以及隔离的 Kafka → Flink → ClickHouse → 批流对账验收。远程状态以 README 顶部徽章和 Actions 运行记录为准；只有目标提交的五个 Job 全部成功时，才对外表述“远程 CI 已通过”。
+GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会先并行运行 Python 与 Flink 测试，再执行 Kafka 生产消费、ClickHouse 版本替换冒烟测试，以及隔离的 Kafka → Flink → ClickHouse → 批流对账验收；完整链路验收还会通过只读 REST 接口保存 Flink 任务、Vertex、反压和 Checkpoint 摘要。远程状态以 README 顶部徽章和 Actions 运行记录为准；只有目标提交的五个 Job 全部成功时，才对外表述“远程 CI 已通过”。
 
 ## Flink 核心测试
 
@@ -169,7 +171,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会先并行运行 P
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；提交 `963be45` 已在 GitHub Actions 单节点隔离环境完成真实中间件端到端运行与批流对账。
 
-当前验证基线：93 项 Python/API/数据质量/批流对账/离线数仓测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 129 项。
+当前验证基线：101 项 Python/API/数据质量/批流对账/离线数仓/运行证据测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 137 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 

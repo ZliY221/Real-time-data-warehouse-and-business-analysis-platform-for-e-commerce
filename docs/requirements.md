@@ -77,6 +77,8 @@
 
 当前性能证据：离线数仓已提供多轮独立冷数据库基准，记录 Python/DuckDB/操作系统/架构/逻辑 CPU、输入哈希、逐轮耗时、数据库大小、行数和精确 GMV 校验。5 万条合成订单的五次本机中位数为 5.105932 秒；该结果不代表 Kafka/Flink/ClickHouse 全链路性能，也不作为生产 SLA。
 
+实时链路性能准备状态：已完成确定性负载输入生成、参数与 SHA-256 清单，以及 Flink Job/Vertex/反压/Checkpoint 脱敏 REST 快照；端到端 CI 已接入真实运行探针。分档限速发布、连续采样、ClickHouse 完成时间和瓶颈分析仍未完成，事件时间密度不得作为实际生产速率或处理吞吐使用。
+
 ## 第一阶段验收标准
 
 1. `order_created` v1 JSON Schema 存在且字段含义明确。
@@ -96,5 +98,5 @@
 6. 提供架构图、运行截图、演示视频和面试问题清单。
 7. Kafka、Flink 和 ClickHouse 全链路运行后，ClickHouse 最新版本查询结果与固定输入的预期值一致。
 
-当前验收状态：架构图、面试问题清单和单节点全链路对账已完成；远程运行记录包含 JobID、20 条业务事件、3 条 Watermark 推进事件及 `10 matched, 0 mismatched`。真实看板联调截图、演示视频和 Kafka/Flink/ClickHouse 压力测试原始结果仍未完成，因此不能把项目描述为生产级最终形态。
+当前验收状态：架构图、面试问题清单和单节点全链路对账已完成；远程运行记录包含 JobID、20 条业务事件、3 条 Watermark 推进事件及 `10 matched, 0 mismatched`。负载输入与 Flink 运行证据采集已完成，但真实看板联调截图、演示视频和 Kafka/Flink/ClickHouse 分档压力测试原始结果仍未完成，因此不能把项目描述为生产级最终形态。
 

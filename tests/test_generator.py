@@ -69,6 +69,34 @@ class GenerateOrderEventsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             generate_order_events(1, start_time=datetime(2026, 10, 2, 10, 0))
 
+    def test_load_event_time_density_is_deterministic(self) -> None:
+        events = generate_order_events(
+            4,
+            seed=13,
+            start_time=self.start_time,
+            events_per_second=4,
+        )
+        self.assertEqual(
+            [
+                "2026-10-02T10:00:00Z",
+                "2026-10-02T10:00:00.250000Z",
+                "2026-10-02T10:00:00.500000Z",
+                "2026-10-02T10:00:00.750000Z",
+            ],
+            [event["event_time"] for event in events],
+        )
+        for event in events:
+            self.assertEqual([], validate_order_event(event))
+
+    def test_non_positive_load_rate_is_rejected(self) -> None:
+        for rate in (0, -1):
+            with self.subTest(rate=rate), self.assertRaises(ValueError):
+                generate_order_events(
+                    1,
+                    start_time=self.start_time,
+                    events_per_second=rate,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

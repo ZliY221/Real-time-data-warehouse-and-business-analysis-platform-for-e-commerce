@@ -214,6 +214,8 @@ jobs:
             build/e2e/*/actual_metrics.ndjson
             build/e2e/*/report.json
             build/e2e/*/report.md
+            build/e2e/*/flink-runtime.json
+            build/e2e/*/flink-runtime.md
             build/e2e/*/manifest.json
           if-no-files-found: error
           retention-days: 90

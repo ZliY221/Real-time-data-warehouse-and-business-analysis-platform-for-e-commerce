@@ -44,7 +44,7 @@ Python 固定事件
 
 ### 4. 工程化证据
 
-- Python/API/数据质量/对账/离线数仓/运行证据、JavaScript、Java/Flink 分层测试，共 139 项。
+- Python/API/数据质量/对账/离线数仓/运行证据、JavaScript、Java/Flink 分层测试，共 140 项。
 - GitHub Actions 配置 Python、Flink、Kafka、ClickHouse 冒烟与完整链路五个 Job。
 - 固定版本依赖、最小权限、超时、失败清理和可重复样例。
 - 里程碑提交保留从事件契约到端到端验收脚本的演进。

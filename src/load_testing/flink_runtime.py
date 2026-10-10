@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import json
 import math
 import re
+import time
 from typing import Any, Callable
 from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -132,12 +133,16 @@ class FlinkRestClient:
         timeout_seconds: float = 10.0,
         allow_remote: bool = False,
         fetch_json: Callable[[str], Any] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+        sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero")
         self.base_url = _validate_base_url(base_url, allow_remote=allow_remote)
         self.timeout_seconds = timeout_seconds
         self._fetch_json = fetch_json or self._request_json
+        self._clock = clock
+        self._sleeper = sleeper
 
     def _request_json(self, url: str) -> Any:
         request = Request(url, headers={"Accept": "application/json"}, method="GET")
@@ -166,12 +171,21 @@ class FlinkRestClient:
         return _metric_map(self.get_json(path, {"get": ",".join(names)}))
 
     def vertex_metrics(
-        self, paths: tuple[str, ...]
+        self, paths: tuple[str, ...], *, wait_seconds: float = 0.0
     ) -> tuple[dict[str, int | float | None], dict[str, Any]]:
-        available_by_path = {
-            path: _metric_ids(self.get_json(path))
-            for path in paths
-        }
+        if wait_seconds < 0:
+            raise ValueError("wait_seconds must not be negative")
+        deadline = self._clock() + wait_seconds
+        discovery_attempts = 0
+        while True:
+            discovery_attempts += 1
+            available_by_path = {
+                path: _metric_ids(self.get_json(path))
+                for path in paths
+            }
+            if any(available_by_path.values()) or self._clock() >= deadline:
+                break
+            self._sleeper(min(1.0, max(deadline - self._clock(), 0.0)))
         unique_available_ids = tuple(
             sorted({identifier for identifiers in available_by_path.values() for identifier in identifiers})
         )
@@ -209,6 +223,7 @@ class FlinkRestClient:
             {
                 "available_count": sum(len(ids) for ids in available_by_path.values()),
                 "queried_subtasks": len(paths),
+                "discovery_attempts": discovery_attempts,
                 "selected_series": {
                     name: len(selected_ids[name]) for name in VERTEX_METRICS
                 },
@@ -281,6 +296,7 @@ def collect_runtime_snapshot(
     job_id: str,
     *,
     collected_at: datetime | None = None,
+    metrics_wait_seconds: float = 0.0,
 ) -> dict[str, Any]:
     """Collect one bounded snapshot without logs, exception text, or event payloads."""
 
@@ -303,7 +319,8 @@ def collect_runtime_snapshot(
             tuple(
                 f"/jobs/{job_id}/vertices/{vertex_id}/subtasks/{subtask}/metrics"
                 for subtask in range(parallelism)
-            )
+            ),
+            wait_seconds=metrics_wait_seconds if not vertices else 0.0,
         )
         backpressure = _backpressure_summary(
             client.get_json(f"/jobs/{job_id}/vertices/{vertex_id}/backpressure")

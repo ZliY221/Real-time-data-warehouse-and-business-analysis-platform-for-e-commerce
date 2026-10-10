@@ -202,6 +202,7 @@ WHERE window_start >= {start:DateTime64(3, 'UTC')}
     & $runtimePython -m load_testing.cli collect `
         --job-id $jobId `
         --rest-url "http://127.0.0.1:8081" `
+        --metrics-wait-seconds 20 `
         --json-output $flinkRuntimeJson `
         --markdown-output $flinkRuntimeMarkdown
     if ($LASTEXITCODE -ne 0) {

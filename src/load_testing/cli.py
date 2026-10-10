@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--job-id", required=True)
     collect.add_argument("--rest-url", default="http://127.0.0.1:8081")
     collect.add_argument("--allow-remote", action="store_true")
+    collect.add_argument("--metrics-wait-seconds", type=float, default=0.0)
     collect.add_argument("--json-output", type=Path, required=True)
     collect.add_argument("--markdown-output", type=Path, required=True)
     return parser
@@ -67,7 +68,11 @@ def main() -> None:
         return
 
     client = FlinkRestClient(args.rest_url, allow_remote=args.allow_remote)
-    snapshot = collect_runtime_snapshot(client, args.job_id)
+    snapshot = collect_runtime_snapshot(
+        client,
+        args.job_id,
+        metrics_wait_seconds=args.metrics_wait_seconds,
+    )
     args.json_output.parent.mkdir(parents=True, exist_ok=True)
     args.markdown_output.parent.mkdir(parents=True, exist_ok=True)
     args.json_output.write_text(

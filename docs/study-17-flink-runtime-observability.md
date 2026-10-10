@@ -41,7 +41,7 @@ Flink 1.20.1 提供只读 REST 接口，可读取 Job、Vertex 指标、反压�
 - Vertex 反压等级与最大子任务反压比例；
 - Checkpoint 完成、失败、进行中和恢复次数，以及最近一次完成摘要。
 
-采集器按 Vertex 的并行度遍历 `/subtasks/{index}/metrics`，先读取每个 Subtask 可用的指标 ID，再按指标名后缀选择并跨 Subtask 归组：记录数和每秒速率求和，busy、idle 与 backpressured 时间取最大值，用于观察最忙或最受压的子任务。快照额外保留最多 50 个只含 `record/busy/idle/backpress` 关键词的候选 ID，便于发现版本或拓扑导致的命名差异，不保存其他任意指标。Flink 1.20.1 的独立 Vertex 反压接口可能返回 `deprecated`；此时使用 `backPressuredTimeMsPerSecond / 1000` 推导比例和 `ok/low/high` 等级，并在报告里标记来源为 `task_metric`，不把不可用接口写成零反压。
+采集器按 Vertex 的并行度遍历 `/subtasks/{index}/metrics`，先读取每个 Subtask 可用的指标 ID，再按指标名后缀选择并跨 Subtask 归组：记录数和每秒速率求和，busy、idle 与 backpressured 时间取最大值，用于观察最忙或最受压的子任务。Flink 的指标获取器按周期刷新，因此端到端验收会在第一个 Vertex 上最多等待 20 秒；一旦指标出现，后续 Vertex 立即采集，并在证据中记录发现尝试次数。快照额外保留最多 50 个只含 `record/busy/idle/backpress` 关键词的候选 ID，便于发现版本或拓扑导致的命名差异，不保存其他任意指标。Flink 1.20.1 的独立 Vertex 反压接口可能返回 `deprecated`；此时使用 `backPressuredTimeMsPerSecond / 1000` 推导比例和 `ok/low/high` 等级，并在报告里标记来源为 `task_metric`，不把不可用接口写成零反压。
 
 默认只允许访问 `localhost`、`127.0.0.1` 或 `::1`，URL 不能携带凭据。JSON 和 Markdown 结果不保存事件载荷、异常正文、Checkpoint 外部路径或服务凭据。端到端 CI 会在取消作业之前采集一次快照，并将其与对账报告一起作为 90 天脱敏 Artifact 上传。
 

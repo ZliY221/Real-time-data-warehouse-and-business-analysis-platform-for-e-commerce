@@ -94,14 +94,27 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
                 {"id": "downtime", "value": "0"},
             ]
         if parsed.path == f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/metrics":
+            if not parsed.query:
+                return [
+                    {"id": f"0.{name}"}
+                    for name in (
+                        "numRecordsIn",
+                        "numRecordsOut",
+                        "numRecordsInPerSecond",
+                        "numRecordsOutPerSecond",
+                        "backPressuredTimeMsPerSecond",
+                        "idleTimeMsPerSecond",
+                        "busyTimeMsPerSecond",
+                    )
+                ]
             return [
-                {"id": "numRecordsIn", "value": "20000"},
-                {"id": "numRecordsOut", "value": "19999"},
-                {"id": "numRecordsInPerSecond", "value": "950.5"},
-                {"id": "numRecordsOutPerSecond", "value": "949.25"},
-                {"id": "backPressuredTimeMsPerSecond", "value": "10"},
-                {"id": "idleTimeMsPerSecond", "value": "90"},
-                {"id": "busyTimeMsPerSecond", "value": "900"},
+                {"id": "0.numRecordsIn", "value": "20000"},
+                {"id": "0.numRecordsOut", "value": "19999"},
+                {"id": "0.numRecordsInPerSecond", "value": "950.5"},
+                {"id": "0.numRecordsOutPerSecond", "value": "949.25"},
+                {"id": "0.backPressuredTimeMsPerSecond", "value": "10"},
+                {"id": "0.idleTimeMsPerSecond", "value": "90"},
+                {"id": "0.busyTimeMsPerSecond", "value": "900"},
             ]
         if parsed.path == f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/backpressure":
             return {
@@ -149,11 +162,30 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertEqual(2, snapshot["checkpoints"]["counts"]["completed"])
         self.assertEqual(0.2, snapshot["vertices"][0]["backpressure"]["max_backpressure_ratio"])
         self.assertEqual(950.5, snapshot["vertices"][0]["metrics"]["numRecordsInPerSecond"])
+        self.assertEqual(1, snapshot["vertices"][0]["metric_series"]["numRecordsIn"])
         serialized = json.dumps(snapshot)
         self.assertNotIn("sensitive internal failure", serialized)
         self.assertNotIn("/secret/checkpoint/path", serialized)
         self.assertFalse(snapshot["privacy"]["contains_event_payloads"])
         self.assertTrue(any("get=" in url for url in self.seen_urls))
+
+    def test_deprecated_backpressure_endpoint_falls_back_to_task_metric(self) -> None:
+        original_fetch = self.fetch_json
+
+        def fetch_with_deprecated_backpressure(url: str) -> object:
+            parsed = urlparse(url)
+            if parsed.path.endswith("/backpressure"):
+                return {"status": "deprecated"}
+            return original_fetch(url)
+
+        snapshot = collect_runtime_snapshot(
+            FlinkRestClient(fetch_json=fetch_with_deprecated_backpressure),
+            JOB_ID,
+        )
+        backpressure = snapshot["vertices"][0]["backpressure"]
+        self.assertEqual("task_metric", backpressure["source"])
+        self.assertEqual("ok", backpressure["level"])
+        self.assertEqual(0.01, backpressure["max_backpressure_ratio"])
 
     def test_markdown_contains_operational_summary_without_sensitive_fields(self) -> None:
         snapshot = collect_runtime_snapshot(FlinkRestClient(fetch_json=self.fetch_json), JOB_ID)

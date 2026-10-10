@@ -196,6 +196,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("[System.IO.Path]::IsPathRooted($InputPath)", producer)
         self.assertIn("load_testing.cli collect", acceptance)
         self.assertIn("flink-runtime.json", acceptance)
+        self.assertIn("/checkpoints", acceptance)
+        self.assertIn("completedCheckpoints", acceptance)
 
     def test_load_generation_and_flink_runtime_evidence_are_wired(self) -> None:
         generate_script = (

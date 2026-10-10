@@ -162,7 +162,10 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertEqual(2, snapshot["checkpoints"]["counts"]["completed"])
         self.assertEqual(0.2, snapshot["vertices"][0]["backpressure"]["max_backpressure_ratio"])
         self.assertEqual(950.5, snapshot["vertices"][0]["metrics"]["numRecordsInPerSecond"])
-        self.assertEqual(1, snapshot["vertices"][0]["metric_series"]["numRecordsIn"])
+        discovery = snapshot["vertices"][0]["metric_discovery"]
+        self.assertEqual(7, discovery["available_count"])
+        self.assertEqual(1, discovery["selected_series"]["numRecordsIn"])
+        self.assertIn("0.numRecordsIn", discovery["relevant_candidates"])
         serialized = json.dumps(snapshot)
         self.assertNotIn("sensitive internal failure", serialized)
         self.assertNotIn("/secret/checkpoint/path", serialized)

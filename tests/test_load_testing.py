@@ -93,7 +93,7 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
                 {"id": "uptime", "value": "12000"},
                 {"id": "downtime", "value": "0"},
             ]
-        if parsed.path == f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/metrics":
+        if parsed.path == f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/subtasks/0/metrics":
             if not parsed.query:
                 return [
                     {"id": f"0.{name}"}
@@ -164,6 +164,7 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertEqual(950.5, snapshot["vertices"][0]["metrics"]["numRecordsInPerSecond"])
         discovery = snapshot["vertices"][0]["metric_discovery"]
         self.assertEqual(7, discovery["available_count"])
+        self.assertEqual(1, discovery["queried_subtasks"])
         self.assertEqual(1, discovery["selected_series"]["numRecordsIn"])
         self.assertIn("0.numRecordsIn", discovery["relevant_candidates"])
         serialized = json.dumps(snapshot)
@@ -171,6 +172,7 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertNotIn("/secret/checkpoint/path", serialized)
         self.assertFalse(snapshot["privacy"]["contains_event_payloads"])
         self.assertTrue(any("get=" in url for url in self.seen_urls))
+        self.assertTrue(any("/subtasks/0/metrics" in url for url in self.seen_urls))
 
     def test_deprecated_backpressure_endpoint_falls_back_to_task_metric(self) -> None:
         original_fetch = self.fetch_json
@@ -189,6 +191,29 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertEqual("task_metric", backpressure["source"])
         self.assertEqual("ok", backpressure["level"])
         self.assertEqual(0.01, backpressure["max_backpressure_ratio"])
+
+    def test_vertex_metrics_aggregate_equal_ids_across_subtasks(self) -> None:
+        def fetch_two_subtasks(url: str) -> object:
+            parsed = urlparse(url)
+            if "/subtasks/" in parsed.path and parsed.path.endswith("/metrics"):
+                if not parsed.query:
+                    return [{"id": "numRecordsInPerSecond"}, {"id": "busyTimeMsPerSecond"}]
+                subtask = int(parsed.path.split("/subtasks/")[1].split("/")[0])
+                return [
+                    {"id": "numRecordsInPerSecond", "value": str(100 + subtask)},
+                    {"id": "busyTimeMsPerSecond", "value": str(800 + 50 * subtask)},
+                ]
+            raise AssertionError(f"unexpected URL: {url}")
+
+        metrics, discovery = FlinkRestClient(fetch_json=fetch_two_subtasks).vertex_metrics(
+            (
+                f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/subtasks/0/metrics",
+                f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/subtasks/1/metrics",
+            )
+        )
+        self.assertEqual(201, metrics["numRecordsInPerSecond"])
+        self.assertEqual(850, metrics["busyTimeMsPerSecond"])
+        self.assertEqual(2, discovery["selected_series"]["numRecordsInPerSecond"])
 
     def test_markdown_contains_operational_summary_without_sensitive_fields(self) -> None:
         snapshot = collect_runtime_snapshot(FlinkRestClient(fetch_json=self.fetch_json), JOB_ID)

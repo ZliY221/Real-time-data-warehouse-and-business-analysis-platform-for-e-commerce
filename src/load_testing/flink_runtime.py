@@ -70,6 +70,58 @@ def _metric_map(rows: Any) -> dict[str, int | float | None]:
     return metrics
 
 
+def _metric_ids(rows: Any) -> tuple[str, ...]:
+    if not isinstance(rows, list):
+        raise FlinkRestError("Flink metric discovery response must be a list")
+    identifiers: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("id"), str):
+            raise FlinkRestError("Flink metric discovery contains an invalid row")
+        identifiers.append(row["id"])
+    return tuple(identifiers)
+
+
+def _aggregate_vertex_metrics(
+    rows: Any,
+    selected_ids: dict[str, tuple[str, ...]],
+) -> dict[str, int | float | None]:
+    values_by_id = _metric_map(rows)
+    aggregated: dict[str, int | float | None] = {}
+    max_metrics = {
+        "backPressuredTimeMsPerSecond",
+        "idleTimeMsPerSecond",
+        "busyTimeMsPerSecond",
+    }
+    for name in VERTEX_METRICS:
+        values = [
+            values_by_id[identifier]
+            for identifier in selected_ids.get(name, ())
+            if values_by_id.get(identifier) is not None
+        ]
+        if not values:
+            aggregated[name] = None
+        elif name in max_metrics:
+            aggregated[name] = max(values)
+        else:
+            total = sum(values)
+            aggregated[name] = int(total) if float(total).is_integer() else round(total, 6)
+    return aggregated
+
+
+def _derived_backpressure(metrics: dict[str, int | float | None]) -> dict[str, Any]:
+    milliseconds = metrics.get("backPressuredTimeMsPerSecond")
+    if milliseconds is None:
+        return {"level": None, "ratio": None}
+    ratio = min(max(float(milliseconds) / 1000.0, 0.0), 1.0)
+    if ratio <= 0.10:
+        level = "ok"
+    elif ratio <= 0.50:
+        level = "low"
+    else:
+        level = "high"
+    return {"level": level, "ratio": round(ratio, 6)}
+
+
 class FlinkRestClient:
     """Minimal read-only client with a local-only default for safer evidence runs."""
 
@@ -112,6 +164,27 @@ class FlinkRestClient:
 
     def metrics(self, path: str, names: tuple[str, ...]) -> dict[str, int | float | None]:
         return _metric_map(self.get_json(path, {"get": ",".join(names)}))
+
+    def vertex_metrics(self, path: str) -> tuple[dict[str, int | float | None], dict[str, int]]:
+        available_ids = _metric_ids(self.get_json(path))
+        selected_ids = {
+            name: tuple(
+                identifier
+                for identifier in available_ids
+                if identifier == name or identifier.endswith(f".{name}")
+            )
+            for name in VERTEX_METRICS
+        }
+        requested_ids = tuple(
+            identifier
+            for name in VERTEX_METRICS
+            for identifier in selected_ids[name]
+        )
+        rows = self.get_json(path, {"get": ",".join(requested_ids)}) if requested_ids else []
+        return (
+            _aggregate_vertex_metrics(rows, selected_ids),
+            {name: len(selected_ids[name]) for name in VERTEX_METRICS},
+        )
 
 
 def _validate_job_id(job_id: str) -> None:
@@ -186,13 +259,19 @@ def collect_runtime_snapshot(
         if not isinstance(raw_vertex, dict) or not isinstance(raw_vertex.get("id"), str):
             raise FlinkRestError("Flink job response contains an invalid vertex")
         vertex_id = raw_vertex["id"]
-        metrics = client.metrics(
-            f"/jobs/{job_id}/vertices/{vertex_id}/metrics",
-            VERTEX_METRICS,
+        metrics, metric_series = client.vertex_metrics(
+            f"/jobs/{job_id}/vertices/{vertex_id}/metrics"
         )
         backpressure = _backpressure_summary(
             client.get_json(f"/jobs/{job_id}/vertices/{vertex_id}/backpressure")
         )
+        derived_backpressure = _derived_backpressure(metrics)
+        if backpressure["status"] == "deprecated" or backpressure["level"] is None:
+            backpressure["level"] = derived_backpressure["level"]
+            backpressure["max_backpressure_ratio"] = derived_backpressure["ratio"]
+            backpressure["source"] = "task_metric"
+        else:
+            backpressure["source"] = "vertex_endpoint"
         vertices.append(
             {
                 "id": vertex_id,
@@ -200,6 +279,7 @@ def collect_runtime_snapshot(
                 "status": raw_vertex.get("status"),
                 "parallelism": raw_vertex.get("parallelism"),
                 "metrics": {name: metrics.get(name) for name in VERTEX_METRICS},
+                "metric_series": metric_series,
                 "backpressure": backpressure,
             }
         )

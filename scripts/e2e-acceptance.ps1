@@ -178,6 +178,27 @@ WHERE window_start >= {start:DateTime64(3, 'UTC')}
         -JsonOutput $jsonReport `
         -MarkdownOutput $markdownReport
 
+    $completedCheckpoints = 0
+    foreach ($attempt in 1..20) {
+        try {
+            $checkpointStatus = Invoke-RestMethod `
+                -Method Get `
+                -Uri "http://127.0.0.1:8081/jobs/$jobId/checkpoints" `
+                -TimeoutSec 5
+            $completedCheckpoints = [int]$checkpointStatus.counts.completed
+            if ($completedCheckpoints -ge 1) {
+                break
+            }
+        }
+        catch {
+            Write-Verbose "Checkpoint status is not available yet."
+        }
+        Start-Sleep -Seconds 1
+    }
+    if ($completedCheckpoints -lt 1) {
+        Write-Warning "No completed checkpoint was observed before runtime collection."
+    }
+
     & $runtimePython -m load_testing.cli collect `
         --job-id $jobId `
         --rest-url "http://127.0.0.1:8081" `

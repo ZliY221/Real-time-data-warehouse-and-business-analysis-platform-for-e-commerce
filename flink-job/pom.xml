@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.zhangliyang.portfolio</groupId>
+    <groupId>com.zhangliyang.ecommerce</groupId>
     <artifactId>ecommerce-flink-job</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <name>ecommerce-flink-job</name>
@@ -147,7 +147,7 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.zhangliyang.portfolio.job.KafkaOrderMetricsJob</mainClass>
+                                    <mainClass>com.zhangliyang.ecommerce.job.KafkaOrderMetricsJob</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

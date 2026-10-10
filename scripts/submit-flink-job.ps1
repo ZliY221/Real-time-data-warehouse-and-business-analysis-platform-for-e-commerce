@@ -43,7 +43,7 @@ if (-not (Test-Path -LiteralPath $jobJar -PathType Leaf)) {
 }
 
 & flink run --detached `
-    --class com.zhangliyang.portfolio.job.KafkaOrderMetricsJob `
+    --class com.zhangliyang.ecommerce.job.KafkaOrderMetricsJob `
     $jobJar `
     --bootstrap-servers $BootstrapServers `
     --topic $Topic `

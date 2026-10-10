@@ -53,7 +53,7 @@ def generate_order_events(
         raise ValueError("start_time must include timezone information")
 
     rng = random.Random(seed)
-    namespace = uuid.uuid5(uuid.NAMESPACE_URL, f"portfolio-order-events:{seed}")
+    namespace = uuid.uuid5(uuid.NAMESPACE_URL, f"ecommerce-order-events:{seed}")
     events: list[dict[str, object]] = []
 
     for index in range(count):

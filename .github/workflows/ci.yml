@@ -156,12 +156,36 @@ jobs:
         run: |
           set -euo pipefail
           archive="flink-${FLINK_VERSION}-bin-scala_2.12.tgz"
-          base_url="https://archive.apache.org/dist/flink/flink-${FLINK_VERSION}"
           install_root="${RUNNER_TEMP}/flink-dist"
           mkdir -p "${install_root}"
           cd "${install_root}"
-          curl --fail --location --retry 3 --retry-delay 2 --remote-name "${base_url}/${archive}"
-          curl --fail --location --retry 3 --retry-delay 2 --remote-name "${base_url}/${archive}.sha512"
+          download_file() {
+            local filename="$1"
+            local base_url
+            for base_url in \
+              "https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}" \
+              "https://archive.apache.org/dist/flink/flink-${FLINK_VERSION}"; do
+              rm -f -- "${filename}"
+              if curl \
+                --fail \
+                --location \
+                --connect-timeout 15 \
+                --max-time 180 \
+                --speed-limit 1024 \
+                --speed-time 30 \
+                --retry 1 \
+                --retry-all-errors \
+                --retry-delay 2 \
+                --output "${filename}" \
+                "${base_url}/${filename}"; then
+                return 0
+              fi
+            done
+            echo "Unable to download ${filename} from the Apache mirrors." >&2
+            return 1
+          }
+          download_file "${archive}"
+          download_file "${archive}.sha512"
           sha512sum --check "${archive}.sha512"
           tar --extract --gzip --file "${archive}"
           flink_home="${install_root}/flink-${FLINK_VERSION}"

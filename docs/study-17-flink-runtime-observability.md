@@ -53,6 +53,7 @@ Flink 1.20.1 提供只读 REST 接口，可读取 Job、Vertex 指标、反压�
 2. REST 响应解析、数值规范化、远程主机保护和敏感字段排除测试；
 3. 10,000 条本地输入生成实验；
 4. 完整链路 CI 中的真实 Flink REST 探针接入，并在采样前最多等待 20 秒观察已完成 Checkpoint。
+5. 在 [run 38039610557](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/38039610557) 中验证 3/3 Vertex 均取得 task 级指标、1 次 Checkpoint 成功、0 次失败且 Job 无重启；可审计摘要见 [Flink 运行指标 CI 证据](evidence/flink-runtime-ci.md)。
 
 仍未完成分档限速生产、连续采样、端到端完成时间计算与瓶颈结论。因此现在可以说“实现可复现负载输入和 Flink 运行指标采集”，不能写“系统吞吐达到某个 TPS”或“无反压稳定运行”。
 

@@ -306,7 +306,7 @@ python -m pip install -e ".[warehouse]"
 ./scripts/e2e-acceptance.ps1
 ```
 
-脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前开发机不具备 Docker，但 GitHub Actions 已下载并校验官方 Flink 1.20.1、启动单节点集群并真实运行脚本；[证据运行 37189195478](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/37189195478) 的五个 Job 全部通过。该运行保存 90 天的脱敏 Artifact，只包含预期/实际聚合指标、对账报告和 manifest，不包含原始事件或迟到事件标识；下载审计确认其中 5 个文件、10 个指标键全部匹配，SHA-256 为 `b58e134b7ddf5ca32e79632103f73fc8b37b4675708f693e14d713b32aa5901a`。
+脚本要求 Docker、正在运行的本地 Flink 1.20.1 集群、JDK 17、Maven 和 Python 3.11。证据写入 `build/e2e/<run-id>/`；Flink 作业始终尝试取消，Topic 与测试数据库默认定向删除，Compose 基础服务不会被脚本停止。当前开发机不具备 Docker，但 GitHub Actions 已下载并校验官方 Flink 1.20.1、启动单节点集群并真实运行脚本；[运行 38039610557](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/38039610557) 的五个 Job 全部通过，并采集到 3/3 Vertex 的 task 级记录、速率、busy/idle/反压指标，以及 1 次成功、0 次失败的 Checkpoint。Artifact 还包含批流对账结果，不保存原始事件、异常正文或服务凭据；详细口径、哈希和能力边界见 [Flink 运行指标 CI 证据](docs/evidence/flink-runtime-ci.md)。
 
 ## FastAPI 查询服务
 

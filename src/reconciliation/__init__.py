@@ -1,4 +1,4 @@
-"""Batch/stream metric reconciliation for the portfolio pipeline."""
+"""Batch/stream metric reconciliation for the ecommerce pipeline."""
 
 from .engine import (
     ReconciliationInputError,

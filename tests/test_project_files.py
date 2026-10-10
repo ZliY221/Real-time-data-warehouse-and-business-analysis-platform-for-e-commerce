@@ -225,7 +225,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
             / "java"
             / "com"
             / "zhangliyang"
-            / "portfolio"
+            / "ecommerce"
             / "sink"
         )
         anomaly_sink = (sink_root / "ClickHouseAnomalySink.java").read_text(
@@ -427,7 +427,7 @@ class KafkaProjectFilesTests(unittest.TestCase):
             / "java"
             / "com"
             / "zhangliyang"
-            / "portfolio"
+            / "ecommerce"
             / "job"
             / "KafkaOrderMetricsJob.java"
         ).read_text(encoding="utf-8")

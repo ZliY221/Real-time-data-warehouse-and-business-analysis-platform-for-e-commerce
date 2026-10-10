@@ -129,7 +129,7 @@ class PreviewMetricsRepository:
 
 
 class PreviewQualityHistory:
-    """Deterministic quality-history sample for the portfolio preview."""
+    """Deterministic quality-history sample for the ecommerce preview."""
 
     def __init__(self, now: datetime | None = None) -> None:
         self.now = (now or datetime.now(UTC)).replace(second=0, microsecond=0)

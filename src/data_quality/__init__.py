@@ -1,4 +1,4 @@
-"""Configurable data-quality checks for portfolio event batches."""
+"""Configurable data-quality checks for ecommerce event batches."""
 
 from .engine import QualityConfigurationError, evaluate_ndjson, load_quality_config
 from .history import QualityHistoryStore, StoredRuleResult, StoredRun

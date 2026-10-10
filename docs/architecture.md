@@ -54,7 +54,7 @@ sequenceDiagram
 - 测试批次可以主动注入重复事件。
 - Flink 使用 `event_id` 作为去重键，并为状态设置合理 TTL。
 - 开启 checkpoint，并使用 exactly-once checkpoint consistency mode。
-- 端到端 exactly-once 需要同时满足 source、state、sink 和外部系统条件；项目完成前不在简历中宣称端到端 exactly-once。
+- 端到端 exactly-once 需要同时满足 source、state、sink 和外部系统条件；项目完成前不在文档中宣称端到端 exactly-once。
 - 当前 JDBC Sink 允许批量重试，ClickHouse 使用 `(window_start, region, channel)` 稳定键和单调版本降低重放影响。
 - 拒绝事件以载荷 SHA-256 指纹、迟到事件以 `event_id` 作为稳定键；ClickHouse 对三个 Sink 都使用 `ReplacingMergeTree(version)`，即时查询通过 `FINAL` 消除重试或重放版本。
 - `ReplacingMergeTree` 的物理去重发生在后台合并阶段；即时查询通过包含 `FINAL` 的视图获得最新版本，不能把“最终替换”误写成事务型 upsert。
@@ -78,7 +78,7 @@ sequenceDiagram
 - ClickHouse 查询中的值使用 `{name:Type}` 占位符，通过 HTTP `param_name` 传递，用户输入不进入 SQL 结构。
 - 金额字段以十进制字符串返回，避免 JavaScript 浮点表示改变金额。
 - 空结果返回 `200`、`has_data=false` 或空数组；参数错误返回 `422`；ClickHouse 不可用返回 `503` 和稳定错误码，不向调用者泄露数据库错误详情。
-- 当前 API 使用同步标准库 HTTP 客户端。查询规模受范围与条数限制，足以支持个人作品集；若后续压测证明阻塞查询成为瓶颈，再依据数据决定是否引入连接池或异步客户端。
+- 当前 API 使用同步标准库 HTTP 客户端。查询规模受范围与条数限制，足以支持个人项目；若后续压测证明阻塞查询成为瓶颈，再依据数据决定是否引入连接池或异步客户端。
 - 质量历史接口读取 `quality_runs` 和单规则趋势，最多返回 500 条；公开响应只包含摘要与绘图字段，输入路径只保留文件名。历史库按需创建，并用进程内锁保护首次并行初始化。
 - ClickHouse 与 SQLite 采用独立错误边界：任一存储不可用时返回各自稳定的 `503` 错误码，前端可以分别降级。
 

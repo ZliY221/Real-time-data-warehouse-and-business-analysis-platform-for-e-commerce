@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 
-这是一个面向数据开发和大数据开发实习岗位的作品集项目。项目通过模拟订单事件，逐步实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
+本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
 当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、批流指标对账、DuckDB 离线维度数仓、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
 
@@ -69,7 +69,7 @@ flowchart LR
 - 第一版 Watermark 采用固定乱序容忍时间，并为 Kafka 空闲分区设置 idleness，防止整体 Watermark 停滞。
 - 每条事件包含全局唯一的 `event_id`，Flink 阶段以此实现幂等去重。
 - 金额使用十进制字符串传输，避免浮点误差。
-- 压测数字只有在仓库中存在环境说明、脚本和原始结果时才写入简历。
+- 性能结论必须同时提供环境说明、执行脚本和原始结果。
 - JDBC Sink 采用批量重试；ClickHouse 用稳定业务键和版本替换吸收重放，查询通过 `FINAL` 视图读取确定的最新结果。
 - 拒绝事件只持久化 SHA-256 指纹、错误类型和载荷大小，不把原始坏消息或解析器原因写入数据库；迟到事件按 `event_id` 替换。
 - 离线基准复刻实时校验、首次事件去重、迟到剔除和 UTC 分钟窗口口径，以 `Decimal` 精确核对 ClickHouse 最终指标。
@@ -131,24 +131,23 @@ python -m unittest discover -s tests -v
 - [需求与验收标准](docs/requirements.md)
 - [架构设计](docs/architecture.md)
 - [事件数据字典](docs/data-dictionary.md)
-- [学习单元 01 事件契约与可复现数据](docs/study-01-event-contract.md)
-- [学习单元 02 Kafka 本地消息链路](docs/study-02-kafka.md)
-- [学习单元 03 Flink 事件时间 去重与分钟窗口](docs/study-03-flink-event-time.md)
-- [学习单元 04 JSON 解析 质量侧流与迟到数据](docs/study-04-quality-and-late-data.md)
-- [学习单元 05 持续集成与可验证交付](docs/study-05-continuous-integration.md)
-- [学习单元 06 Flink KafkaSource 与消费恢复](docs/study-06-flink-kafka-source.md)
-- [学习单元 07 ClickHouse 指标存储与重放安全](docs/study-07-clickhouse-sink.md)
-- [学习单元 08 FastAPI 参数化查询与接口边界](docs/study-08-fastapi-query-service.md)
-- [学习单元 09 ECharts 经营看板与可信演示](docs/study-09-echarts-dashboard.md)
-- [学习单元 10 可配置数据质量门禁](docs/study-10-data-quality-gates.md)
-- [学习单元 11 SQLite 质量历史与趋势](docs/study-11-quality-history.md)
-- [学习单元 12 质量诊断 API 与看板](docs/study-12-quality-diagnostics-dashboard.md)
-- [学习单元 13 Flink 异常侧流持久化](docs/study-13-flink-anomaly-persistence.md)
-- [学习单元 14 批流指标一致性核对](docs/study-14-batch-stream-reconciliation.md)
-- [学习单元 15 真实链路验收与 Watermark 推进](docs/study-15-end-to-end-acceptance.md)
-- [学习单元 16 离线维度数仓与增量 ETL](docs/study-16-offline-dimensional-warehouse.md)
-- [学习单元 17 可复现负载输入与 Flink 运行快照](docs/study-17-flink-runtime-observability.md)
-- [项目面试讲解与证据指南](docs/interview-guide.md)
+- [技术文档 01 事件契约与可复现数据](docs/event-contract.md)
+- [技术文档 02 Kafka 本地消息链路](docs/kafka-pipeline.md)
+- [技术文档 03 Flink 事件时间 去重与分钟窗口](docs/flink-event-time.md)
+- [技术文档 04 JSON 解析 质量侧流与迟到数据](docs/data-quality-and-late-events.md)
+- [技术文档 05 持续集成与可验证交付](docs/continuous-integration.md)
+- [技术文档 06 Flink KafkaSource 与消费恢复](docs/flink-kafka-source.md)
+- [技术文档 07 ClickHouse 指标存储与重放安全](docs/clickhouse-sink.md)
+- [技术文档 08 FastAPI 参数化查询与接口边界](docs/fastapi-query-service.md)
+- [技术文档 09 ECharts 经营看板与可信演示](docs/echarts-dashboard.md)
+- [技术文档 10 可配置数据质量门禁](docs/data-quality-gates.md)
+- [技术文档 11 SQLite 质量历史与趋势](docs/quality-history.md)
+- [技术文档 12 质量诊断 API 与看板](docs/quality-diagnostics-dashboard.md)
+- [技术文档 13 Flink 异常侧流持久化](docs/flink-anomaly-persistence.md)
+- [技术文档 14 批流指标一致性核对](docs/batch-stream-reconciliation.md)
+- [技术文档 15 真实链路验收与 Watermark 推进](docs/end-to-end-acceptance.md)
+- [技术文档 16 离线维度数仓与增量 ETL](docs/offline-dimensional-warehouse.md)
+- [技术文档 17 可复现负载输入与 Flink 运行快照](docs/flink-runtime-observability.md)
 - [远程仓库发布与验收清单](docs/publishing-checklist.md)
 
 ## 自动化验证
@@ -186,11 +185,11 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ./scripts/submit-flink-job.ps1 -StartingOffsets earliest
 ```
 
-默认配置使用 `localhost:9092`、`order-events` Topic、`ecommerce-order-metrics` Consumer Group、10 秒乱序容忍、60 秒空闲分区检测、10 秒 checkpoint，并将分钟指标批量写入 `jdbc:clickhouse://localhost:8123/ecommerce`。完整参数与设计理由见学习单元 06 和 07。
+默认配置使用 `localhost:9092`、`order-events` Topic、`ecommerce-order-metrics` Consumer Group、10 秒乱序容忍、60 秒空闲分区检测、10 秒 checkpoint，并将分钟指标批量写入 `jdbc:clickhouse://localhost:8123/ecommerce`。完整参数与设计理由见 [Flink KafkaSource](docs/flink-kafka-source.md) 和 [ClickHouse Sink](docs/clickhouse-sink.md)。
 
 ## 数据质量门禁
 
-对参考数据执行六项可配置规则，在 `build/data-quality/` 生成机器可读 JSON、面试展示用 Markdown 报告，并把运行摘要写入 SQLite：
+对参考数据执行六项可配置规则，在 `build/data-quality/` 生成机器可读 JSON、人工复核用 Markdown 报告，并把运行摘要写入 SQLite：
 
 ```powershell
 ./scripts/data-quality-check.ps1
@@ -361,8 +360,4 @@ API 默认读取 `CLICKHOUSE_HTTP_URL=http://localhost:8123`、`CLICKHOUSE_USER=
 - 图表 ARIA 描述、纹理辅助、数据表替代视图、键盘焦点、深色模式和减少动画。
 
 ECharts 锁定为 6.1.0，通过带 SHA-384 完整性校验的 jsDelivr 地址加载；页面 CSP 只允许本站资源和该固定脚本来源。首次加载看板需要访问该 CDN。浏览器验收覆盖 375、768、1024、1440 像素宽度，均无横向溢出，并验证了深色模式、减少动画和筛选刷新。
-
-## 简历表述原则
-
-简历可以写“在 GitHub Actions 单节点隔离环境完成 Kafka → Flink → ClickHouse 链路及 10 个指标键批流一致性验收”，并附运行链接。仍不能写生产级、端到端 exactly-once、真实业务 TPS/SLA、长期稳定运行或本机 Docker 部署经验。
 

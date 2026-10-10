@@ -6,7 +6,7 @@ On the same local machine and the same deterministic 1,000-event input, replacin
 
 A separate five-trial 50,000-event run produced a median of **5.105932 seconds**, or **9,792.53 events/second**. Every trial verified the final ODS row count, DWD item count, and exact `Decimal` GMV after the database was committed and closed.
 
-These are local portfolio measurements, not production SLAs and not Spark/Hive distributed benchmarks.
+These are local ecommerce measurements, not production SLAs and not Spark/Hive distributed benchmarks.
 
 ## Environment
 
@@ -131,4 +131,4 @@ The JSON report includes every trial, input hash, package versions, architecture
 - The benchmark does not measure peak memory, concurrent writers, concurrent queries, disk saturation, or failure recovery time.
 - DuckDB runs in one local process. The result cannot be compared directly with a distributed Spark or Hive job.
 - OS file cache, CPU frequency, and background processes were not controlled. Multiple trials and the median reduce, but do not eliminate, this variance.
-- Resume wording must retain the input size and local benchmark boundary. “System throughput is 9,793 TPS” would be inaccurate; “50,000 synthetic orders loaded at a five-run local median of about 9,793 events/s under the documented benchmark” is defensible.
+- Any published performance statement must retain the input size and local benchmark boundary. “System throughput is 9,793 TPS” would be inaccurate; “50,000 synthetic orders loaded at a five-run local median of about 9,793 events/s under the documented benchmark” is defensible.

@@ -1,7 +1,7 @@
 [project]
 name = "ecommerce-realtime-warehouse"
 version = "0.1.0"
-description = "A portfolio project for a reproducible real-time ecommerce data pipeline"
+description = "A ecommerce project for a reproducible real-time ecommerce data pipeline"
 requires-python = ">=3.11"
 
 [project.optional-dependencies]

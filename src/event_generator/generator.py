@@ -21,7 +21,9 @@ CATALOG = (
 
 
 def _utc_text(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    utc_value = value.astimezone(timezone.utc)
+    timespec = "microseconds" if utc_value.microsecond else "seconds"
+    return utc_value.isoformat(timespec=timespec).replace("+00:00", "Z")
 
 
 def _money(value: Decimal) -> str:
@@ -33,6 +35,7 @@ def generate_order_events(
     *,
     seed: int = 2027,
     start_time: datetime | None = None,
+    events_per_second: int | None = None,
 ) -> list[dict[str, object]]:
     """Return deterministic order-created events.
 
@@ -42,6 +45,8 @@ def generate_order_events(
 
     if count < 0:
         raise ValueError("count must be zero or greater")
+    if events_per_second is not None and events_per_second <= 0:
+        raise ValueError("events_per_second must be greater than zero")
 
     base_time = start_time or datetime(2026, 10, 2, 10, 0, tzinfo=timezone.utc)
     if base_time.tzinfo is None:
@@ -52,7 +57,12 @@ def generate_order_events(
     events: list[dict[str, object]] = []
 
     for index in range(count):
-        event_time = base_time + timedelta(seconds=index * 3)
+        if events_per_second is None:
+            event_time = base_time + timedelta(seconds=index * 3)
+        else:
+            event_time = base_time + timedelta(
+                microseconds=(index * 1_000_000) // events_per_second
+            )
         simulated_delay = rng.randint(0, 15)
         ingest_time = event_time + timedelta(seconds=simulated_delay)
         item_count = rng.randint(1, 3)

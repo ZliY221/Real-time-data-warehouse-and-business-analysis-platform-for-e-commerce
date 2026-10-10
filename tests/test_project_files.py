@@ -194,6 +194,25 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("DROP DATABASE IF EXISTS $database SYNC", acceptance)
         self.assertIn("KeepDataResources", acceptance)
         self.assertIn("[System.IO.Path]::IsPathRooted($InputPath)", producer)
+        self.assertIn("load_testing.cli collect", acceptance)
+        self.assertIn("flink-runtime.json", acceptance)
+
+    def test_load_generation_and_flink_runtime_evidence_are_wired(self) -> None:
+        generate_script = (
+            self.root / "scripts" / "generate-load-dataset.ps1"
+        ).read_text(encoding="utf-8")
+        collect_script = (
+            self.root / "scripts" / "collect-flink-runtime.ps1"
+        ).read_text(encoding="utf-8")
+        workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("load_testing.cli generate", generate_script)
+        self.assertIn("--event-time-rate $EventTimeRate", generate_script)
+        self.assertIn("load_testing.cli collect", collect_script)
+        self.assertIn("ValidatePattern('^[0-9a-fA-F]{32}$')", collect_script)
+        self.assertIn("build/e2e/*/flink-runtime.json", workflow)
+        self.assertIn("build/e2e/*/flink-runtime.md", workflow)
 
     def test_flink_anomaly_sinks_store_minimal_replay_safe_records(self) -> None:
         sink_root = (

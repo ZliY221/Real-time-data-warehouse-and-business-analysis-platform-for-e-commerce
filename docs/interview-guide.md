@@ -223,6 +223,12 @@ Python 测试覆盖事件、质量、API、存储边界和对账；Java DataStre
 
 证据：`docs/evidence/offline-warehouse-performance.md`、`src/offline_warehouse/benchmark.py`。
 
+### 28. 生成器配置每秒 1000 条，能否说明链路有 1000 TPS
+
+不能。这个参数只控制合成事件的业务时间密度，用于把大量事件集中在可控的事件时间范围；它不控制 Kafka 实际发送节奏，也没有测量 Flink 或 ClickHouse 的完成时间。清单因此显式记录 `measured_publish_rate=false` 和 `measured_pipeline_throughput=false`。真实吞吐必须同时记录限速发布结果、Flink 输入输出速率与反压、Checkpoint、ClickHouse 最终结果和运行环境。
+
+证据：`src/load_testing/`、`tests/test_load_testing.py`、`docs/study-17-flink-runtime-observability.md`。
+
 ## 三个 STAR 故事
 
 ### 故事一：Watermark 导致窗口没有输出

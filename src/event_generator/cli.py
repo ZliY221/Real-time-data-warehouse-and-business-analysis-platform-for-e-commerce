@@ -24,6 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--count", type=int, default=20, help="number of events")
     parser.add_argument("--seed", type=int, default=2027, help="random seed")
     parser.add_argument(
+        "--events-per-second",
+        type=int,
+        help="event-time density for load datasets; omitted keeps one event every 3 seconds",
+    )
+    parser.add_argument(
         "--start-time",
         type=_parse_start_time,
         default=_parse_start_time("2026-10-02T10:00:00Z"),
@@ -35,7 +40,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    events = generate_order_events(args.count, seed=args.seed, start_time=args.start_time)
+    events = generate_order_events(
+        args.count,
+        seed=args.seed,
+        start_time=args.start_time,
+        events_per_second=args.events_per_second,
+    )
     violations = [
         (index, errors)
         for index, event in enumerate(events)

@@ -29,6 +29,8 @@ $lateEvents = Join-Path $runDirectory "late_events.ndjson"
 $jsonReport = Join-Path $runDirectory "report.json"
 $markdownReport = Join-Path $runDirectory "report.md"
 $manifestPath = Join-Path $runDirectory "manifest.json"
+$flinkRuntimeJson = Join-Path $runDirectory "flink-runtime.json"
+$flinkRuntimeMarkdown = Join-Path $runDirectory "flink-runtime.md"
 $jobId = $null
 $topicCreated = $false
 $databaseCreated = $false
@@ -176,6 +178,15 @@ WHERE window_start >= {start:DateTime64(3, 'UTC')}
         -JsonOutput $jsonReport `
         -MarkdownOutput $markdownReport
 
+    & $runtimePython -m load_testing.cli collect `
+        --job-id $jobId `
+        --rest-url "http://127.0.0.1:8081" `
+        --json-output $flinkRuntimeJson `
+        --markdown-output $flinkRuntimeMarkdown
+    if ($LASTEXITCODE -ne 0) {
+        throw "The Flink runtime snapshot could not be collected."
+    }
+
     $manifest = [ordered]@{
         run_id = $runId
         completed_at = [DateTimeOffset]::UtcNow.ToString("o")
@@ -189,6 +200,7 @@ WHERE window_start >= {start:DateTime64(3, 'UTC')}
         expected_metric_keys = $expectedMetricKeys
         observed_metric_keys = $observedMetricKeys
         report = $jsonReport
+        flink_runtime = $flinkRuntimeJson
     } | ConvertTo-Json
     [System.IO.File]::WriteAllText($manifestPath, $manifest + "`n")
     Write-Host "End-to-end acceptance PASS. Evidence: $runDirectory"

@@ -171,7 +171,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会先并行运行 P
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；提交 `963be45` 已在 GitHub Actions 单节点隔离环境完成真实中间件端到端运行与批流对账。
 
-当前验证基线：103 项 Python/API/数据质量/批流对账/离线数仓/运行证据测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 139 项。
+当前验证基线：104 项 Python/API/数据质量/批流对账/离线数仓/运行证据测试、8 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 140 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 

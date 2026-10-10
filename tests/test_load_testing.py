@@ -215,6 +215,35 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertEqual(850, metrics["busyTimeMsPerSecond"])
         self.assertEqual(2, discovery["selected_series"]["numRecordsInPerSecond"])
 
+    def test_vertex_metric_discovery_waits_for_flink_refresh(self) -> None:
+        current_time = [0.0]
+        discovery_calls = [0]
+
+        def clock() -> float:
+            return current_time[0]
+
+        def sleeper(seconds: float) -> None:
+            current_time[0] += seconds
+
+        def delayed_fetch(url: str) -> object:
+            parsed = urlparse(url)
+            if parsed.query:
+                return [{"id": "numRecordsIn", "value": "20"}]
+            discovery_calls[0] += 1
+            return [] if discovery_calls[0] == 1 else [{"id": "numRecordsIn"}]
+
+        metrics, discovery = FlinkRestClient(
+            fetch_json=delayed_fetch,
+            clock=clock,
+            sleeper=sleeper,
+        ).vertex_metrics(
+            (f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/subtasks/0/metrics",),
+            wait_seconds=5,
+        )
+        self.assertEqual(20, metrics["numRecordsIn"])
+        self.assertEqual(2, discovery["discovery_attempts"])
+        self.assertEqual(1.0, current_time[0])
+
     def test_markdown_contains_operational_summary_without_sensitive_fields(self) -> None:
         snapshot = collect_runtime_snapshot(FlinkRestClient(fetch_json=self.fetch_json), JOB_ID)
         markdown = runtime_snapshot_markdown(snapshot)

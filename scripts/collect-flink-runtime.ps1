@@ -4,7 +4,9 @@ param(
     [ValidatePattern('^[0-9a-fA-F]{32}$')]
     [string]$JobId,
     [string]$RestUrl = "http://127.0.0.1:8081",
-    [string]$OutputDirectory = "build/load/runtime"
+    [string]$OutputDirectory = "build/load/runtime",
+    [ValidateRange(0, 120)]
+    [int]$MetricsWaitSeconds = 20
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +30,7 @@ try {
     & $runtimePython -m load_testing.cli collect `
         --job-id $JobId `
         --rest-url $RestUrl `
+        --metrics-wait-seconds $MetricsWaitSeconds `
         --json-output (Join-Path $resolvedOutput "flink-runtime.json") `
         --markdown-output (Join-Path $resolvedOutput "flink-runtime.md")
     if ($LASTEXITCODE -ne 0) {

@@ -244,6 +244,23 @@ class FlinkRuntimeSnapshotTests(unittest.TestCase):
         self.assertEqual(2, discovery["discovery_attempts"])
         self.assertEqual(1.0, current_time[0])
 
+    def test_task_metric_is_preferred_over_operator_metric(self) -> None:
+        requested_queries: list[str] = []
+
+        def fetch_metrics(url: str) -> object:
+            parsed = urlparse(url)
+            if not parsed.query:
+                return [{"id": "numRecordsIn"}, {"id": "operator.numRecordsIn"}]
+            requested_queries.append(parsed.query)
+            return [{"id": "numRecordsIn", "value": "23"}]
+
+        metrics, discovery = FlinkRestClient(fetch_json=fetch_metrics).vertex_metrics(
+            (f"/jobs/{JOB_ID}/vertices/{VERTEX_ID}/subtasks/0/metrics",)
+        )
+        self.assertEqual(23, metrics["numRecordsIn"])
+        self.assertEqual(1, discovery["selected_series"]["numRecordsIn"])
+        self.assertNotIn("operator.numRecordsIn", requested_queries[0])
+
     def test_markdown_contains_operational_summary_without_sensitive_fields(self) -> None:
         snapshot = collect_runtime_snapshot(FlinkRestClient(fetch_json=self.fetch_json), JOB_ID)
         markdown = runtime_snapshot_markdown(snapshot)

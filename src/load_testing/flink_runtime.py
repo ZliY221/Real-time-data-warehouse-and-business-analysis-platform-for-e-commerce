@@ -189,25 +189,26 @@ class FlinkRestClient:
         unique_available_ids = tuple(
             sorted({identifier for identifiers in available_by_path.values() for identifier in identifiers})
         )
-        selected_ids = {
-            name: tuple(
-                f"{path}#{identifier}"
-                for path, identifiers in available_by_path.items()
-                for identifier in identifiers
-                if identifier == name or identifier.endswith(f".{name}")
-            )
-            for name in VERTEX_METRICS
-        }
+        selected_ids: dict[str, tuple[str, ...]] = {}
+        requested_by_path: dict[str, list[str]] = {path: [] for path in paths}
+        for name in VERTEX_METRICS:
+            qualified: list[str] = []
+            for path, identifiers in available_by_path.items():
+                matches = (
+                    (name,)
+                    if name in identifiers
+                    else tuple(
+                        identifier
+                        for identifier in identifiers
+                        if identifier.endswith(f".{name}")
+                    )
+                )
+                requested_by_path[path].extend(matches)
+                qualified.extend(f"{path}#{identifier}" for identifier in matches)
+            selected_ids[name] = tuple(qualified)
         rows = []
         for path in paths:
-            path_ids = tuple(
-                identifier
-                for identifier in available_by_path[path]
-                if any(
-                    identifier == name or identifier.endswith(f".{name}")
-                    for name in VERTEX_METRICS
-                )
-            )
+            path_ids = tuple(dict.fromkeys(requested_by_path[path]))
             if path_ids:
                 path_rows = self.get_json(path, {"get": ",".join(path_ids)})
                 if not isinstance(path_rows, list):

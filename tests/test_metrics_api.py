@@ -24,10 +24,12 @@ class FakeRepository:
         }
         self.time_series_rows: list[dict[str, Any]] = []
         self.breakdown_rows: list[dict[str, Any]] = []
+        self.anomaly_rows: list[dict[str, Any]] = []
         self.last_minute_query: dict[str, Any] | None = None
         self.last_summary_query: dict[str, Any] | None = None
         self.last_time_series_query: dict[str, Any] | None = None
         self.last_breakdown_query: dict[str, Any] | None = None
+        self.last_anomaly_query: dict[str, Any] | None = None
         self.error: MetricsRepositoryError | None = None
 
     def ping(self) -> None:
@@ -57,6 +59,12 @@ class FakeRepository:
             raise self.error
         self.last_breakdown_query = query
         return self.breakdown_rows
+
+    def fetch_anomaly_summary(self, **query: Any) -> list[dict[str, Any]]:
+        if self.error:
+            raise self.error
+        self.last_anomaly_query = query
+        return self.anomaly_rows
 
 
 class FakeQualityHistory:
@@ -356,6 +364,46 @@ class MetricsApiTests(unittest.TestCase):
         )
         self.assertEqual("clickhouse", response.headers["x-data-mode"])
 
+    def test_anomaly_summary_aggregates_counts_and_validates_type(self) -> None:
+        self.repository.anomaly_rows = [
+            {
+                "anomaly_type": "rejected",
+                "reason": "invalid_field",
+                "anomaly_count": 3,
+                "latest_at": "2026-10-03 08:05:00.000",
+            },
+            {
+                "anomaly_type": "late",
+                "reason": "window_late",
+                "anomaly_count": 5,
+                "latest_at": "2026-10-03 08:06:00.000",
+            },
+        ]
+
+        response = self.client.get(
+            "/api/v1/anomalies/summary",
+            params={
+                "start": "2026-10-03T08:00:00Z",
+                "end": "2026-10-03T09:00:00Z",
+                "limit": 10,
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        body = response.json()
+        self.assertEqual(8, body["total_count"])
+        self.assertEqual(3, body["rejected_count"])
+        self.assertEqual(5, body["late_count"])
+        self.assertEqual(2, body["count"])
+        self.assertTrue(body["items"][0]["latest_at"].endswith("Z"))
+        self.assertEqual(10, self.repository.last_anomaly_query["limit"])
+
+        invalid = self.client.get(
+            "/api/v1/anomalies/summary",
+            params={"anomaly_type": "unknown"},
+        )
+        self.assertEqual(422, invalid.status_code)
+
     def test_quality_trend_returns_only_dashboard_safe_metrics(self) -> None:
         response = self.client.get(
             "/api/v1/quality/trend",
@@ -411,8 +459,10 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("/api/v1/metrics/breakdown", document["paths"])
         self.assertIn("/api/v1/quality/runs", document["paths"])
         self.assertIn("/api/v1/quality/trend", document["paths"])
+        self.assertIn("/api/v1/anomalies/summary", document["paths"])
         self.assertIn("MinuteMetricsResponse", document["components"]["schemas"])
         self.assertIn("QualityRunsResponse", document["components"]["schemas"])
+        self.assertIn("AnomalySummaryResponse", document["components"]["schemas"])
 
     def test_dashboard_and_assets_are_served_with_security_headers(self) -> None:
         page = self.client.get("/dashboard")

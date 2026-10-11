@@ -11,6 +11,7 @@
 - `GET /api/v1/metrics/summary`：返回筛选范围内的订单量、GMV、客单价和最新处理时间。
 - `GET /api/v1/metrics/timeseries`：按安全的时间粒度聚合趋势数据；未指定粒度时按查询跨度自动选择。
 - `GET /api/v1/metrics/breakdown`：按地区或渠道返回排名与占比数据。
+- `GET /api/v1/anomalies/summary`：返回指定时间范围内按类型和原因聚合的异常计数。
 
 ## 参数绑定与列名白名单
 

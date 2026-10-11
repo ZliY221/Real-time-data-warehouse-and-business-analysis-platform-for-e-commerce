@@ -99,6 +99,8 @@ ORDER BY <stable_key>
 ./scripts/clickhouse-query-anomalies.ps1 -Limit 20
 ```
 
+查询服务通过 `GET /api/v1/anomalies/summary` 暴露按异常类型和原因聚合的只读结果。接口接受最长 31 天的 `start`、`end` 时间范围，可用 `anomaly_type=rejected|late` 收窄类型，并将返回分组限制在 100 条以内。查询使用 ClickHouse typed parameters，不把请求值拼接进 SQL；响应同时给出拒绝、迟到与合计数量，但不返回坏消息载荷、事件 ID 或订单 ID。
+
 ## 自动化证据
 
 - 作业图测试确认默认存在三个 ClickHouse Sink，控制台模式不会意外连接数据库。
@@ -121,5 +123,5 @@ ORDER BY <stable_key>
 
 - 本机没有 Docker CLI 和本地 Flink 集群；真实 Kafka → Flink → ClickHouse 已在远程单节点 CI 验收，但尚无本机复现或生产集群证据。
 - `ReplacingMergeTree` 只提供最终替换，不提供事务型同步去重。
-- 异常账本尚未接入 FastAPI 与看板，也没有持续告警。
+- 异常汇总已接入 FastAPI；看板展示与持续告警尚未实现。
 - 还没有长期运行、故障恢复和吞吐压测证据。

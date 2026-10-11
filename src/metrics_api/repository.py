@@ -59,6 +59,15 @@ class MetricsRepository(Protocol):
         limit: int,
     ) -> list[dict[str, Any]]: ...
 
+    def fetch_anomaly_summary(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        anomaly_type: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]: ...
+
 
 class ClickHouseHttpRepository:
     def __init__(
@@ -192,6 +201,41 @@ FROM minute_metrics_latest
 WHERE {where_sql}
 GROUP BY name
 ORDER BY sum(gmv) DESC, name ASC
+LIMIT {{limit:UInt32}}
+FORMAT JSONEachRow
+""".strip()
+        return self._execute(sql, parameters)
+
+    def fetch_anomaly_summary(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        anomaly_type: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        clauses = [
+            "minute_start >= {start:DateTime64(3, 'UTC')}",
+            "minute_start < {end:DateTime64(3, 'UTC')}",
+        ]
+        parameters = {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "limit": str(limit),
+        }
+        if anomaly_type is not None:
+            clauses.append("anomaly_type = {anomaly_type:String}")
+            parameters["anomaly_type"] = anomaly_type
+        sql = f"""
+SELECT
+    anomaly_type,
+    reason,
+    sum(anomaly_count) AS anomaly_count,
+    toString(max(minute_start)) AS latest_at
+FROM event_anomaly_summary
+WHERE {" AND ".join(clauses)}
+GROUP BY anomaly_type, reason
+ORDER BY anomaly_count DESC, anomaly_type ASC, reason ASC
 LIMIT {{limit:UInt32}}
 FORMAT JSONEachRow
 """.strip()

@@ -127,6 +127,42 @@ class PreviewMetricsRepository:
         items = [{"name": name, **self._summary(rows)} for name, rows in grouped.items()]
         return sorted(items, key=lambda item: Decimal(item["gmv"]), reverse=True)[:limit]
 
+    def fetch_anomaly_summary(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        anomaly_type: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        candidates = [
+            {
+                "anomaly_type": "late",
+                "reason": "window_late",
+                "anomaly_count": 7,
+                "latest_at": self.now - timedelta(minutes=9),
+            },
+            {
+                "anomaly_type": "rejected",
+                "reason": "invalid_field",
+                "anomaly_count": 4,
+                "latest_at": self.now - timedelta(minutes=17),
+            },
+            {
+                "anomaly_type": "rejected",
+                "reason": "malformed_json",
+                "anomaly_count": 2,
+                "latest_at": self.now - timedelta(minutes=26),
+            },
+        ]
+        rows = [
+            row
+            for row in candidates
+            if start <= row["latest_at"] < end
+            and (anomaly_type is None or row["anomaly_type"] == anomaly_type)
+        ]
+        return rows[:limit]
+
 
 class PreviewQualityHistory:
     """Deterministic quality-history sample for the ecommerce preview."""

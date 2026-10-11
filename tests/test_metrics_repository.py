@@ -165,6 +165,25 @@ class ClickHouseHttpRepositoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "environment variables"):
             settings.validate()
 
+    def test_anomaly_summary_uses_typed_filters_and_bounded_limit(self) -> None:
+        opener = RecordingOpener([])
+        repository = ClickHouseHttpRepository(self.settings, opener=opener)
+
+        repository.fetch_anomaly_summary(
+            start=datetime(2026, 10, 1, tzinfo=UTC),
+            end=datetime(2026, 10, 2, tzinfo=UTC),
+            anomaly_type="rejected",
+            limit=20,
+        )
+
+        sql = opener.request.data.decode("utf-8")
+        query = parse_qs(urlparse(opener.request.full_url).query)
+        self.assertIn("FROM event_anomaly_summary", sql)
+        self.assertIn("anomaly_type = {anomaly_type:String}", sql)
+        self.assertIn("LIMIT {limit:UInt32}", sql)
+        self.assertEqual(["rejected"], query["param_anomaly_type"])
+        self.assertEqual(["20"], query["param_limit"])
+
 
 if __name__ == "__main__":
     unittest.main()

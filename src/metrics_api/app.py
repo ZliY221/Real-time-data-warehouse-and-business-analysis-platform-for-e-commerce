@@ -13,6 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from data_quality.history import QualityHistoryReader, QualityHistoryStore
 from metrics_api.config import ApiSettings
 from metrics_api.models import (
+    AnomalyFilters,
+    AnomalySummaryItem,
+    AnomalySummaryResponse,
+    AnomalyType,
     BreakdownDimension,
     BreakdownItem,
     BreakdownResponse,
@@ -364,6 +368,52 @@ def create_app(
             ),
             dimension=dimension,
             count=len(items),
+            items=items,
+        )
+
+    @app.get(
+        "/api/v1/anomalies/summary",
+        response_model=AnomalySummaryResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["anomalies"],
+    )
+    def anomaly_summary(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        start: Annotated[datetime | None, Query(description="Inclusive UTC start time")] = None,
+        end: Annotated[datetime | None, Query(description="Exclusive UTC end time")] = None,
+        anomaly_type: Annotated[AnomalyType | None, Query()] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> AnomalySummaryResponse:
+        try:
+            resolved_start, resolved_end = _resolve_range(start, end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+        rows = metrics_repository.fetch_anomaly_summary(
+            start=resolved_start,
+            end=resolved_end,
+            anomaly_type=anomaly_type,
+            limit=limit,
+        )
+        items = [AnomalySummaryItem.model_validate(row) for row in rows]
+        rejected_count = sum(
+            item.anomaly_count for item in items if item.anomaly_type == "rejected"
+        )
+        late_count = sum(
+            item.anomaly_count for item in items if item.anomaly_type == "late"
+        )
+        return AnomalySummaryResponse(
+            generated_at=datetime.now(UTC),
+            filters=AnomalyFilters(
+                start=resolved_start,
+                end=resolved_end,
+                anomaly_type=anomaly_type,
+            ),
+            total_count=rejected_count + late_count,
+            rejected_count=rejected_count,
+            late_count=late_count,
+            count=len(items),
+            limit=limit,
             items=items,
         )
 

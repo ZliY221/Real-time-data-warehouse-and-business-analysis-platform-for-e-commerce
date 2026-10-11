@@ -70,6 +70,7 @@ class MetricSummaryResponse(UtcModel):
 TimeBucket = Literal["auto", "1m", "5m", "15m", "1h"]
 ResolvedTimeBucket = Literal["1m", "5m", "15m", "1h"]
 BreakdownDimension = Literal["region", "channel"]
+AnomalyType = Literal["rejected", "late"]
 
 
 class TimeSeriesPoint(UtcModel):
@@ -100,6 +101,30 @@ class BreakdownResponse(UtcModel):
     dimension: BreakdownDimension
     count: int = Field(ge=0)
     items: list[BreakdownItem]
+
+
+class AnomalyFilters(UtcModel):
+    start: datetime
+    end: datetime
+    anomaly_type: AnomalyType | None = None
+
+
+class AnomalySummaryItem(UtcModel):
+    anomaly_type: AnomalyType
+    reason: str
+    anomaly_count: int = Field(ge=0)
+    latest_at: datetime
+
+
+class AnomalySummaryResponse(UtcModel):
+    generated_at: datetime
+    filters: AnomalyFilters
+    total_count: int = Field(ge=0)
+    rejected_count: int = Field(ge=0)
+    late_count: int = Field(ge=0)
+    count: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
+    items: list[AnomalySummaryItem]
 
 
 class QualityRunItem(UtcModel):

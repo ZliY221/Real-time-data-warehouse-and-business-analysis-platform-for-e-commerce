@@ -86,6 +86,20 @@ export function qualityPassRate(runs) {
   return passed / runs.length;
 }
 
+export function anomalyTypeLabel(value) {
+  return { rejected: "拒绝事件", late: "迟到事件" }[value] || value;
+}
+
+export function anomalyReasonLabel(value) {
+  return {
+    window_late: "窗口迟到",
+    empty_payload: "空载荷",
+    invalid_json_shape: "JSON 结构错误",
+    malformed_json: "JSON 解析失败",
+    invalid_field: "字段校验失败",
+  }[value] || value;
+}
+
 export function apiErrorMessage(status, payload) {
   const detail = payload?.detail;
   if (detail?.code === "analytics_store_unavailable") {

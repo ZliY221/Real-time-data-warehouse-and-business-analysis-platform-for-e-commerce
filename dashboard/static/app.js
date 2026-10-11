@@ -1,4 +1,6 @@
 import {
+  anomalyReasonLabel,
+  anomalyTypeLabel,
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
@@ -50,6 +52,15 @@ const elements = {
   qualityRunCount: document.querySelector("#quality-run-count"),
   qualityHistoryNote: document.querySelector("#quality-history-note"),
   qualityHistoryTable: document.querySelector("#quality-history-table-body"),
+  anomalyStatusBadge: document.querySelector("#anomaly-status-badge"),
+  anomalyTotalCount: document.querySelector("#anomaly-total-count"),
+  anomalyRejectedCount: document.querySelector("#anomaly-rejected-count"),
+  anomalyLateCount: document.querySelector("#anomaly-late-count"),
+  anomalyGroupCount: document.querySelector("#anomaly-group-count"),
+  anomalyChart: document.querySelector("#anomaly-chart"),
+  anomalyEmpty: document.querySelector("#anomaly-empty"),
+  anomalyTableNote: document.querySelector("#anomaly-table-note"),
+  anomalyTable: document.querySelector("#anomaly-table-body"),
   liveStatus: document.querySelector("#screen-reader-status"),
 };
 
@@ -83,6 +94,9 @@ function initializeCharts() {
     renderer: "canvas",
   });
   charts.quality = window.echarts.init(elements.qualityTrendChart, theme, {
+    renderer: "canvas",
+  });
+  charts.anomaly = window.echarts.init(elements.anomalyChart, theme, {
     renderer: "canvas",
   });
 
@@ -597,6 +611,113 @@ function renderQualityFailure(error) {
   charts.quality.clear();
 }
 
+function renderAnomalySummary(response) {
+  const items = response.items;
+  const hasData = items.length > 0;
+  elements.anomalyTotalCount.textContent = formatInteger(response.total_count);
+  elements.anomalyRejectedCount.textContent = formatInteger(
+    response.rejected_count,
+  );
+  elements.anomalyLateCount.textContent = formatInteger(response.late_count);
+  elements.anomalyGroupCount.textContent = formatInteger(response.count);
+  elements.anomalyStatusBadge.textContent = hasData
+    ? `${response.count} 个异常分组`
+    : "当前范围无异常";
+  elements.anomalyTableNote.textContent = hasData
+    ? `已聚合 ${response.total_count} 条异常记录。`
+    : "ClickHouse 异常汇总视图可用，当前范围无记录。";
+  elements.anomalyChart.hidden = !hasData;
+  elements.anomalyEmpty.hidden = hasData;
+
+  const rows = items.map((item) => {
+    const row = document.createElement("tr");
+    appendCell(row, anomalyTypeLabel(item.anomaly_type));
+    appendCell(row, anomalyReasonLabel(item.reason));
+    appendCell(row, formatInteger(item.anomaly_count));
+    appendCell(row, formatTimestamp(item.latest_at, { seconds: true }));
+    return row;
+  });
+  if (!hasData) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 4;
+    cell.className = "table-message";
+    cell.textContent = "当前时间范围没有异常记录";
+    row.append(cell);
+    rows.push(row);
+    charts.anomaly.clear();
+  } else {
+    charts.anomaly.resize();
+    charts.anomaly.setOption(
+      {
+        ...baseChartOption("按异常类型和原因汇总的事件数量。"),
+        color: [cssToken("--color-danger")],
+        grid: { left: 28, right: 24, top: 20, bottom: 68, containLabel: true },
+        tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+        xAxis: {
+          type: "category",
+          data: items.map(
+            (item) =>
+              `${anomalyTypeLabel(item.anomaly_type)}\n${anomalyReasonLabel(item.reason)}`,
+          ),
+          axisLabel: {
+            color: cssToken("--color-text-muted"),
+            interval: 0,
+            hideOverlap: true,
+          },
+          axisLine: { lineStyle: { color: cssToken("--chart-grid") } },
+        },
+        yAxis: {
+          type: "value",
+          minInterval: 1,
+          axisLabel: { color: cssToken("--color-text-muted") },
+          splitLine: {
+            lineStyle: { color: cssToken("--chart-grid"), type: "dashed" },
+          },
+        },
+        series: [
+          {
+            name: "异常数量",
+            type: "bar",
+            barMaxWidth: 42,
+            data: items.map((item) => item.anomaly_count),
+          },
+        ],
+      },
+      { notMerge: true },
+    );
+  }
+  elements.anomalyTable.replaceChildren(...rows);
+}
+
+function renderAnomalyFailure(error) {
+  elements.anomalyStatusBadge.textContent = "异常汇总不可用";
+  elements.anomalyTotalCount.textContent = "—";
+  elements.anomalyRejectedCount.textContent = "—";
+  elements.anomalyLateCount.textContent = "—";
+  elements.anomalyGroupCount.textContent = "—";
+  elements.anomalyTableNote.textContent = error.message;
+  elements.anomalyTable.innerHTML =
+    '<tr><td colspan="4" class="table-message">异常汇总暂时不可用</td></tr>';
+  elements.anomalyChart.hidden = true;
+  elements.anomalyEmpty.hidden = false;
+  charts.anomaly.clear();
+}
+
+async function refreshAnomalies(filters) {
+  try {
+    const summary = await fetchJson(
+      "/api/v1/anomalies/summary",
+      queryFor(filters, { limit: 20 }),
+    );
+    renderAnomalySummary(summary);
+  } catch (error) {
+    renderAnomalyFailure(
+      error instanceof Error ? error : new Error("异常汇总读取失败。"),
+    );
+  }
+}
+
 async function refreshQuality() {
   try {
     const [runs, trend] = await Promise.all([
@@ -653,9 +774,10 @@ function renderFailure(error) {
 async function refreshDashboard() {
   elements.errorBanner.hidden = true;
   setLoading(true);
+  const filters = currentFilters();
   const qualityRefresh = refreshQuality();
+  const anomalyRefresh = refreshAnomalies(filters);
   try {
-    const filters = currentFilters();
     const [summary, timeSeries, regions, channels, recent] = await Promise.all([
       fetchJson("/api/v1/metrics/summary", queryFor(filters)),
       fetchJson(
@@ -695,7 +817,7 @@ async function refreshDashboard() {
   } catch (error) {
     renderFailure(error instanceof Error ? error : new Error("发生未知错误。"));
   } finally {
-    await qualityRefresh;
+    await Promise.all([qualityRefresh, anomalyRefresh]);
     setLoading(false);
   }
 }

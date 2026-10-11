@@ -105,6 +105,27 @@ class PreviewMetricsRepositoryTests(unittest.TestCase):
         self.assertEqual(8, trend_response.json()["count"])
         self.assertEqual("preview", trend_response.headers["x-data-mode"])
 
+    def test_preview_app_serves_anomaly_summary(self) -> None:
+        with TestClient(
+            create_app(
+                self.repository,
+                quality_history=PreviewQualityHistory(self.now),
+                data_mode="preview",
+            )
+        ) as client:
+            response = client.get(
+                "/api/v1/anomalies/summary",
+                params={
+                    "start": (self.now - timedelta(hours=1)).isoformat(),
+                    "end": (self.now + timedelta(minutes=1)).isoformat(),
+                },
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(13, response.json()["total_count"])
+        self.assertEqual(3, response.json()["count"])
+        self.assertEqual("preview", response.headers["x-data-mode"])
+
 
 if __name__ == "__main__":
     unittest.main()

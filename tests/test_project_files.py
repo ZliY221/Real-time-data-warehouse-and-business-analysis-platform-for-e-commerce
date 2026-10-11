@@ -286,6 +286,21 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('Get-Command "node"', test_all)
         self.assertIn('"dashboard\\tests\\data.test.mjs"', test_all)
 
+    def test_anomaly_summary_is_exposed_by_api_and_dashboard(self) -> None:
+        app = (self.root / "src" / "metrics_api" / "app.py").read_text(
+            encoding="utf-8"
+        )
+        repository = (self.root / "src" / "metrics_api" / "repository.py").read_text(
+            encoding="utf-8"
+        )
+        dashboard = (self.root / "dashboard" / "static" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"/api/v1/anomalies/summary"', app)
+        self.assertIn("FROM event_anomaly_summary", repository)
+        self.assertIn('"/api/v1/anomalies/summary"', dashboard)
+        self.assertIn("renderAnomalySummary", dashboard)
+
     def test_data_quality_gate_is_wired_into_local_and_ci_verification(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"

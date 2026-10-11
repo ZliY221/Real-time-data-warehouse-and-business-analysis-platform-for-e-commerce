@@ -814,6 +814,11 @@ h3 {
   text-align: right;
 }
 
+.anomaly-table-card th:nth-child(3),
+.anomaly-table-card td:nth-child(3) {
+  text-align: right;
+}
+
 .empty-state {
   display: grid;
   min-height: 300px;

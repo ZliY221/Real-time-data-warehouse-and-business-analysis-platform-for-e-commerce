@@ -123,5 +123,5 @@ ORDER BY <stable_key>
 
 - 本机没有 Docker CLI 和本地 Flink 集群；真实 Kafka → Flink → ClickHouse 已在远程单节点 CI 验收，但尚无本机复现或生产集群证据。
 - `ReplacingMergeTree` 只提供最终替换，不提供事务型同步去重。
-- 异常汇总已接入 FastAPI；看板展示与持续告警尚未实现。
+- 异常汇总已接入 FastAPI 与经营看板；持续告警尚未实现。
 - 还没有长期运行、故障恢复和吞吐压测证据。

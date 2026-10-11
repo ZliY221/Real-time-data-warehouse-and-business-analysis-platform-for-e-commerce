@@ -369,6 +369,89 @@
         </div>
       </section>
 
+      <section class="quality-section anomaly-section" aria-labelledby="anomaly-title">
+        <div class="section-heading quality-section__heading">
+          <div>
+            <p class="section-kicker">流式异常审计</p>
+            <h2 id="anomaly-title">拒绝与迟到事件</h2>
+            <p>按当前时间范围汇总 Flink 侧输出，只展示异常类型、原因和计数。</p>
+          </div>
+          <span id="anomaly-status-badge" class="data-badge">等待异常汇总</span>
+        </div>
+
+        <div class="quality-summary-grid" aria-label="流式异常摘要">
+          <article class="quality-stat">
+            <span>异常总量</span>
+            <strong id="anomaly-total-count">—</strong>
+            <small>当前查询时间范围</small>
+          </article>
+          <article class="quality-stat">
+            <span>拒绝事件</span>
+            <strong id="anomaly-rejected-count">—</strong>
+            <small>解析或字段校验失败</small>
+          </article>
+          <article class="quality-stat">
+            <span>迟到事件</span>
+            <strong id="anomaly-late-count">—</strong>
+            <small>Watermark 后到达</small>
+          </article>
+          <article class="quality-stat">
+            <span>异常分组</span>
+            <strong id="anomaly-group-count">—</strong>
+            <small>按类型与原因聚合</small>
+          </article>
+        </div>
+
+        <div class="quality-grid">
+          <article class="chart-card" aria-labelledby="anomaly-chart-title">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">原因分布</p>
+                <h3 id="anomaly-chart-title">异常计数</h3>
+                <p>用于定位解析失败、字段异常和窗口迟到。</p>
+              </div>
+            </div>
+            <div
+              id="anomaly-chart"
+              class="chart chart--quality"
+              role="img"
+              aria-label="异常原因计数柱状图"
+            ></div>
+            <div id="anomaly-empty" class="empty-state empty-state--compact" hidden>
+              <strong>当前时间范围没有异常记录</strong>
+              <span>Flink 异常侧流已连接，查询结果为空。</span>
+            </div>
+          </article>
+
+          <article class="table-card anomaly-table-card" aria-labelledby="anomaly-table-title">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">分类汇总</p>
+                <h3 id="anomaly-table-title">异常明细</h3>
+                <p id="anomaly-table-note">读取 ClickHouse 异常汇总视图。</p>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">类型</th>
+                    <th scope="col">原因</th>
+                    <th scope="col">数量</th>
+                    <th scope="col">最近出现</th>
+                  </tr>
+                </thead>
+                <tbody id="anomaly-table-body">
+                  <tr>
+                    <td colspan="4" class="table-message">正在加载异常汇总…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="quality-section" aria-labelledby="quality-title">
         <div class="section-heading quality-section__heading">
           <div>

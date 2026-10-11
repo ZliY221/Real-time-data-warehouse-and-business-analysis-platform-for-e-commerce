@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  anomalyReasonLabel,
+  anomalyTypeLabel,
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
@@ -11,6 +13,13 @@ import {
   qualityPassRate,
   toApiTimestamp,
 } from "../static/data.js";
+
+test("anomaly codes have stable dashboard labels", () => {
+  assert.equal(anomalyTypeLabel("rejected"), "拒绝事件");
+  assert.equal(anomalyTypeLabel("late"), "迟到事件");
+  assert.equal(anomalyReasonLabel("malformed_json"), "JSON 解析失败");
+  assert.equal(anomalyReasonLabel("custom_reason"), "custom_reason");
+});
 
 test("money formatting preserves an exact decimal string", () => {
   assert.equal(formatMoney("123456789012345.60"), "¥123,456,789,012,345.60");

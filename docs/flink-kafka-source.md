@@ -1,14 +1,8 @@
 # Flink KafkaSource 与消费恢复
 
-## 本单元目标
+## 设计范围
 
-完成本单元后，应能够解释：
-
-1. 为什么使用 `KafkaSource`，而不是已经弃用的 `FlinkKafkaConsumer`。
-2. Consumer Group、起始消费位置和 Flink checkpoint 各自负责什么。
-3. 为什么原始 JSON Source 使用 `WatermarkStrategy.noWatermarks()`，而 Watermark 在 JSON 解析后分配。
-4. Source 支持 exactly-once 为什么不等于端到端 exactly-once。
-5. 如何从构建成功、作业图测试推进到真实 broker 端到端验收。
+作业使用 `KafkaSource` 消费原始 JSON，支持 committed、earliest 和 latest 三种起始位置。业务时间在 JSON 解析后提取并分配 Watermark；checkpoint 维护 Source 与 Flink 状态的一致恢复，但不扩展为 JDBC Sink 的端到端 exactly-once。
 
 ## 版本锁定
 
@@ -49,14 +43,14 @@ Flink 在 checkpoint 中保存 Source 进度。恢复作业时，以 Flink check
 
 作业每 10 秒开启一次 `CheckpointingMode.EXACTLY_ONCE` checkpoint，并限制同一时刻只进行一个 checkpoint。它可以保证 Kafka Source 和 Flink 状态在故障恢复时保持一致。
 
-完成本单元时，三个输出仍是演示用控制台 Sink。后续单元已把分钟指标、拒绝事件和迟到事件接入 ClickHouse 至少一次 JDBC Sink，并用稳定键与版本替换吸收重试；普通 JDBC Sink 没有跨系统事务提交协议，因此项目仍不能宣称端到端 exactly-once。
+早期实现的三个输出使用控制台 Sink；当前版本已将分钟指标、拒绝事件和迟到事件接入 ClickHouse 至少一次 JDBC Sink，并用稳定键与版本替换吸收重试。普通 JDBC Sink 没有跨系统事务提交协议，因此系统不提供端到端 exactly-once。
 
 ## 构建与提交
 
 构建可部署 JAR：
 
 ```powershell
-$env:JAVA_HOME = "你的 JDK 17 路径"
+$env:JAVA_HOME = "<JDK 17 安装路径>"
 mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ```
 
@@ -74,7 +68,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ./scripts/submit-flink-job.ps1 -BootstrapServers kafka:29092 -StartingOffsets earliest
 ```
 
-## 当前证据与尚缺证据
+## 验证状态
 
 已经具备：
 
@@ -91,10 +85,10 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 - Kafka offset、坏消息侧流和迟到侧流的运行观测结果。
 - 长时间运行、故障恢复和多分区压力下的行为证据。
 
-## 设计验证
+## 设计约束
 
-1. 为什么不能直接在 `KafkaSource<String>` 上按业务时间生成 Watermark？
-2. `committed`、`earliest` 和 `latest` 分别适合什么场景？
-3. 为什么 checkpoint 中已有 Source 状态时，不应只依赖 Kafka committed offset 恢复？
-4. 空闲 Kafka 分区为什么可能阻塞整个作业的 Watermark？
-5. 当前作业为什么不能宣称端到端 exactly-once？
+- 原始字符串尚未提取 `event_time`，Source 层不生成业务 Watermark。
+- `committed` 用于常规续跑，`earliest` 用于完整回放，`latest` 用于仅处理新增数据。
+- 从 checkpoint/savepoint 恢复时以 Flink Source 状态为准，Kafka committed offset 只作为无状态启动位置和外部观测数据。
+- 空闲 Partition 通过 idleness 策略退出整体 Watermark 最小值计算。
+- JDBC Sink 不参与跨系统事务，因此作业不声明端到端 exactly-once。

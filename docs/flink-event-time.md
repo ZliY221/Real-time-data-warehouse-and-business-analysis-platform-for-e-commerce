@@ -1,14 +1,8 @@
-# Flink 事件时间 去重与分钟窗口
+# Flink 事件时间、去重与分钟窗口
 
-## 本单元目标
+## 设计范围
 
-完成本单元后，应能够解释：
-
-1. 为什么经营指标使用事件时间而不是处理时间。
-2. Watermark、乱序容忍时间和空闲分区的关系。
-3. 为什么 Kafka 的至少一次投递会导致下游需要去重。
-4. Flink Keyed State 和 State TTL 在去重中的作用。
-5. 增量聚合为什么比把窗口内全部事件保存在内存中更节省资源。
+实时指标按事件时间进入一分钟滚动窗口。Watermark 处理有限乱序，Keyed State 按 `event_id` 去重，State TTL 限制状态保留时间，增量聚合避免缓存窗口内全部事件。
 
 ## 当前实现
 
@@ -32,7 +26,7 @@ OrderEvent
   -> MinuteMetric
 ```
 
-## 为什么先脱离 Kafka 测试
+## 计算逻辑隔离测试
 
 窗口、去重和聚合属于计算逻辑，不应该只能通过完整中间件环境验证。测试使用有界内存数据源运行真实 Flink DataStream：
 
@@ -42,7 +36,7 @@ OrderEvent
 - 使用 `10.10 + 20.20`，验证 `BigDecimal` 结果为 `30.30`。
 - 验证一分钟窗口的起止时间。
 
-这样即使 Docker 或 Kafka 暂不可用，核心计算仍然有可重复证据。
+因此计算逻辑可在不启动 Docker 或 Kafka 的情况下重复验证。
 
 ## 本地测试
 
@@ -52,7 +46,7 @@ OrderEvent
 ./scripts/test-flink.ps1
 ```
 
-## 完成本单元时的边界
+## 历史阶段边界
 
 以下内容记录阶段 03 当时的增量范围，JSON 解析、Kafka 接入和异常侧流已在后续技术文档补齐：
 
@@ -62,11 +56,11 @@ OrderEvent
 - 当前非法事件被过滤，下一阶段应输出到质量侧流，而不是静默丢弃。
 - 尚未实现 allowed lateness 和迟到数据侧输出。
 
-## 设计验证
+## 设计约束
 
-1. Watermark 为 `T - 10 秒` 时，一条晚到 15 秒的事件会怎样？
-2. 为什么空闲 Kafka 分区可能阻塞窗口触发？
-3. 去重状态 TTL 太短或太长分别有什么风险？
-4. `AggregateFunction` 与 `ProcessWindowFunction` 为什么组合使用？
-5. 过滤非法事件与写入侧输出相比有什么缺点？
+- 超出 Watermark 和允许迟到范围的事件进入迟到侧流。
+- 空闲 Partition 必须标记 idleness，避免其 Watermark 阻塞整个算子。
+- State TTL 过短会漏掉跨周期重放，过长会增加状态体积。
+- `AggregateFunction` 负责增量计算，`ProcessWindowFunction` 补充窗口边界元数据。
+- 非法事件进入质量侧流，不能静默过滤。
 

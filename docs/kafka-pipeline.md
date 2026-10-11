@@ -1,14 +1,8 @@
 # Kafka 本地消息链路
 
-## 本单元目标
+## 设计范围
 
-完成本单元后，应能够解释：
-
-1. Topic、Partition、Offset、Producer 和 Consumer Group 的关系。
-2. 为什么一个本地单节点 Kafka 仍然需要区分 broker 和 controller 角色。
-3. 容器内客户端和宿主机客户端为什么使用不同的 listener。
-4. `acks=all` 能保证什么，不能保证什么。
-5. 为什么项目不能仅凭“容器启动成功”就宣称消息链路完成。
+本地链路覆盖 Topic 创建、三分区写入、Consumer Group 消费和业务契约复核。Kafka 以单节点 KRaft combined mode 运行，并分别暴露宿主机与 Compose 网络 listener。
 
 ## 当前配置
 
@@ -19,7 +13,7 @@
 - controller listener：`kafka:29093`
 - 业务 Topic：`order-events`
 - 分区数：3
-- 副本数：1，仅适合本地学习和测试
+- 副本数：1，仅用于本地开发和自动化测试
 
 单节点环境必须把 offsets topic 和 transaction state topic 的副本数降为 1，否则 Kafka 会沿用面向多节点集群的默认副本数并导致内部 Topic 无法创建。这个配置不适用于生产环境。
 
@@ -46,7 +40,7 @@
 ./scripts/kafka-down.ps1 -RemoveData
 ```
 
-## 为什么需要 smoke test
+## 消息链路冒烟测试
 
 Smoke test 会：
 
@@ -57,15 +51,14 @@ Smoke test 会：
 5. 对消费结果再次执行 v1 业务契约校验。
 6. 删除临时 Topic 和临时文件。
 
-这比“看到 Kafka 日志没有报错”更强，因为它验证了真实的生产、存储、消费和数据契约闭环。
+验收同时覆盖生产、存储、消费和数据契约，不以容器启动日志作为成功条件。
 
-## 设计验证
+## 设计约束
 
-1. 三个 Partition 是否意味着同一个订单的事件一定有序？
-2. 如果 Producer 没有设置消息 Key，同一个订单的后续事件可能发生什么？
-3. `acks=all` 是否等于端到端 exactly-once？
-4. Consumer Group 中增加消费者数量，吞吐为什么不会无限增长？
-5. 单节点副本数为 1 有什么故障风险？
+- 顺序只在单个 Partition 内成立；同一业务键需要稳定的消息 Key。
+- `acks=all` 约束 broker 写入确认，不提供端到端 exactly-once。
+- 同一 Consumer Group 的有效并行度受 Partition 数量限制。
+- 单节点、副本数 1 的配置不具备 broker 故障容错能力。
 
 ## 当前验证状态
 

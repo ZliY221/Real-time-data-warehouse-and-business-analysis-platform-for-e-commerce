@@ -2,12 +2,12 @@
 
 当前仓库已于 2026 年 10 月 4 日公开发布到 GitHub，包含完整源码、自动化测试、离线数仓基准和真实链路验收脚本。本机仍没有 Docker CLI 与运行中的 Flink 集群，但远程 CI 已完成单节点真实链路验收；必须继续把“本机已验证”“远程单节点已验证”和“生产级未验证”分开表达。
 
-## 推荐仓库信息
+## 仓库信息
 
 - 远程仓库：<https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce>
 - 仓库名：`Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce`
 - 简介：`Event-time ecommerce data platform with Flink, ClickHouse, reconciliation, data quality and a DuckDB dimensional warehouse.`
-- 建议 Topics：`apache-flink`、`kafka`、`clickhouse`、`data-engineering`、`data-quality`、`duckdb`、`fastapi`、`echarts`
+- Topics：`apache-flink`、`kafka`、`clickhouse`、`data-engineering`、`data-quality`、`duckdb`、`fastapi`、`echarts`
 - 默认分支：`main`
 - 可见性：Public
 
@@ -37,7 +37,7 @@ git log --oneline -20
 
 - 开源许可证。没有本人选择前不自动添加；
 - 是否在自己的可用 Docker/Flink 环境再次复现远程链路验收；
-- 是否录制看板与端到端流程演示视频。
+- 是否补充看板与端到端流程运行录像。
 
 ## 后续推送与远程验证
 

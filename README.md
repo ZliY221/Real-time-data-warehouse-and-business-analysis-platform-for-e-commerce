@@ -4,7 +4,7 @@
 
 本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本已经完成事件契约、可复现数据生成、可配置数据质量门禁与 SQLite 历史趋势、Kafka 本地环境、Flink 计算核心、Kafka Source 作业入口、ClickHouse 分钟指标及异常审计表和 JDBC Sink、批流指标对账、DuckDB 离线维度数仓、只读 FastAPI 指标查询服务，以及响应式 ECharts 经营看板。中间件接入始终建立在可验证的数据语义上，避免出现“服务都启动了，但指标口径无法证明正确”的情况。
+当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
 
 ## 当前进度
 
@@ -131,23 +131,23 @@ python -m unittest discover -s tests -v
 - [需求与验收标准](docs/requirements.md)
 - [架构设计](docs/architecture.md)
 - [事件数据字典](docs/data-dictionary.md)
-- [技术文档 01 事件契约与可复现数据](docs/event-contract.md)
-- [技术文档 02 Kafka 本地消息链路](docs/kafka-pipeline.md)
-- [技术文档 03 Flink 事件时间 去重与分钟窗口](docs/flink-event-time.md)
-- [技术文档 04 JSON 解析 质量侧流与迟到数据](docs/data-quality-and-late-events.md)
-- [技术文档 05 持续集成与可验证交付](docs/continuous-integration.md)
-- [技术文档 06 Flink KafkaSource 与消费恢复](docs/flink-kafka-source.md)
-- [技术文档 07 ClickHouse 指标存储与重放安全](docs/clickhouse-sink.md)
-- [技术文档 08 FastAPI 参数化查询与接口边界](docs/fastapi-query-service.md)
-- [技术文档 09 ECharts 经营看板与可信演示](docs/echarts-dashboard.md)
-- [技术文档 10 可配置数据质量门禁](docs/data-quality-gates.md)
-- [技术文档 11 SQLite 质量历史与趋势](docs/quality-history.md)
-- [技术文档 12 质量诊断 API 与看板](docs/quality-diagnostics-dashboard.md)
-- [技术文档 13 Flink 异常侧流持久化](docs/flink-anomaly-persistence.md)
-- [技术文档 14 批流指标一致性核对](docs/batch-stream-reconciliation.md)
-- [技术文档 15 真实链路验收与 Watermark 推进](docs/end-to-end-acceptance.md)
-- [技术文档 16 离线维度数仓与增量 ETL](docs/offline-dimensional-warehouse.md)
-- [技术文档 17 可复现负载输入与 Flink 运行快照](docs/flink-runtime-observability.md)
+- [事件契约与可复现数据](docs/event-contract.md)
+- [Kafka 本地消息链路](docs/kafka-pipeline.md)
+- [Flink 事件时间、去重与分钟窗口](docs/flink-event-time.md)
+- [JSON 解析、质量侧流与迟到数据](docs/data-quality-and-late-events.md)
+- [持续集成](docs/continuous-integration.md)
+- [Flink KafkaSource 与消费恢复](docs/flink-kafka-source.md)
+- [ClickHouse 指标存储与重放安全](docs/clickhouse-sink.md)
+- [FastAPI 参数化查询与接口边界](docs/fastapi-query-service.md)
+- [ECharts 经营看板](docs/echarts-dashboard.md)
+- [可配置数据质量门禁](docs/data-quality-gates.md)
+- [SQLite 质量历史与趋势](docs/quality-history.md)
+- [质量诊断 API 与看板](docs/quality-diagnostics-dashboard.md)
+- [Flink 异常侧流持久化](docs/flink-anomaly-persistence.md)
+- [批流指标一致性核对](docs/batch-stream-reconciliation.md)
+- [真实链路验收与 Watermark 推进](docs/end-to-end-acceptance.md)
+- [离线维度数仓与增量 ETL](docs/offline-dimensional-warehouse.md)
+- [可复现负载输入与 Flink 运行快照](docs/flink-runtime-observability.md)
 - [远程仓库发布与验收清单](docs/publishing-checklist.md)
 
 ## 自动化验证
@@ -175,7 +175,7 @@ Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark�
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 
 ```powershell
-$env:JAVA_HOME = "你的 JDK 17 路径"
+$env:JAVA_HOME = "<JDK 17 安装路径>"
 mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ```
 
@@ -197,7 +197,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 
 规则配置位于 `config/data-quality-rules.json`，覆盖订单 v1 契约、核心字段完整性、事件 ID 唯一性、订单金额范围、进入延迟和渠道分布漂移。CLI 使用退出码作为质量门禁：全部通过返回 `0`，规则失败返回 `1`，配置或输入错误返回 `2`。
 
-仓库还包含 `data/quality/order_events_with_quality_issues.ndjson`，它会同时触发六类失败路径，用于演示规则定位能力。报告只保存行号、规则和必要的异常值，不复制整条事件或用户标识。
+仓库还包含 `data/quality/order_events_with_quality_issues.ndjson`，用于触发六类失败路径并验证规则定位。报告只保存行号、规则和必要的异常值，不复制整条事件或用户标识。
 
 依次运行正常批次、预期失败批次并导出历史与单规则趋势：
 
@@ -207,7 +207,7 @@ mvn -f flink-job/pom.xml --batch-mode --no-transfer-progress clean package
 ./scripts/data-quality-history.ps1 -RuleId channel-share-drift
 ```
 
-历史库为 `build/data-quality/history.db`，导出结果为 `history.json` 和 `history.md`。相同报告使用内容哈希生成同一个 `run_id`，重复写入不会产生重复运行；数据库只保存运行汇总、规则指标和必要样例，不保存完整事件负载。问题演示脚本把质量失败退出码 `1` 视为预期结果，但其他退出码仍会使脚本失败。
+历史库为 `build/data-quality/history.db`，导出结果为 `history.json` 和 `history.md`。相同报告使用内容哈希生成同一个 `run_id`，重复写入不会产生重复运行；数据库只保存运行汇总、规则指标和必要样例，不保存完整事件负载。异常数据验证脚本把质量失败退出码 `1` 视为预期结果，其他退出码仍会使脚本失败。
 
 ## Kafka 本地环境
 

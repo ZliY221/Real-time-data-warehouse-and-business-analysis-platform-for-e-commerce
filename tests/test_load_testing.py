@@ -12,6 +12,8 @@ from load_testing.flink_runtime import FlinkRestClient, collect_runtime_snapshot
 from load_testing.experiment import build_load_plan
 from load_testing.load_dataset import generate_load_dataset
 from load_testing.report import runtime_snapshot_markdown
+from load_testing.series import collect_runtime_series
+from load_testing.sink_completion import ClickHouseCountClient, wait_for_sink_completion
 from load_testing.throttled import publish_lines
 
 
@@ -113,6 +115,88 @@ class TieredLoadExperimentTests(unittest.TestCase):
             publish_lines([], io.StringIO(), target_rate=0)
         with self.assertRaises(json.JSONDecodeError):
             publish_lines(["not-json"], io.StringIO(), target_rate=1)
+
+
+class ContinuousExperimentTests(unittest.TestCase):
+    def test_runtime_series_uses_fixed_intervals(self) -> None:
+        current = [datetime(2026, 10, 11, tzinfo=timezone.utc)]
+        sleeps: list[float] = []
+
+        def clock() -> datetime:
+            return current[0]
+
+        def sleeper(seconds: float) -> None:
+            sleeps.append(seconds)
+            current[0] = current[0].replace(second=current[0].second + int(seconds))
+
+        fixture = FlinkRuntimeSnapshotTests()
+        fixture.setUp()
+        snapshots = collect_runtime_series(
+            FlinkRestClient(fetch_json=fixture.fetch_json),
+            JOB_ID,
+            sample_count=3,
+            interval_seconds=5,
+            clock=clock,
+            sleeper=sleeper,
+        )
+
+        self.assertEqual(3, len(snapshots))
+        self.assertEqual([5, 5], sleeps)
+        self.assertEqual(3, len({snapshot["collected_at"] for snapshot in snapshots}))
+
+    def test_sink_completion_reports_verified_throughput(self) -> None:
+        now = [0.0]
+        counts = iter((40, 90, 100))
+
+        def monotonic() -> float:
+            return now[0]
+
+        def sleeper(seconds: float) -> None:
+            now[0] += seconds
+
+        report = wait_for_sink_completion(
+            lambda: next(counts),
+            expected_records=100,
+            timeout_seconds=10,
+            poll_interval_seconds=2,
+            started_at=datetime(2026, 10, 11, tzinfo=timezone.utc),
+            monotonic=monotonic,
+            sleeper=sleeper,
+        )
+
+        self.assertEqual("COMPLETE", report["status"])
+        self.assertEqual(3, report["poll_attempts"])
+        self.assertEqual(25.0, report["end_to_end_throughput_per_second"])
+        self.assertTrue(report["claims"]["measured_pipeline_throughput"])
+
+    def test_sink_timeout_never_claims_pipeline_throughput(self) -> None:
+        now = [0.0]
+
+        def monotonic() -> float:
+            return now[0]
+
+        def sleeper(seconds: float) -> None:
+            now[0] += seconds
+
+        report = wait_for_sink_completion(
+            lambda: 5,
+            expected_records=10,
+            timeout_seconds=4,
+            poll_interval_seconds=2,
+            started_at=datetime(2026, 10, 11, tzinfo=timezone.utc),
+            monotonic=monotonic,
+            sleeper=sleeper,
+        )
+
+        self.assertEqual("TIMEOUT", report["status"])
+        self.assertIsNone(report["end_to_end_throughput_per_second"])
+        self.assertFalse(report["claims"]["measured_pipeline_throughput"])
+
+    def test_clickhouse_client_rejects_remote_or_credentialed_urls(self) -> None:
+        with self.assertRaises(ValueError):
+            ClickHouseCountClient("http://clickhouse.internal:8123")
+        with self.assertRaises(ValueError):
+            ClickHouseCountClient("http://user:secret@127.0.0.1:8123")
 
 
 class FlinkRuntimeSnapshotTests(unittest.TestCase):

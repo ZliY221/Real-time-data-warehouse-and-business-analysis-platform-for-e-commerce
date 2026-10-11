@@ -65,6 +65,18 @@ Flink 1.20.1 提供只读 REST 接口，可读取 Job、Vertex 指标、反压�
 
 默认只允许访问 `localhost`、`127.0.0.1` 或 `::1`，URL 不能携带凭据。JSON 和 Markdown 结果不保存事件载荷、异常正文、Checkpoint 外部路径或服务凭据。端到端 CI 会在取消作业之前采集一次快照，并将其与对账报告一起作为 90 天脱敏 Artifact 上传。
 
+连续采样使用 `collect-series`，按固定间隔将每次脱敏快照写入 NDJSON：
+
+```powershell
+python -m load_testing.cli collect-series `
+  --job-id 0123456789abcdef0123456789abcdef `
+  --samples 12 `
+  --interval-seconds 5 `
+  --output build/load/medium/flink-series.ndjson
+```
+
+限速发布开始后，`wait-sink` 按事件时间窗口轮询 ClickHouse 汇总订单数。只有实际数量达到期望值时，报告才标记 `sink_completion_verified=true` 并根据发布开始时间和落库完成时间计算吞吐；超时报告不包含吞吐结论。
+
 ## 当前验证范围
 
 当前已经完成：
@@ -76,6 +88,6 @@ Flink 1.20.1 提供只读 REST 接口，可读取 Job、Vertex 指标、反压�
 5. 在 [run 38039610557](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/38039610557) 中验证 3/3 Vertex 均取得 task 级指标、1 次 Checkpoint 成功、0 次失败且 Job 无重启；可审计摘要见 [Flink 运行指标 CI 证据](evidence/flink-runtime-ci.md)。
 6. 固定低、中、高三档发布参数，并实现单调时钟限速、输入校验和边界明确的发布器报告。
 
-限速输出能力已经完成；Kafka 确认率采集、连续采样、端到端完成时间计算与瓶颈分析尚未完成。当前结果不提供生产 TPS 或长期无反压结论。
+限速输出、连续 Flink 采样和 ClickHouse 完成时间计算已经实现；Kafka 确认率采集、正式三档实验执行和瓶颈归因仍未完成。当前结果不提供生产 TPS 或长期无反压结论。
 
 后续性能测试将增加低、中、高三档限速发布，按固定间隔连续采样，并汇总 Kafka 发送结果、Flink 指标、ClickHouse 最终行数和运行环境。

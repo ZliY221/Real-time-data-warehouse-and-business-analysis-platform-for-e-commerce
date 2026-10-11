@@ -12,6 +12,8 @@ from .experiment import write_load_plan
 from .flink_runtime import FlinkRestClient, collect_runtime_snapshot
 from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
+from .series import collect_runtime_series, write_runtime_series
+from .sink_completion import ClickHouseCountClient, wait_for_sink_completion
 from .throttled import publish_file
 
 
@@ -57,6 +59,24 @@ def build_parser() -> argparse.ArgumentParser:
     publish.add_argument("--input", type=Path, required=True)
     publish.add_argument("--target-rate", type=int, required=True)
     publish.add_argument("--report-output", type=Path, required=True)
+
+    series = subparsers.add_parser("collect-series", help="collect repeated Flink REST snapshots")
+    series.add_argument("--job-id", required=True)
+    series.add_argument("--rest-url", default="http://127.0.0.1:8081")
+    series.add_argument("--samples", type=int, default=12)
+    series.add_argument("--interval-seconds", type=float, default=5.0)
+    series.add_argument("--output", type=Path, required=True)
+
+    sink = subparsers.add_parser("wait-sink", help="wait for ClickHouse order-count completion")
+    sink.add_argument("--expected-records", type=int, required=True)
+    sink.add_argument("--window-start", type=_timestamp, required=True)
+    sink.add_argument("--window-end", type=_timestamp, required=True)
+    sink.add_argument("--started-at", type=_timestamp, required=True)
+    sink.add_argument("--timeout-seconds", type=float, default=120.0)
+    sink.add_argument("--poll-interval-seconds", type=float, default=2.0)
+    sink.add_argument("--clickhouse-url", default="http://127.0.0.1:8123")
+    sink.add_argument("--database", default="ecommerce")
+    sink.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -90,6 +110,34 @@ def main() -> None:
             args.report_output,
             target_rate=args.target_rate,
         )
+        return
+
+    if args.command == "collect-series":
+        client = FlinkRestClient(args.rest_url)
+        snapshots = collect_runtime_series(
+            client,
+            args.job_id,
+            sample_count=args.samples,
+            interval_seconds=args.interval_seconds,
+        )
+        write_runtime_series(args.output, snapshots)
+        print(f"collected {len(snapshots)} Flink snapshots at {args.output}")
+        return
+
+    if args.command == "wait-sink":
+        client = ClickHouseCountClient(args.clickhouse_url, args.database)
+        report = wait_for_sink_completion(
+            lambda: client.count_orders(args.window_start, args.window_end),
+            expected_records=args.expected_records,
+            timeout_seconds=args.timeout_seconds,
+            poll_interval_seconds=args.poll_interval_seconds,
+            started_at=args.started_at,
+        )
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"ClickHouse sink status={report['status']}; observed={report['observed_records']}")
+        if report["status"] != "COMPLETE":
+            raise SystemExit(1)
         return
 
     client = FlinkRestClient(args.rest_url, allow_remote=args.allow_remote)

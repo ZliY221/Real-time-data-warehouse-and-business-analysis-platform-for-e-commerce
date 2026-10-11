@@ -14,6 +14,7 @@ from load_testing.load_dataset import generate_load_dataset
 from load_testing.report import runtime_snapshot_markdown
 from load_testing.series import collect_runtime_series
 from load_testing.sink_completion import ClickHouseCountClient, wait_for_sink_completion
+from load_testing.summary import summarize_load_experiment
 from load_testing.throttled import publish_lines
 
 
@@ -197,6 +198,72 @@ class ContinuousExperimentTests(unittest.TestCase):
             ClickHouseCountClient("http://clickhouse.internal:8123")
         with self.assertRaises(ValueError):
             ClickHouseCountClient("http://user:secret@127.0.0.1:8123")
+
+    def test_three_tier_summary_requires_consistent_complete_evidence(self) -> None:
+        plan = {
+            "plan_version": "1.0",
+            "tiers": [
+                {"name": name, "event_count": count, "target_publish_rate_per_second": rate}
+                for name, count, rate in (("low", 10, 2), ("medium", 20, 4), ("high", 30, 6))
+            ],
+        }
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for tier in plan["tiers"]:
+                tier_root = root / tier["name"]
+                tier_root.mkdir()
+                (tier_root / "publisher-report.json").write_text(
+                    json.dumps(
+                        {
+                            "records_published": tier["event_count"],
+                            "target_rate_per_second": tier["target_publish_rate_per_second"],
+                            "observed_output_rate_per_second": tier["target_publish_rate_per_second"],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                (tier_root / "sink-completion.json").write_text(
+                    json.dumps(
+                        {
+                            "status": "COMPLETE",
+                            "expected_records": tier["event_count"],
+                            "observed_records": tier["event_count"],
+                            "elapsed_seconds": 5,
+                            "end_to_end_throughput_per_second": tier["event_count"] / 5,
+                            "claims": {"sink_completion_verified": True},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                snapshot = {
+                    "job": {"state": "RUNNING"},
+                    "checkpoints": {"counts": {"failed": 0}},
+                    "vertices": [
+                        {
+                            "metrics": {
+                                "numRecordsInPerSecond": tier["target_publish_rate_per_second"],
+                                "numRecordsOutPerSecond": tier["target_publish_rate_per_second"],
+                            },
+                            "backpressure": {"max_backpressure_ratio": 0.02},
+                        }
+                    ],
+                }
+                (tier_root / "flink-series.ndjson").write_text(
+                    json.dumps(snapshot) + "\n", encoding="utf-8"
+                )
+
+            summary = summarize_load_experiment(plan, root)
+            self.assertEqual("COMPLETE", summary["status"])
+            self.assertEqual(["low", "medium", "high"], [tier["name"] for tier in summary["tiers"]])
+            self.assertFalse(summary["claims"]["results_are_production_capacity"])
+
+            incomplete = json.loads((root / "high" / "sink-completion.json").read_text())
+            incomplete["status"] = "TIMEOUT"
+            (root / "high" / "sink-completion.json").write_text(
+                json.dumps(incomplete), encoding="utf-8"
+            )
+            with self.assertRaisesRegex(ValueError, "high evidence is inconsistent"):
+                summarize_load_experiment(plan, root)
 
 
 class FlinkRuntimeSnapshotTests(unittest.TestCase):

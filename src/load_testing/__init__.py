@@ -6,6 +6,7 @@ from .experiment import build_load_plan
 from .throttled import publish_lines
 from .series import collect_runtime_series
 from .sink_completion import wait_for_sink_completion
+from .summary import summarize_load_experiment
 
 __all__ = [
     "FlinkRestClient",
@@ -15,4 +16,5 @@ __all__ = [
     "publish_lines",
     "collect_runtime_series",
     "wait_for_sink_completion",
+    "summarize_load_experiment",
 ]

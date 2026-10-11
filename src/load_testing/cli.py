@@ -14,6 +14,7 @@ from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
 from .series import collect_runtime_series, write_runtime_series
 from .sink_completion import ClickHouseCountClient, wait_for_sink_completion
+from .summary import write_experiment_summary
 from .throttled import publish_file
 
 
@@ -77,6 +78,11 @@ def build_parser() -> argparse.ArgumentParser:
     sink.add_argument("--clickhouse-url", default="http://127.0.0.1:8123")
     sink.add_argument("--database", default="ecommerce")
     sink.add_argument("--output", type=Path, required=True)
+
+    summarize = subparsers.add_parser("summarize", help="validate and summarize all load tiers")
+    summarize.add_argument("--plan", type=Path, required=True)
+    summarize.add_argument("--evidence-root", type=Path, required=True)
+    summarize.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -138,6 +144,11 @@ def main() -> None:
         print(f"ClickHouse sink status={report['status']}; observed={report['observed_records']}")
         if report["status"] != "COMPLETE":
             raise SystemExit(1)
+        return
+
+    if args.command == "summarize":
+        summary = write_experiment_summary(args.plan, args.evidence_root, args.output)
+        print(f"summarized {len(summary['tiers'])} verified load tiers at {args.output}")
         return
 
     client = FlinkRestClient(args.rest_url, allow_remote=args.allow_remote)

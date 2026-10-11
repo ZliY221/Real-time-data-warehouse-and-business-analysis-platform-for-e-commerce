@@ -77,6 +77,14 @@ python -m load_testing.cli collect-series `
 
 限速发布开始后，`wait-sink` 按事件时间窗口轮询 ClickHouse 汇总订单数。只有实际数量达到期望值时，报告才标记 `sink_completion_verified=true` 并根据发布开始时间和落库完成时间计算吞吐；超时报告不包含吞吐结论。
 
+三档运行结束后执行：
+
+```powershell
+./scripts/summarize-load-experiment.ps1
+```
+
+汇总器要求 `low`、`medium`、`high` 三个目录都包含发布器报告、Flink 连续快照和 ClickHouse 完成报告，并交叉校验目标速率及记录数。输出保留端到端耗时、端到端吞吐、Vertex 峰值速率、最大反压比例和失败 Checkpoint 计数。任一档缺少证据、未完成落库或数量不一致时命令失败，不生成“完整实验”结论。
+
 ## 当前验证范围
 
 当前已经完成：

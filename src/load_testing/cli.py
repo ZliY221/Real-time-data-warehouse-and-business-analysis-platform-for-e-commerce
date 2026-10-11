@@ -14,6 +14,7 @@ from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
 from .series import collect_runtime_series, write_runtime_series
 from .sink_completion import ClickHouseCountClient, wait_for_sink_completion
+from .slo import write_slo_report
 from .summary import write_experiment_summary
 from .throttled import publish_file
 
@@ -83,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
     summarize.add_argument("--plan", type=Path, required=True)
     summarize.add_argument("--evidence-root", type=Path, required=True)
     summarize.add_argument("--output", type=Path, required=True)
+
+    evaluate_slo = subparsers.add_parser("evaluate-slo", help="evaluate operational SLO policy")
+    evaluate_slo.add_argument("--summary", type=Path, required=True)
+    evaluate_slo.add_argument("--policy", type=Path, required=True)
+    evaluate_slo.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -149,6 +155,13 @@ def main() -> None:
     if args.command == "summarize":
         summary = write_experiment_summary(args.plan, args.evidence_root, args.output)
         print(f"summarized {len(summary['tiers'])} verified load tiers at {args.output}")
+        return
+
+    if args.command == "evaluate-slo":
+        report = write_slo_report(args.summary, args.policy, args.output)
+        print(f"load SLO status={report['status']}; alerts={len(report['alerts'])}")
+        if report["status"] != "PASS":
+            raise SystemExit(1)
         return
 
     client = FlinkRestClient(args.rest_url, allow_remote=args.allow_remote)

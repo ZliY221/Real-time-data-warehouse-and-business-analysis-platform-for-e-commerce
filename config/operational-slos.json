@@ -1,0 +1,15 @@
+{
+  "policy_version": "1.0",
+  "defaults": {
+    "min_throughput_ratio": 0.9,
+    "max_backpressure_ratio": 0.2,
+    "max_failed_checkpoints": 0,
+    "allowed_job_states": ["RUNNING", "FINISHED"]
+  },
+  "tier_overrides": {
+    "high": {
+      "min_throughput_ratio": 0.85,
+      "max_backpressure_ratio": 0.3
+    }
+  }
+}

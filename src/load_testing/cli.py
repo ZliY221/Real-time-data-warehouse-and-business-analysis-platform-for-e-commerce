@@ -11,6 +11,7 @@ import sys
 from .experiment import write_load_plan
 from .flink_runtime import FlinkRestClient, collect_runtime_snapshot
 from .incidents import update_incident_state
+from .notifications import write_notification_plan
 from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
 from .series import collect_runtime_series, write_runtime_series
@@ -97,6 +98,14 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile_alerts.add_argument("--slo-report", type=Path, required=True)
     reconcile_alerts.add_argument("--state", type=Path, required=True)
     reconcile_alerts.add_argument("--observed-at", required=True)
+
+    notification_plan = subparsers.add_parser(
+        "plan-notifications", help="build an idempotent incident notification outbox"
+    )
+    notification_plan.add_argument("--state", type=Path, required=True)
+    notification_plan.add_argument("--policy", type=Path, required=True)
+    notification_plan.add_argument("--delivery-ledger", type=Path)
+    notification_plan.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -177,6 +186,16 @@ def main() -> None:
         print(
             f"active incidents={state['active_incident_count']}; "
             f"resolved incidents={state['resolved_incident_count']}"
+        )
+        return
+
+    if args.command == "plan-notifications":
+        outbox = write_notification_plan(
+            args.state, args.policy, args.delivery_ledger, args.output
+        )
+        print(
+            f"notification outbox status={outbox['status']}; "
+            f"pending={outbox['pending_event_count']}"
         )
         return
 

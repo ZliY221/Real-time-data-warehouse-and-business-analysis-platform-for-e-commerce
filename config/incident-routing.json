@@ -1,0 +1,12 @@
+{
+  "policy_version": "1.0",
+  "severity_routes": {
+    "critical": [
+      "ops-dashboard",
+      "pager"
+    ],
+    "warning": [
+      "ops-dashboard"
+    ]
+  }
+}

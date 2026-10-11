@@ -4,7 +4,7 @@
 
 本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本：`v0.2.0`。版本变更见 [CHANGELOG](CHANGELOG.md)。
+当前版本：`v0.3.0`。版本变更见 [CHANGELOG](CHANGELOG.md)。
 
 当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
 
@@ -36,6 +36,7 @@
 - [x] 通过 FastAPI 提供拒绝与迟到事件的分类汇总查询，不暴露原始异常载荷和业务标识
 - [x] 提供确定性负载数据集、参数/哈希清单和脱敏 Flink REST 运行快照
 - [x] 对分档压测证据执行吞吐、反压、Checkpoint 与作业状态 SLO 判定
+- [x] 将连续 SLO 报告合并为可去重、可恢复、可追踪复发的告警事件
 - [ ] 完成分档、限速的 Kafka → Flink → ClickHouse 压力测试并保存原始结果
 
 ## 业务问题
@@ -153,6 +154,7 @@ python -m unittest discover -s tests -v
 - [离线维度数仓与增量 ETL](docs/offline-dimensional-warehouse.md)
 - [可复现负载输入与 Flink 运行快照](docs/flink-runtime-observability.md)
 - [压测 SLO 判定与告警](docs/operational-slo-evaluation.md)
+- [SLO 告警生命周期](docs/slo-incident-lifecycle.md)
 - [远程仓库发布与验收清单](docs/publishing-checklist.md)
 
 ## 自动化验证

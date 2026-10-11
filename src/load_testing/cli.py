@@ -10,6 +10,7 @@ import sys
 
 from .experiment import write_load_plan
 from .flink_runtime import FlinkRestClient, collect_runtime_snapshot
+from .incidents import update_incident_state
 from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
 from .series import collect_runtime_series, write_runtime_series
@@ -89,6 +90,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_slo.add_argument("--summary", type=Path, required=True)
     evaluate_slo.add_argument("--policy", type=Path, required=True)
     evaluate_slo.add_argument("--output", type=Path, required=True)
+
+    reconcile_alerts = subparsers.add_parser(
+        "reconcile-alerts", help="update the durable lifecycle of SLO incidents"
+    )
+    reconcile_alerts.add_argument("--slo-report", type=Path, required=True)
+    reconcile_alerts.add_argument("--state", type=Path, required=True)
+    reconcile_alerts.add_argument("--observed-at", required=True)
     return parser
 
 
@@ -162,6 +170,14 @@ def main() -> None:
         print(f"load SLO status={report['status']}; alerts={len(report['alerts'])}")
         if report["status"] != "PASS":
             raise SystemExit(1)
+        return
+
+    if args.command == "reconcile-alerts":
+        state = update_incident_state(args.slo_report, args.state, args.observed_at)
+        print(
+            f"active incidents={state['active_incident_count']}; "
+            f"resolved incidents={state['resolved_incident_count']}"
+        )
         return
 
     client = FlinkRestClient(args.rest_url, allow_remote=args.allow_remote)

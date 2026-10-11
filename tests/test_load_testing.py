@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import io
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,8 +9,10 @@ import unittest
 from urllib.parse import urlparse
 
 from load_testing.flink_runtime import FlinkRestClient, collect_runtime_snapshot
+from load_testing.experiment import build_load_plan
 from load_testing.load_dataset import generate_load_dataset
 from load_testing.report import runtime_snapshot_markdown
+from load_testing.throttled import publish_lines
 
 
 JOB_ID = "0123456789abcdef0123456789abcdef"
@@ -64,6 +67,52 @@ class LoadDatasetTests(unittest.TestCase):
                     event_time_rate=1,
                     profile="invalid",
                 )
+
+
+class TieredLoadExperimentTests(unittest.TestCase):
+    def test_plan_defines_three_tiers_without_throughput_claims(self) -> None:
+        plan = build_load_plan(
+            generated_at=datetime(2026, 10, 11, 0, 0, tzinfo=timezone.utc)
+        )
+
+        self.assertEqual(["low", "medium", "high"], [tier["name"] for tier in plan["tiers"]])
+        self.assertEqual(100.0, plan["tiers"][0]["minimum_publish_duration_seconds"])
+        self.assertFalse(plan["measurement_policy"]["event_time_rate_is_throughput"])
+        self.assertTrue(
+            plan["measurement_policy"]["pipeline_throughput_requires_sink_completion"]
+        )
+
+    def test_publisher_uses_deterministic_rate_schedule_and_report_boundaries(self) -> None:
+        now = [0.0]
+
+        def clock() -> float:
+            return now[0]
+
+        def sleeper(seconds: float) -> None:
+            now[0] += seconds
+
+        output = io.StringIO()
+        report = publish_lines(
+            ['{"id":1}\n', '{"id":2}\n', '{"id":3}\n'],
+            output,
+            target_rate=2,
+            clock=clock,
+            sleeper=sleeper,
+        )
+
+        self.assertEqual('{"id":1}\n{"id":2}\n{"id":3}\n', output.getvalue())
+        self.assertEqual(1.5, report["elapsed_seconds"])
+        self.assertEqual(2.0, report["observed_output_rate_per_second"])
+        self.assertEqual(3, report["records_published"])
+        self.assertTrue(report["claims"]["measured_publisher_output_rate"])
+        self.assertFalse(report["claims"]["measured_kafka_ack_rate"])
+        self.assertFalse(report["claims"]["measured_pipeline_throughput"])
+
+    def test_publisher_rejects_invalid_rate_and_invalid_json(self) -> None:
+        with self.assertRaises(ValueError):
+            publish_lines([], io.StringIO(), target_rate=0)
+        with self.assertRaises(json.JSONDecodeError):
+            publish_lines(["not-json"], io.StringIO(), target_rate=1)
 
 
 class FlinkRuntimeSnapshotTests(unittest.TestCase):

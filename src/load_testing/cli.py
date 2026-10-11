@@ -6,10 +6,13 @@ import argparse
 from datetime import datetime
 import json
 from pathlib import Path
+import sys
 
+from .experiment import write_load_plan
 from .flink_runtime import FlinkRestClient, collect_runtime_snapshot
 from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
+from .throttled import publish_file
 
 
 def _timestamp(value: str) -> datetime:
@@ -46,6 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--metrics-wait-seconds", type=float, default=0.0)
     collect.add_argument("--json-output", type=Path, required=True)
     collect.add_argument("--markdown-output", type=Path, required=True)
+
+    plan = subparsers.add_parser("plan", help="write the canonical low/medium/high load plan")
+    plan.add_argument("--output", type=Path, required=True)
+
+    publish = subparsers.add_parser("publish", help="stream NDJSON to stdout at a target rate")
+    publish.add_argument("--input", type=Path, required=True)
+    publish.add_argument("--target-rate", type=int, required=True)
+    publish.add_argument("--report-output", type=Path, required=True)
     return parser
 
 
@@ -64,6 +75,20 @@ def main() -> None:
         print(
             f"generated {manifest['generator']['count']} events; "
             f"manifest: {args.manifest_output}"
+        )
+        return
+
+    if args.command == "plan":
+        plan = write_load_plan(args.output)
+        print(f"wrote {len(plan['tiers'])} load tiers to {args.output}")
+        return
+
+    if args.command == "publish":
+        publish_file(
+            args.input,
+            sys.stdout,
+            args.report_output,
+            target_rate=args.target_rate,
         )
         return
 

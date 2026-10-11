@@ -24,6 +24,26 @@
 
 相同数量、种子、起点和事件时间密度会产生字节级相同的数据集。清单只记录文件名，不泄露本机绝对路径。
 
+## 分档发布计划
+
+生成统一的低、中、高三档实验计划：
+
+```powershell
+./scripts/generate-load-plan.ps1
+```
+
+计划固定为 10,000 条/100 条每秒、50,000 条/1,000 条每秒和 100,000 条/5,000 条每秒，并为每档列出发布器报告、Flink 运行快照和 ClickHouse 最终计数三类必需证据。`publish` 子命令按单调时钟控制 NDJSON 输出，可直接接入消息生产进程：
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m load_testing.cli publish `
+  --input build/load/low/events.ndjson `
+  --target-rate 100 `
+  --report-output build/load/low/publisher-report.json
+```
+
+命令将事件写入标准输出，运行日志应由下游生产进程单独记录。发布器报告中的 `observed_output_rate_per_second` 只表示本地 NDJSON 输出速率，不代表 Kafka 确认速率或端到端链路吞吐；只有取得 ClickHouse 完成时间后才能计算链路结果。
+
 ## Flink 运行快照
 
 Flink 1.20.1 提供只读 REST 接口，可读取 Job、Vertex 指标、反压和 Checkpoint 统计。作业运行时执行：
@@ -54,7 +74,8 @@ Flink 1.20.1 提供只读 REST 接口，可读取 Job、Vertex 指标、反压�
 3. 10,000 条本地输入生成实验；
 4. 完整链路 CI 中的真实 Flink REST 探针接入，并在采样前最多等待 20 秒观察已完成 Checkpoint。
 5. 在 [run 38039610557](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/runs/38039610557) 中验证 3/3 Vertex 均取得 task 级指标、1 次 Checkpoint 成功、0 次失败且 Job 无重启；可审计摘要见 [Flink 运行指标 CI 证据](evidence/flink-runtime-ci.md)。
+6. 固定低、中、高三档发布参数，并实现单调时钟限速、输入校验和边界明确的发布器报告。
 
-分档限速生产、连续采样、端到端完成时间计算与瓶颈分析尚未完成。当前结果仅覆盖确定性负载输入和 Flink 运行指标采集，不提供 TPS 或长期无反压结论。
+限速输出能力已经完成；Kafka 确认率采集、连续采样、端到端完成时间计算与瓶颈分析尚未完成。当前结果不提供生产 TPS 或长期无反压结论。
 
 后续性能测试将增加低、中、高三档限速发布，按固定间隔连续采样，并汇总 Kafka 发送结果、Flink 指标、ClickHouse 最终行数和运行环境。

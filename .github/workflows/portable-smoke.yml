@@ -32,7 +32,15 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: pyproject.toml
-      - name: Install portable warehouse dependencies
-        run: python -m pip install --disable-pip-version-check -e ".[warehouse]"
-      - name: Run the public quickstart
-        run: python scripts/quickstart.py --output-dir build/portable
+      - name: Bootstrap the isolated runtime and run the public quickstart
+        run: >-
+          python scripts/bootstrap.py
+          --runtime-dir build/portable-runtime
+          --
+          --output-dir build/portable
+      - name: Reuse the isolated runtime
+        run: >-
+          python scripts/bootstrap.py
+          --runtime-dir build/portable-runtime
+          --
+          --output-dir build/portable

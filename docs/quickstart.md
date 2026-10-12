@@ -2,6 +2,8 @@
 
 `scripts/quickstart.py` 提供不依赖当前工作目录的跨平台入口，用于构建可查询的本地电商离线仓库。入口依次执行环境自检、确定性事件生成、业务契约校验、DuckDB 分层装载和聚合报告导出。
 
+全新环境可先运行 `python scripts/bootstrap.py`，由[隔离运行时启动器](portable-runtime.md)创建项目内虚拟环境、安装锁定依赖并调用本入口。
+
 ## 运行
 
 ```shell

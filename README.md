@@ -5,7 +5,7 @@
 
 本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本：`v0.7.1`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
+当前版本：`v0.8.0`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
 
 当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
 
@@ -43,6 +43,7 @@
 - [x] 提供跨平台环境自检和可归档的 JSON/Markdown 诊断报告
 - [x] 在 Windows、Ubuntu 和 macOS 干净环境执行可移植离线数据流
 - [x] 提供环境诊断、事件校验、DuckDB 装载和聚合报告的一键跨平台入口
+- [x] 提供自动创建、复用和更新项目隔离环境的跨平台启动器
 - [ ] 完成分档、限速的 Kafka → Flink → ClickHouse 压力测试并保存原始结果
 
 ## 业务问题
@@ -115,6 +116,14 @@ ecommerce-realtime-warehouse/
 
 要求 Python 3.11 或更高版本。
 
+全新检出或 ZIP 解压后可直接创建项目隔离环境并运行本地数仓：
+
+```powershell
+python scripts/bootstrap.py
+```
+
+启动器不修改系统 Python；配置指纹一致时复用 `build/portable-runtime/`。参数、更新规则和能力边界见[隔离运行时启动器](docs/portable-runtime.md)。
+
 克隆或下载仓库后，先按所需运行范围执行环境自检：
 
 ```powershell
@@ -162,6 +171,7 @@ python -m unittest discover -s tests -v
 - [需求与验收标准](docs/requirements.md)
 - [跨平台环境自检](docs/environment-preflight.md)
 - [一键本地数据流](docs/quickstart.md)
+- [隔离运行时启动器](docs/portable-runtime.md)
 - [架构设计](docs/architecture.md)
 - [事件数据字典](docs/data-dictionary.md)
 - [事件契约与可复现数据](docs/event-contract.md)

@@ -41,6 +41,28 @@ class ProjectDoctorTest(unittest.TestCase):
             markdown = markdown_output.read_text(encoding="utf-8")
             self.assertIn("| Check | Status | Detail |", markdown)
 
+    def test_warehouse_profile_checks_duckdb(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            json_output = Path(temp_dir) / "report.json"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--profile",
+                    "warehouse",
+                    "--json-output",
+                    str(json_output),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            report = json.loads(json_output.read_text(encoding="utf-8"))
+            checks = {item["id"]: item for item in report["checks"]}
+            self.assertEqual(checks["module.duckdb"]["status"], "PASS")
+
 
 if __name__ == "__main__":
     unittest.main()

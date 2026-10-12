@@ -112,7 +112,9 @@ def evaluate(profile: str) -> dict[str, Any]:
             )
         )
     checks.append(writable_result())
-    if profile == "api":
+    if profile == "warehouse":
+        checks.append(module_result("duckdb"))
+    elif profile == "api":
         checks.extend((module_result("fastapi"), module_result("uvicorn")))
     elif profile == "full":
         checks.extend((module_result("duckdb"), module_result("fastapi"), module_result("uvicorn")))
@@ -170,7 +172,9 @@ def write_markdown(path: Path, report: dict[str, Any]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", choices=("core", "api", "full"), default="core")
+    parser.add_argument(
+        "--profile", choices=("core", "warehouse", "api", "full"), default="core"
+    )
     parser.add_argument("--json-output", type=Path)
     parser.add_argument("--markdown-output", type=Path)
     args = parser.parse_args()

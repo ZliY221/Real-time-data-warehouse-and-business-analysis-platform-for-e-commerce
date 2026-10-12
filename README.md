@@ -5,7 +5,7 @@
 
 本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本：`v0.6.1`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
+当前版本：`v0.7.0`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
 
 当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
 
@@ -42,6 +42,7 @@
 - [x] 使用渠道级投递回执更新通知台账，并只重试未成功渠道
 - [x] 提供跨平台环境自检和可归档的 JSON/Markdown 诊断报告
 - [x] 在 Windows、Ubuntu 和 macOS 干净环境执行可移植离线数据流
+- [x] 提供环境诊断、事件校验、DuckDB 装载和聚合报告的一键跨平台入口
 - [ ] 完成分档、限速的 Kafka → Flink → ClickHouse 压力测试并保存原始结果
 
 ## 业务问题
@@ -118,13 +119,21 @@ ecommerce-realtime-warehouse/
 
 ```powershell
 python scripts/project_doctor.py --profile core
+python scripts/project_doctor.py --profile warehouse
 python scripts/project_doctor.py --profile api
 python scripts/project_doctor.py --profile full --json-output build/doctor/report.json --markdown-output build/doctor/report.md
 ```
 
-`core` 检查基础数据与配置，`api` 额外检查查询服务依赖，`full` 继续检查 DuckDB、JDK、Maven、Docker Engine 和 Docker Compose。详细说明见[环境自检](docs/environment-preflight.md)。
+`core` 检查基础数据与配置，`warehouse` 增加 DuckDB，`api` 检查查询服务依赖，`full` 检查全部 Python 依赖、JDK、Maven、Docker Engine 和 Docker Compose。详细说明见[环境自检](docs/environment-preflight.md)。
 
-`.github/workflows/portable-smoke.yml` 会在 Windows、Ubuntu 和 macOS 上从全新检出开始安装依赖，生成并校验订单事件，再构建 DuckDB 离线仓库和汇总报告。发布标签不会重复触发该工作流。
+安装本地数仓依赖并运行一键数据流：
+
+```powershell
+python -m pip install -e ".[warehouse]"
+python scripts/quickstart.py
+```
+
+入口生成 `build/quickstart/summary.json`、DuckDB 数据库和聚合报告；相同输入可安全重复执行。参数与输出契约见[一键本地数据流](docs/quickstart.md)。`.github/workflows/portable-smoke.yml` 会在 Windows、Ubuntu 和 macOS 的全新检出中执行同一个公开入口。发布标签不会重复触发该工作流。
 
 生成 20 条示例事件：
 
@@ -152,6 +161,7 @@ python -m unittest discover -s tests -v
 
 - [需求与验收标准](docs/requirements.md)
 - [跨平台环境自检](docs/environment-preflight.md)
+- [一键本地数据流](docs/quickstart.md)
 - [架构设计](docs/architecture.md)
 - [事件数据字典](docs/data-dictionary.md)
 - [事件契约与可复现数据](docs/event-contract.md)
@@ -196,7 +206,7 @@ GitHub Actions 工作流位于 `.github/workflows/ci.yml`，会先并行运行 P
 
 Flink 核心已经实现 JSON 解析、质量侧流、事件校验、Watermark、基于 `event_id` 的状态去重、按地区和渠道统计的一分钟订单量与 GMV，以及迟到数据侧流。KafkaSource、分钟指标 Sink、拒绝事件 Sink 和迟到事件 Sink 已接入作业图；提交 `963be45` 已在 GitHub Actions 单节点隔离环境完成真实中间件端到端运行与批流对账。
 
-当前验证基线：121 项 Python/API/数据质量/批流对账/离线数仓/运行证据测试、9 项 JavaScript 看板测试和 28 项 Java/Flink 测试全部通过，共 158 项。
+当前验证基线：135 项 Python/API/数据质量/批流对账/离线数仓/运行证据检查、9 项 JavaScript 看板检查和 28 项 Java/Flink 检查，共 172 项。
 
 构建包含 Kafka 连接器和 JSON 依赖的可部署 JAR：
 

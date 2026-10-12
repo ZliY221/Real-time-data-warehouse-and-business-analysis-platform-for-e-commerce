@@ -7,6 +7,7 @@
 | Profile | 检查内容 | 适用入口 |
 |---|---|---|
 | `core` | Python 3.11、关键配置与样例文件、`build/` 写权限 | 数据生成与基础校验 |
+| `warehouse` | `core` 加 DuckDB | 一键本地离线仓库 |
 | `api` | `core` 加 FastAPI、Uvicorn | 查询 API 和经营看板 |
 | `full` | `core` 加 DuckDB、FastAPI、Uvicorn、JDK 17、Maven、Docker Engine、Docker Compose | 完整本地数据链路 |
 
@@ -18,4 +19,4 @@ python scripts/project_doctor.py --profile full --json-output build/doctor/repor
 
 ## 平台验证范围
 
-`portable-smoke.yml` 在 Windows、Ubuntu 和 macOS 上执行相同的 Python 3.11 安装、API 环境自检、事件契约校验和 DuckDB 离线仓库构建。Kafka、Flink 与 ClickHouse 的容器组合链路由 Linux `ci.yml` 独立执行。
+`portable-smoke.yml` 在 Windows、Ubuntu 和 macOS 上从全新检出执行 `scripts/quickstart.py`，覆盖 `warehouse` 环境自检、事件契约校验、DuckDB 离线仓库构建和汇总报告。Kafka、Flink 与 ClickHouse 的容器组合链路由 Linux `ci.yml` 独立执行。

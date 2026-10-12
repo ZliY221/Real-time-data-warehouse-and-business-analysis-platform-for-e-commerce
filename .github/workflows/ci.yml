@@ -139,12 +139,13 @@ jobs:
     name: Kafka, Flink, ClickHouse, and reconciliation end-to-end acceptance
     needs: [python-tests, flink-tests]
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       actions: write
       contents: read
     env:
       FLINK_VERSION: "1.20.1"
+      FLINK_IMAGE: "flink:1.20.1-scala_2.12-java17@sha256:d51a693da76581f2483d3f83d5997d3226b076a9f990a7f7d1eed144434b8e1e"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -159,44 +160,29 @@ jobs:
           java-version: "17"
           cache: maven
           cache-dependency-path: flink-job/pom.xml
-      - name: Download and verify Apache Flink 1.20.1
+      - name: Provision the version-pinned Apache Flink runtime
         shell: bash
         run: |
           set -euo pipefail
-          archive="flink-${FLINK_VERSION}-bin-scala_2.12.tgz"
           install_root="${RUNNER_TEMP}/flink-dist"
-          mkdir -p "${install_root}"
-          cd "${install_root}"
-          download_file() {
-            local filename="$1"
-            local base_url
-            for base_url in \
-              "https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}" \
-              "https://archive.apache.org/dist/flink/flink-${FLINK_VERSION}"; do
-              if curl \
-                --fail \
-                --location \
-                --connect-timeout 15 \
-                --max-time 900 \
-                --speed-limit 1024 \
-                --speed-time 30 \
-                --retry 3 \
-                --retry-all-errors \
-                --retry-delay 2 \
-                --continue-at - \
-                --output "${filename}" \
-                "${base_url}/${filename}"; then
-                return 0
-              fi
-            done
-            echo "Unable to download ${filename} from the Apache mirrors." >&2
-            return 1
-          }
-          download_file "${archive}"
-          download_file "${archive}.sha512"
-          sha512sum --check "${archive}.sha512"
-          tar --extract --gzip --file "${archive}"
           flink_home="${install_root}/flink-${FLINK_VERSION}"
+          rm -rf "${flink_home}"
+          mkdir -p "${flink_home}"
+
+          docker pull --quiet "${FLINK_IMAGE}"
+          container_id="$(docker create "${FLINK_IMAGE}")"
+          cleanup_container() {
+            docker rm --force "${container_id}" >/dev/null 2>&1 || true
+          }
+          trap cleanup_container EXIT
+          docker cp "${container_id}:/opt/flink/." "${flink_home}"
+          cleanup_container
+          trap - EXIT
+
+          test -x "${flink_home}/bin/start-cluster.sh"
+          runtime_version="$("${flink_home}/bin/flink" --version)"
+          [[ "${runtime_version}" == *"${FLINK_VERSION}"* ]]
+          printf '%s\n' "${runtime_version}"
           echo "FLINK_HOME=${flink_home}" >> "${GITHUB_ENV}"
           echo "${flink_home}/bin" >> "${GITHUB_PATH}"
       - name: Build the deployable Flink job

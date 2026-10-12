@@ -415,8 +415,14 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("clickhouse-smoke-test:", workflow)
         self.assertIn("e2e-acceptance:", workflow)
         self.assertIn("needs: [python-tests, flink-tests]", workflow)
-        self.assertIn("flink-${FLINK_VERSION}-bin-scala_2.12.tgz", workflow)
-        self.assertIn("sha512sum --check", workflow)
+        self.assertIn(
+            "flink:1.20.1-scala_2.12-java17@sha256:"
+            "d51a693da76581f2483d3f83d5997d3226b076a9f990a7f7d1eed144434b8e1e",
+            workflow,
+        )
+        self.assertIn('docker cp "${container_id}:/opt/flink/."', workflow)
+        self.assertIn('[[ "${runtime_version}" == *"${FLINK_VERSION}"* ]]', workflow)
+        self.assertNotIn("archive.apache.org", workflow)
         self.assertIn('"${FLINK_HOME}/bin/start-cluster.sh"', workflow)
         self.assertIn("./scripts/e2e-acceptance.ps1 -SkipBuild", workflow)
         self.assertIn("Upload sanitized end-to-end evidence", workflow)

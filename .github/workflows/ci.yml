@@ -165,17 +165,17 @@ jobs:
             for base_url in \
               "https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}" \
               "https://archive.apache.org/dist/flink/flink-${FLINK_VERSION}"; do
-              rm -f -- "${filename}"
               if curl \
                 --fail \
                 --location \
                 --connect-timeout 15 \
-                --max-time 180 \
+                --max-time 900 \
                 --speed-limit 1024 \
                 --speed-time 30 \
-                --retry 1 \
+                --retry 3 \
                 --retry-all-errors \
                 --retry-delay 2 \
+                --continue-at - \
                 --output "${filename}" \
                 "${base_url}/${filename}"; then
                 return 0

@@ -16,6 +16,12 @@
 ./scripts/plan-incident-notifications.ps1
 ```
 
-Outbox 为打开与恢复动作生成稳定 `event_id`。调用方把已成功投递的编号写入 `delivery-ledger.json` 后，相同状态再次生成计划时不会重复返回这些事件。当前实现只生成待发送事件，不直接连接短信、邮件或企业消息平台。
+Outbox 为打开与恢复动作生成稳定 `event_id`。发送方按事件和渠道写入投递回执后，可更新路由级台账：
+
+```powershell
+./scripts/record-incident-deliveries.ps1
+```
+
+回执文件使用 `receipt_version: 1.0`，`receipts` 中每项包含 `event_id`、`channel`、`status` 和带时区的 `attempted_at`。只有 `DELIVERED` 回执会进入台账；部分渠道成功时，下一次生成 Outbox 只保留尚未成功的渠道。所有渠道完成后事件编号进入 `delivered_event_ids`，后续状态重放不会再次返回该事件。模块不直接连接短信、邮件或企业消息平台。
 
 调用方必须提供带时区的 `ObservedAt`。早于现有事件最近时间的输入会被拒绝，避免乱序报告覆盖较新的事件状态。该模块负责事件状态聚合，不负责通知渠道、值班升级或生产事故管理平台同步。

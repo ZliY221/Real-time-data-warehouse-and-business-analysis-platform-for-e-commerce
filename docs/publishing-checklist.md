@@ -66,7 +66,7 @@ git push origin main
 - JDK 17、Maven 和 Python 3.11 环境满足 README；
 - 端口、磁盘和内存足够，且没有需要保留的同名测试资源。
 
-验收成功必须产生 `build/e2e/<run-id>/` 报告，包含隔离 Topic、独立 ClickHouse 数据库、JobID、10 个指标键和批流精确对账结果。仅脚本存在、Maven 测试通过或等待固定秒数，都不能替代真实验收证据。
+验收成功必须产生 `build/e2e/<run-id>/` 报告，包含隔离 Topic、独立 ClickHouse 数据库、JobID、10 个指标键和批流精确对账结果。仅脚本存在、单元检查结果或等待固定秒数，都不能替代真实验收证据。
 
 ## 可公开截图
 

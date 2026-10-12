@@ -13,6 +13,40 @@ from typing import Any
 CHANNEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 
 
+def parse_delivery_ledger(
+    delivery_ledger: dict[str, Any] | None,
+) -> tuple[set[str], dict[tuple[str, str], str]]:
+    """Validate the delivery ledger and return event and route completion state."""
+    ledger = delivery_ledger or {
+        "ledger_version": "1.0",
+        "delivered_event_ids": [],
+        "delivered_routes": [],
+    }
+    if ledger.get("ledger_version") != "1.0":
+        raise ValueError("unsupported delivery ledger")
+    event_ids = ledger.get("delivered_event_ids")
+    route_rows = ledger.get("delivered_routes", [])
+    if not isinstance(event_ids, list) or not isinstance(route_rows, list):
+        raise ValueError("unsupported delivery ledger")
+    delivered_events = {str(value) for value in event_ids}
+    if len(delivered_events) != len(event_ids) or "" in delivered_events:
+        raise ValueError("delivery ledger event IDs must be non-empty and unique")
+    delivered_routes: dict[tuple[str, str], str] = {}
+    for row in route_rows:
+        if not isinstance(row, dict):
+            raise ValueError("delivery ledger routes must be objects")
+        event_id = str(row.get("event_id", ""))
+        channel = str(row.get("channel", ""))
+        delivered_at = str(row.get("delivered_at", ""))
+        if not event_id or not CHANNEL_PATTERN.fullmatch(channel) or not delivered_at:
+            raise ValueError("delivery ledger contains an invalid route")
+        key = (event_id, channel)
+        if key in delivered_routes:
+            raise ValueError("delivery ledger routes must be unique")
+        delivered_routes[key] = delivered_at
+    return delivered_events, delivered_routes
+
+
 def _event_id(incident_id: str, event_type: str) -> str:
     material = f"{incident_id}:{event_type}".encode("utf-8")
     return f"evt-{hashlib.sha256(material).hexdigest()[:24]}"
@@ -42,12 +76,7 @@ def plan_notifications(
             raise ValueError(f"severity route {severity} contains invalid channels")
         normalized_routes[str(severity)] = sorted(values)
 
-    ledger = delivery_ledger or {"ledger_version": "1.0", "delivered_event_ids": []}
-    if ledger.get("ledger_version") != "1.0" or not isinstance(
-        ledger.get("delivered_event_ids"), list
-    ):
-        raise ValueError("unsupported delivery ledger")
-    delivered = {str(value) for value in ledger["delivered_event_ids"]}
+    delivered, delivered_routes = parse_delivery_ledger(delivery_ledger)
 
     events: list[dict[str, Any]] = []
     seen_incidents: set[str] = set()
@@ -71,6 +100,13 @@ def plan_notifications(
             event_id = _event_id(incident_id, event_type)
             if event_id in delivered:
                 continue
+            pending_channels = [
+                channel
+                for channel in normalized_routes[severity]
+                if (event_id, channel) not in delivered_routes
+            ]
+            if not pending_channels:
+                continue
             events.append(
                 {
                     "event_id": event_id,
@@ -81,7 +117,7 @@ def plan_notifications(
                     "rule_id": str(incident.get("rule_id", "unknown")),
                     "severity": severity,
                     "occurred_at": str(occurred_at),
-                    "channels": normalized_routes[severity],
+                    "channels": pending_channels,
                 }
             )
     events.sort(key=lambda row: (row["occurred_at"], row["event_id"]))

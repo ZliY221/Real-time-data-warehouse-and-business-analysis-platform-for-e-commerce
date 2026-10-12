@@ -11,6 +11,7 @@ import sys
 from .experiment import write_load_plan
 from .flink_runtime import FlinkRestClient, collect_runtime_snapshot
 from .incidents import update_incident_state
+from .delivery_receipts import update_delivery_ledger
 from .notifications import write_notification_plan
 from .load_dataset import generate_load_dataset
 from .report import runtime_snapshot_markdown
@@ -106,6 +107,15 @@ def build_parser() -> argparse.ArgumentParser:
     notification_plan.add_argument("--policy", type=Path, required=True)
     notification_plan.add_argument("--delivery-ledger", type=Path)
     notification_plan.add_argument("--output", type=Path, required=True)
+
+    delivery_receipts = subparsers.add_parser(
+        "record-notification-deliveries",
+        help="reconcile channel receipts into the notification ledger",
+    )
+    delivery_receipts.add_argument("--outbox", type=Path, required=True)
+    delivery_receipts.add_argument("--receipts", type=Path, required=True)
+    delivery_receipts.add_argument("--ledger", type=Path, required=True)
+    delivery_receipts.add_argument("--output", type=Path, required=True)
     return parser
 
 
@@ -197,6 +207,18 @@ def main() -> None:
             f"notification outbox status={outbox['status']}; "
             f"pending={outbox['pending_event_count']}"
         )
+        return
+
+    if args.command == "record-notification-deliveries":
+        report = update_delivery_ledger(
+            args.outbox, args.receipts, args.ledger, args.output
+        )
+        print(
+            f"delivery receipt status={report['status']}; "
+            f"delivered={report['delivered_event_count']}"
+        )
+        if report["status"] != "COMPLETE":
+            raise SystemExit(1)
         return
 
     client = FlinkRestClient(args.rest_url, allow_remote=args.allow_remote)

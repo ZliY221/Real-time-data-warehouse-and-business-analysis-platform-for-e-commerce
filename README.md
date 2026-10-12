@@ -1,10 +1,11 @@
 # 电商实时数据仓库与经营分析平台
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
+[![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
 
 本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本：`v0.6.0`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
+当前版本：`v0.6.1`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
 
 当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
 
@@ -40,6 +41,7 @@
 - [x] 根据严重级别生成带稳定编号和投递去重台账的告警通知 Outbox
 - [x] 使用渠道级投递回执更新通知台账，并只重试未成功渠道
 - [x] 提供跨平台环境自检和可归档的 JSON/Markdown 诊断报告
+- [x] 在 Windows、Ubuntu 和 macOS 干净环境执行可移植离线数据流
 - [ ] 完成分档、限速的 Kafka → Flink → ClickHouse 压力测试并保存原始结果
 
 ## 业务问题
@@ -121,6 +123,8 @@ python scripts/project_doctor.py --profile full --json-output build/doctor/repor
 ```
 
 `core` 检查基础数据与配置，`api` 额外检查查询服务依赖，`full` 继续检查 DuckDB、JDK、Maven、Docker Engine 和 Docker Compose。详细说明见[环境自检](docs/environment-preflight.md)。
+
+`.github/workflows/portable-smoke.yml` 会在 Windows、Ubuntu 和 macOS 上从全新检出开始安装依赖，生成并校验订单事件，再构建 DuckDB 离线仓库和汇总报告。发布标签不会重复触发该工作流。
 
 生成 20 条示例事件：
 

@@ -15,3 +15,7 @@ python scripts/project_doctor.py --profile full --json-output build/doctor/repor
 ```
 
 所有检查满足时退出码为 `0`，报告状态为 `READY`；缺少必需条件时退出码为 `1`，状态为 `BLOCKED`。每个失败项会给出缺少的命令、模块或项目文件，不会读取服务凭据或业务数据正文。
+
+## 平台验证范围
+
+`portable-smoke.yml` 在 Windows、Ubuntu 和 macOS 上执行相同的 Python 3.11 安装、API 环境自检、事件契约校验和 DuckDB 离线仓库构建。Kafka、Flink 与 ClickHouse 的容器组合链路由 Linux `ci.yml` 独立执行。

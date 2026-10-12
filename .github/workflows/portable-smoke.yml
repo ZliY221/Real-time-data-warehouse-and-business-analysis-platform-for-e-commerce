@@ -1,0 +1,72 @@
+name: Portable smoke
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-data-flow:
+    name: ${{ matrix.os }} portable data flow
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install portable dependencies
+        run: python -m pip install --disable-pip-version-check -e ".[api,test]"
+      - name: Inspect the API environment
+        run: >-
+          python scripts/project_doctor.py
+          --profile api
+          --json-output build/portable/doctor.json
+          --markdown-output build/portable/doctor.md
+      - name: Generate and validate deterministic events
+        env:
+          PYTHONPATH: src
+        run: >-
+          python -m event_generator.cli
+          --count 20
+          --seed 2027
+          --output build/portable/order_events.ndjson
+      - name: Validate the event contract
+        env:
+          PYTHONPATH: src
+        run: >-
+          python -m event_generator.validate_cli
+          --input build/portable/order_events.ndjson
+          --expected-count 20
+      - name: Build the portable offline warehouse
+        env:
+          PYTHONPATH: src
+        run: >-
+          python -m offline_warehouse.cli
+          --input build/portable/order_events.ndjson
+          --database build/portable/ecommerce.duckdb
+      - name: Export the warehouse report
+        env:
+          PYTHONPATH: src
+        run: >-
+          python -m offline_warehouse.report
+          --database build/portable/ecommerce.duckdb
+          --json-output build/portable/warehouse-report.json
+          --markdown-output build/portable/warehouse-report.md

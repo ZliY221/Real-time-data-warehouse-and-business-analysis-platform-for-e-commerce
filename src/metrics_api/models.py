@@ -168,3 +168,16 @@ class QualityTrendResponse(UtcModel):
     limit: int = Field(ge=1, le=500)
     items: list[QualityTrendPoint]
 
+
+class AssetFreshnessResponse(UtcModel):
+    generated_at: datetime
+    asset_id: str
+    asset_name: str
+    asset_kind: str
+    owner: str
+    status: Literal["fresh", "stale", "no_data"]
+    freshness_slo_seconds: int = Field(gt=0)
+    observed_at: datetime | None = None
+    lag_seconds: int | None = Field(default=None, ge=0)
+    impacted_assets: list[str]
+

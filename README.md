@@ -5,9 +5,9 @@
 
 本项目通过模拟订单事件，实现从事件生成、Kafka 采集、Flink 实时计算、分析存储到经营看板的完整数据链路。
 
-当前版本：`v0.8.1`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
+当前版本：`v0.9.0`。版本变更见 [CHANGELOG](CHANGELOG.md)，版本摘要见 [VERSION_LOG](VERSION_LOG.md)。
 
-当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
+当前版本包含事件契约、确定性数据生成、可配置数据质量门禁、SQLite 质量历史、Kafka 消息链路、Flink 流式计算、ClickHouse 指标与异常审计、批流对账、DuckDB 离线维度数仓、数据资产血缘与新鲜度 SLO、FastAPI 查询服务和 ECharts 经营看板。各组件均有对应的正确性检查，系统验收不以服务启动状态代替指标核对。
 
 ## 当前进度
 
@@ -44,6 +44,7 @@
 - [x] 在 Windows、Ubuntu 和 macOS 干净环境执行可移植离线数据流
 - [x] 提供环境诊断、事件校验、DuckDB 装载和聚合报告的一键跨平台入口
 - [x] 提供自动创建、复用和更新项目隔离环境的跨平台启动器
+- [x] 建立 Topic、流、表、API 与看板的数据资产血缘，并提供新鲜度 SLO 和下游影响查询
 - [ ] 完成分档、限速的 Kafka → Flink → ClickHouse 压力测试并保存原始结果
 
 ## 业务问题
@@ -193,6 +194,7 @@ python -m unittest discover -s tests -v
 - [可复现负载输入与 Flink 运行快照](docs/flink-runtime-observability.md)
 - [压测 SLO 判定与告警](docs/operational-slo-evaluation.md)
 - [SLO 告警生命周期](docs/slo-incident-lifecycle.md)
+- [数据资产血缘与新鲜度 SLO](docs/data-asset-freshness.md)
 - [版本日志](VERSION_LOG.md)
 - [远程仓库发布与验收清单](docs/publishing-checklist.md)
 
@@ -371,6 +373,7 @@ python -m pip install -e ".[warehouse]"
 - `GET /api/v1/metrics/breakdown`：按白名单中的 `region` 或 `channel` 维度汇总排行。
 - `GET /api/v1/quality/runs`：读取最近质量门禁摘要，支持 `limit` 和可选的 `passed` 过滤。
 - `GET /api/v1/quality/trend`：按必填的 `rule_id` 读取观测值、阈值和通过状态趋势。
+- `GET /api/v1/operations/assets/{asset_id}/freshness`：计算资产处理延迟、新鲜度状态和受影响的下游资产。
 - `GET /docs`：FastAPI 自动生成的交互式 OpenAPI 文档。
 
 未提供时间参数时默认查询最近 24 小时；单次范围最多 31 天，明细和质量历史最多返回 500 行。地区、渠道、时间和条数都通过 ClickHouse 命名参数绑定，不直接拼接用户输入；质量查询同样使用 SQLite 参数绑定。金额在 JSON 中以十进制字符串返回，避免浏览器端二进制浮点误差。质量 API 只返回摘要和绘图必需的指标，并把输入路径缩减为文件名；SQLite 不可用时返回稳定错误码，不泄露内部异常。

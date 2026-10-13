@@ -404,6 +404,32 @@ class MetricsApiTests(unittest.TestCase):
         )
         self.assertEqual(422, invalid.status_code)
 
+    def test_asset_freshness_exposes_lineage_impact(self) -> None:
+        self.repository.summary_row = {
+            "order_count": 12,
+            "gmv": "800.00",
+            "average_order_value": "66.67",
+            "latest_processed_at": "2026-10-13T08:00:10Z",
+        }
+        response = self.client.get(
+            "/api/v1/operations/assets/clickhouse.minute-metrics/freshness",
+            params={"evaluated_at": "2026-10-13T08:02:15Z"},
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("stale", response.json()["status"])
+        self.assertEqual(125, response.json()["lag_seconds"])
+        self.assertEqual(
+            ["api.metrics", "dashboard.operations"],
+            response.json()["impacted_assets"],
+        )
+
+    def test_asset_freshness_rejects_unknown_assets(self) -> None:
+        response = self.client.get(
+            "/api/v1/operations/assets/unknown/freshness"
+        )
+        self.assertEqual(404, response.status_code)
+        self.assertEqual("asset_not_found", response.json()["detail"]["code"])
+
     def test_quality_trend_returns_only_dashboard_safe_metrics(self) -> None:
         response = self.client.get(
             "/api/v1/quality/trend",
@@ -460,9 +486,14 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("/api/v1/quality/runs", document["paths"])
         self.assertIn("/api/v1/quality/trend", document["paths"])
         self.assertIn("/api/v1/anomalies/summary", document["paths"])
+        self.assertIn(
+            "/api/v1/operations/assets/{asset_id}/freshness",
+            document["paths"],
+        )
         self.assertIn("MinuteMetricsResponse", document["components"]["schemas"])
         self.assertIn("QualityRunsResponse", document["components"]["schemas"])
         self.assertIn("AnomalySummaryResponse", document["components"]["schemas"])
+        self.assertIn("AssetFreshnessResponse", document["components"]["schemas"])
 
     def test_dashboard_and_assets_are_served_with_security_headers(self) -> None:
         page = self.client.get("/dashboard")

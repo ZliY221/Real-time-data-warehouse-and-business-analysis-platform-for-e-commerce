@@ -12,11 +12,13 @@ from fastapi.staticfiles import StaticFiles
 
 from data_quality.history import QualityHistoryReader, QualityHistoryStore
 from metrics_api.config import ApiSettings
+from metrics_api.data_catalog import DataAssetCatalog, DataCatalogError
 from metrics_api.models import (
     AnomalyFilters,
     AnomalySummaryItem,
     AnomalySummaryResponse,
     AnomalyType,
+    AssetFreshnessResponse,
     BreakdownDimension,
     BreakdownItem,
     BreakdownResponse,
@@ -51,6 +53,7 @@ BUCKET_SECONDS: dict[ResolvedTimeBucket, int] = {
     "1h": 60 * 60,
 }
 DASHBOARD_DIRECTORY = Path(__file__).resolve().parents[2] / "dashboard" / "static"
+DEFAULT_ASSET_CATALOG = Path(__file__).resolve().parents[2] / "config" / "data-assets.json"
 DASHBOARD_SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; "
@@ -135,6 +138,7 @@ def create_app(
     data_mode: Literal["clickhouse", "preview"] = "clickhouse",
     quality_history: QualityHistoryReader | None = None,
     quality_history_path: Path = Path("build/data-quality/history.db"),
+    asset_catalog: DataAssetCatalog | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
@@ -148,6 +152,9 @@ def create_app(
     app.state.quality_history = quality_history
     app.state.quality_history_path = quality_history_path
     app.state.quality_history_lock = Lock()
+    app.state.asset_catalog = asset_catalog or DataAssetCatalog.from_file(
+        DEFAULT_ASSET_CATALOG
+    )
     app.mount(
         "/dashboard/assets",
         StaticFiles(directory=DASHBOARD_DIRECTORY),
@@ -415,6 +422,57 @@ def create_app(
             count=len(items),
             limit=limit,
             items=items,
+        )
+
+    @app.get(
+        "/api/v1/operations/assets/{asset_id}/freshness",
+        response_model=AssetFreshnessResponse,
+        responses={404: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+        tags=["operations"],
+    )
+    def asset_freshness(
+        asset_id: str,
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        evaluated_at: Annotated[
+            datetime | None,
+            Query(description="Optional UTC evaluation time for reproducible checks"),
+        ] = None,
+    ) -> AssetFreshnessResponse:
+        now = _utc(evaluated_at or datetime.now(UTC))
+        try:
+            asset = app.state.asset_catalog.get(asset_id)
+            if asset.freshness_slo_seconds is None:
+                raise DataCatalogError(f"asset {asset_id} has no freshness SLO")
+        except DataCatalogError as error:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "asset_not_found", "message": str(error)},
+            ) from error
+        row = metrics_repository.fetch_summary(
+            start=now - DEFAULT_RANGE,
+            end=now,
+            region=None,
+            channel=None,
+        )
+        observed_at = row.get("latest_processed_at")
+        if isinstance(observed_at, str):
+            observed_at = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+        evaluation = app.state.asset_catalog.evaluate_freshness(
+            asset_id,
+            observed_at=observed_at,
+            evaluated_at=now,
+        )
+        return AssetFreshnessResponse(
+            generated_at=now,
+            asset_id=asset.asset_id,
+            asset_name=asset.name,
+            asset_kind=asset.kind,
+            owner=asset.owner,
+            status=evaluation.status,
+            freshness_slo_seconds=asset.freshness_slo_seconds,
+            observed_at=evaluation.observed_at,
+            lag_seconds=evaluation.lag_seconds,
+            impacted_assets=list(evaluation.impacted_assets),
         )
 
     @app.get(

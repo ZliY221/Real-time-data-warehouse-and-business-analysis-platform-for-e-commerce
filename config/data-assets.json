@@ -1,0 +1,40 @@
+{
+  "assets": [
+    {
+      "id": "kafka.order-events",
+      "name": "订单事件 Topic",
+      "kind": "topic",
+      "owner": "data-platform",
+      "upstreams": []
+    },
+    {
+      "id": "flink.minute-metrics",
+      "name": "分钟经营指标流",
+      "kind": "stream",
+      "owner": "realtime-warehouse",
+      "upstreams": ["kafka.order-events"]
+    },
+    {
+      "id": "clickhouse.minute-metrics",
+      "name": "分钟经营指标表",
+      "kind": "table",
+      "owner": "realtime-warehouse",
+      "upstreams": ["flink.minute-metrics"],
+      "freshness_slo_seconds": 120
+    },
+    {
+      "id": "api.metrics",
+      "name": "经营指标查询 API",
+      "kind": "api",
+      "owner": "analytics-service",
+      "upstreams": ["clickhouse.minute-metrics"]
+    },
+    {
+      "id": "dashboard.operations",
+      "name": "实时经营看板",
+      "kind": "dashboard",
+      "owner": "data-operations",
+      "upstreams": ["api.metrics"]
+    }
+  ]
+}

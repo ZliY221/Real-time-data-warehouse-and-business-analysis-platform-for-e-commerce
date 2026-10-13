@@ -442,6 +442,25 @@ class MetricsApiTests(unittest.TestCase):
             clickhouse["downstream_assets"],
         )
 
+    def test_asset_health_rolls_up_monitored_assets_and_impact(self) -> None:
+        self.repository.summary_row = {
+            "order_count": 12,
+            "gmv": "800.00",
+            "average_order_value": "66.67",
+            "latest_processed_at": "2026-10-13T08:00:10Z",
+        }
+        response = self.client.get(
+            "/api/v1/operations/assets/health",
+            params={"evaluated_at": "2026-10-13T08:02:15Z"},
+        )
+
+        self.assertEqual(200, response.status_code)
+        body = response.json()
+        self.assertEqual("stale", body["status"])
+        self.assertEqual({"fresh": 0, "stale": 1, "no_data": 0}, body["status_counts"])
+        self.assertEqual(["api.metrics", "dashboard.operations"], body["impacted_assets"])
+        self.assertEqual("realtime-warehouse", body["items"][0]["owner"])
+
     def test_asset_freshness_rejects_unknown_assets(self) -> None:
         response = self.client.get(
             "/api/v1/operations/assets/unknown/freshness"

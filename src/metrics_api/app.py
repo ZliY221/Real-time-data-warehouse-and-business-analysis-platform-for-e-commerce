@@ -454,6 +454,68 @@ def create_app(
         )
 
     @app.get(
+        "/api/v1/operations/assets/health",
+        tags=["operations"],
+    )
+    def asset_health(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        evaluated_at: Annotated[
+            datetime | None,
+            Query(description="Optional UTC evaluation time for reproducible checks"),
+        ] = None,
+    ) -> dict[str, object]:
+        now = _utc(evaluated_at or datetime.now(UTC))
+        row = metrics_repository.fetch_summary(
+            start=now - DEFAULT_RANGE,
+            end=now,
+            region=None,
+            channel=None,
+        )
+        observed_at = row.get("latest_processed_at")
+        if isinstance(observed_at, str):
+            observed_at = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+        evaluations = [
+            app.state.asset_catalog.evaluate_freshness(
+                asset.asset_id,
+                observed_at=observed_at,
+                evaluated_at=now,
+            )
+            for asset in app.state.asset_catalog.list_assets()
+            if asset.freshness_slo_seconds is not None
+        ]
+        status_counts = {
+            status: sum(item.status == status for item in evaluations)
+            for status in ("fresh", "stale", "no_data")
+        }
+        return {
+            "generated_at": now,
+            "status": (
+                "no_data" if status_counts["no_data"] else
+                "stale" if status_counts["stale"] else "fresh"
+            ),
+            "monitored_count": len(evaluations),
+            "status_counts": status_counts,
+            "impacted_assets": sorted({
+                impacted
+                for item in evaluations
+                if item.status != "fresh"
+                for impacted in item.impacted_assets
+            }),
+            "items": [
+                {
+                    "asset_id": item.asset.asset_id,
+                    "owner": item.asset.owner,
+                    "status": item.status,
+                    "freshness_slo_seconds": item.asset.freshness_slo_seconds,
+                    "observed_at": item.observed_at,
+                    "lag_seconds": item.lag_seconds,
+                    "impacted_assets": list(item.impacted_assets),
+                }
+                for item in evaluations
+            ],
+        }
+
+    @app.get(
         "/api/v1/operations/assets/{asset_id}/freshness",
         response_model=AssetFreshnessResponse,
         responses={404: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},

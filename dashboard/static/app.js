@@ -61,6 +61,12 @@ const elements = {
   anomalyEmpty: document.querySelector("#anomaly-empty"),
   anomalyTableNote: document.querySelector("#anomaly-table-note"),
   anomalyTable: document.querySelector("#anomaly-table-body"),
+  assetStatusBadge: document.querySelector("#asset-status-badge"),
+  assetMonitoredCount: document.querySelector("#asset-monitored-count"),
+  assetFreshCount: document.querySelector("#asset-fresh-count"),
+  assetIssueCount: document.querySelector("#asset-issue-count"),
+  assetImpactCount: document.querySelector("#asset-impact-count"),
+  assetTable: document.querySelector("#asset-health-table-body"),
   liveStatus: document.querySelector("#screen-reader-status"),
 };
 
@@ -736,6 +742,38 @@ async function refreshQuality() {
   }
 }
 
+function assetStatusLabel(status) {
+  return { fresh: "正常", stale: "延迟", no_data: "无数据" }[status] ?? status;
+}
+
+async function refreshAssetHealth() {
+  try {
+    const response = await fetchJson("/api/v1/operations/assets/health");
+    const issueCount = response.status_counts.stale + response.status_counts.no_data;
+    elements.assetStatusBadge.textContent = `链路状态：${assetStatusLabel(response.status)}`;
+    elements.assetMonitoredCount.textContent = formatInteger(response.monitored_count);
+    elements.assetFreshCount.textContent = formatInteger(response.status_counts.fresh);
+    elements.assetIssueCount.textContent = formatInteger(issueCount);
+    elements.assetImpactCount.textContent = formatInteger(response.impacted_assets.length);
+    elements.assetTable.innerHTML = response.items.length
+      ? response.items.map((item) => `<tr>
+          <td>${item.asset_id}</td>
+          <td>${item.owner}</td>
+          <td><span class="quality-pill quality-pill--${item.status === "fresh" ? "pass" : "fail"}">${assetStatusLabel(item.status)}</span></td>
+          <td>${item.lag_seconds === null ? "—" : `${formatInteger(item.lag_seconds)} 秒`}</td>
+          <td>${item.impacted_assets.length ? item.impacted_assets.join("、") : "—"}</td>
+        </tr>`).join("")
+      : '<tr><td colspan="5" class="table-message">当前没有配置新鲜度监控资产</td></tr>';
+  } catch (error) {
+    elements.assetStatusBadge.textContent = "资产健康不可用";
+    elements.assetMonitoredCount.textContent = "—";
+    elements.assetFreshCount.textContent = "—";
+    elements.assetIssueCount.textContent = "—";
+    elements.assetImpactCount.textContent = "—";
+    elements.assetTable.innerHTML = `<tr><td colspan="5" class="table-message">${error instanceof Error ? error.message : "资产健康读取失败"}</td></tr>`;
+  }
+}
+
 function syncSelect(select, values, emptyLabel) {
   const selected = select.value;
   const options = [new Option(emptyLabel, "")];
@@ -777,6 +815,7 @@ async function refreshDashboard() {
   const filters = currentFilters();
   const qualityRefresh = refreshQuality();
   const anomalyRefresh = refreshAnomalies(filters);
+  const assetRefresh = refreshAssetHealth();
   try {
     const [summary, timeSeries, regions, channels, recent] = await Promise.all([
       fetchJson("/api/v1/metrics/summary", queryFor(filters)),
@@ -817,7 +856,7 @@ async function refreshDashboard() {
   } catch (error) {
     renderFailure(error instanceof Error ? error : new Error("发生未知错误。"));
   } finally {
-    await Promise.all([qualityRefresh, anomalyRefresh]);
+    await Promise.all([qualityRefresh, anomalyRefresh, assetRefresh]);
     setLoading(false);
   }
 }

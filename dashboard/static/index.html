@@ -384,6 +384,11 @@
           <article class="quality-stat"><span>异常资产</span><strong id="asset-issue-count">—</strong><small>延迟或无数据</small></article>
           <article class="quality-stat"><span>受影响下游</span><strong id="asset-impact-count">—</strong><small>去重后的资产数量</small></article>
         </div>
+        <div class="asset-table-controls">
+          <div><label for="asset-status-filter">健康状态</label><select id="asset-status-filter"><option value="">全部状态</option><option value="fresh">正常</option><option value="stale">延迟</option><option value="no_data">无数据</option></select></div>
+          <div><label for="asset-owner-filter">责任团队</label><select id="asset-owner-filter"><option value="">全部责任团队</option></select></div>
+          <span id="asset-table-note">等待资产数据</span>
+        </div>
         <div class="table-card">
           <div class="table-scroll">
             <table>

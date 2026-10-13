@@ -86,6 +86,12 @@ export function qualityPassRate(runs) {
   return passed / runs.length;
 }
 
+export function filterAssetHealth(items, { status = "", owner = "" } = {}) {
+  if (!Array.isArray(items)) return [];
+  return items.filter((item) =>
+    (!status || item?.status === status) && (!owner || item?.owner === owner));
+}
+
 export function anomalyTypeLabel(value) {
   return { rejected: "拒绝事件", late: "迟到事件" }[value] || value;
 }

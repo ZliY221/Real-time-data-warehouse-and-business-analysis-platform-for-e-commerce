@@ -7,6 +7,7 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
+  filterAssetHealth,
   formatInteger,
   formatLag,
   formatMoney,
@@ -91,4 +92,18 @@ test("quality history errors have a focused recovery message", () => {
     apiErrorMessage(503, { detail: { code: "quality_history_unavailable" } }),
     /SQLite/,
   );
+});
+
+test("asset health filters combine status and owner", () => {
+  const items = [
+    { asset_id: "a", status: "fresh", owner: "warehouse" },
+    { asset_id: "b", status: "stale", owner: "warehouse" },
+    { asset_id: "c", status: "stale", owner: "api" },
+  ];
+  assert.deepEqual(
+    filterAssetHealth(items, { status: "stale", owner: "warehouse" }).map((item) => item.asset_id),
+    ["b"],
+  );
+  assert.equal(filterAssetHealth(items, { owner: "api" }).length, 1);
+  assert.deepEqual(filterAssetHealth(null), []);
 });

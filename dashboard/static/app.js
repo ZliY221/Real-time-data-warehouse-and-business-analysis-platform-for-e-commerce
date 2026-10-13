@@ -4,6 +4,7 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
+  filterAssetHealth,
   formatInteger,
   formatLag,
   formatMoney,
@@ -66,6 +67,9 @@ const elements = {
   assetFreshCount: document.querySelector("#asset-fresh-count"),
   assetIssueCount: document.querySelector("#asset-issue-count"),
   assetImpactCount: document.querySelector("#asset-impact-count"),
+  assetStatusFilter: document.querySelector("#asset-status-filter"),
+  assetOwnerFilter: document.querySelector("#asset-owner-filter"),
+  assetTableNote: document.querySelector("#asset-table-note"),
   assetTable: document.querySelector("#asset-health-table-body"),
   liveStatus: document.querySelector("#screen-reader-status"),
 };
@@ -76,7 +80,7 @@ const reducedMotion = window.matchMedia(
 const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 const charts = {};
 const dimensionOptions = { regions: new Set(), channels: new Set() };
-const runtimeState = { dataMode: "clickhouse" };
+const runtimeState = { dataMode: "clickhouse", assetHealthItems: [] };
 
 function cssToken(name) {
   return getComputedStyle(document.documentElement)
@@ -746,6 +750,23 @@ function assetStatusLabel(status) {
   return { fresh: "正常", stale: "延迟", no_data: "无数据" }[status] ?? status;
 }
 
+function renderAssetHealthTable() {
+  const items = filterAssetHealth(runtimeState.assetHealthItems, {
+    status: elements.assetStatusFilter.value,
+    owner: elements.assetOwnerFilter.value,
+  });
+  elements.assetTableNote.textContent = `显示 ${formatInteger(items.length)} / ${formatInteger(runtimeState.assetHealthItems.length)} 项`;
+  elements.assetTable.innerHTML = items.length
+    ? items.map((item) => `<tr>
+        <td>${item.asset_id}</td>
+        <td>${item.owner}</td>
+        <td><span class="quality-pill quality-pill--${item.status === "fresh" ? "pass" : "fail"}">${assetStatusLabel(item.status)}</span></td>
+        <td>${item.lag_seconds === null ? "—" : `${formatInteger(item.lag_seconds)} 秒`}</td>
+        <td>${item.impacted_assets.length ? item.impacted_assets.join("、") : "—"}</td>
+      </tr>`).join("")
+    : '<tr><td colspan="5" class="table-message">当前筛选条件下没有资产</td></tr>';
+}
+
 async function refreshAssetHealth() {
   try {
     const response = await fetchJson("/api/v1/operations/assets/health");
@@ -755,24 +776,26 @@ async function refreshAssetHealth() {
     elements.assetFreshCount.textContent = formatInteger(response.status_counts.fresh);
     elements.assetIssueCount.textContent = formatInteger(issueCount);
     elements.assetImpactCount.textContent = formatInteger(response.impacted_assets.length);
-    elements.assetTable.innerHTML = response.items.length
-      ? response.items.map((item) => `<tr>
-          <td>${item.asset_id}</td>
-          <td>${item.owner}</td>
-          <td><span class="quality-pill quality-pill--${item.status === "fresh" ? "pass" : "fail"}">${assetStatusLabel(item.status)}</span></td>
-          <td>${item.lag_seconds === null ? "—" : `${formatInteger(item.lag_seconds)} 秒`}</td>
-          <td>${item.impacted_assets.length ? item.impacted_assets.join("、") : "—"}</td>
-        </tr>`).join("")
-      : '<tr><td colspan="5" class="table-message">当前没有配置新鲜度监控资产</td></tr>';
+    runtimeState.assetHealthItems = response.items;
+    const selectedOwner = elements.assetOwnerFilter.value;
+    const owners = [...new Set(response.items.map((item) => item.owner))].sort((left, right) => left.localeCompare(right, "zh-CN"));
+    elements.assetOwnerFilter.replaceChildren(new Option("全部责任团队", ""), ...owners.map((owner) => new Option(owner, owner)));
+    elements.assetOwnerFilter.value = owners.includes(selectedOwner) ? selectedOwner : "";
+    renderAssetHealthTable();
   } catch (error) {
     elements.assetStatusBadge.textContent = "资产健康不可用";
     elements.assetMonitoredCount.textContent = "—";
     elements.assetFreshCount.textContent = "—";
     elements.assetIssueCount.textContent = "—";
     elements.assetImpactCount.textContent = "—";
+    runtimeState.assetHealthItems = [];
+    elements.assetTableNote.textContent = "筛选不可用";
     elements.assetTable.innerHTML = `<tr><td colspan="5" class="table-message">${error instanceof Error ? error.message : "资产健康读取失败"}</td></tr>`;
   }
 }
+
+elements.assetStatusFilter.addEventListener("change", renderAssetHealthTable);
+elements.assetOwnerFilter.addEventListener("change", renderAssetHealthTable);
 
 function syncSelect(select, values, emptyLabel) {
   const selected = select.value;

@@ -718,6 +718,23 @@ h3 {
   padding-inline: var(--space-xs);
 }
 
+.asset-table-controls {
+  display: flex;
+  align-items: end;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.asset-table-controls div { display: grid; gap: var(--space-xs); }
+.asset-table-controls label { color: var(--color-text-muted); font-size: 0.78rem; font-weight: 700; }
+.asset-table-controls select { min-width: 10rem; padding: 0.55rem 0.7rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
+.asset-table-controls span { margin-left: auto; color: var(--color-text-muted); font-size: 0.85rem; }
+
+@media (max-width: 640px) {
+  .asset-table-controls { align-items: stretch; flex-direction: column; }
+  .asset-table-controls span { margin-left: 0; }
+}
+
 .quality-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

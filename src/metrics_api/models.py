@@ -181,3 +181,21 @@ class AssetFreshnessResponse(UtcModel):
     lag_seconds: int | None = Field(default=None, ge=0)
     impacted_assets: list[str]
 
+
+class AssetCatalogItem(UtcModel):
+    asset_id: str
+    asset_name: str
+    asset_kind: str
+    owner: str
+    upstream_assets: list[str]
+    downstream_assets: list[str]
+    freshness_slo_seconds: int | None = Field(default=None, gt=0)
+
+
+class AssetCatalogResponse(UtcModel):
+    generated_at: datetime
+    asset_count: int = Field(ge=0)
+    source_count: int = Field(ge=0)
+    monitored_count: int = Field(ge=0)
+    items: list[AssetCatalogItem]
+

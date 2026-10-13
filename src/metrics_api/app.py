@@ -18,6 +18,8 @@ from metrics_api.models import (
     AnomalySummaryItem,
     AnomalySummaryResponse,
     AnomalyType,
+    AssetCatalogItem,
+    AssetCatalogResponse,
     AssetFreshnessResponse,
     BreakdownDimension,
     BreakdownItem,
@@ -421,6 +423,33 @@ def create_app(
             late_count=late_count,
             count=len(items),
             limit=limit,
+            items=items,
+        )
+
+    @app.get(
+        "/api/v1/operations/assets",
+        response_model=AssetCatalogResponse,
+        tags=["operations"],
+    )
+    def asset_catalog() -> AssetCatalogResponse:
+        assets = app.state.asset_catalog.list_assets()
+        items = [
+            AssetCatalogItem(
+                asset_id=asset.asset_id,
+                asset_name=asset.name,
+                asset_kind=asset.kind,
+                owner=asset.owner,
+                upstream_assets=list(asset.upstreams),
+                downstream_assets=list(app.state.asset_catalog.downstream(asset.asset_id)),
+                freshness_slo_seconds=asset.freshness_slo_seconds,
+            )
+            for asset in assets
+        ]
+        return AssetCatalogResponse(
+            generated_at=datetime.now(UTC),
+            asset_count=len(items),
+            source_count=sum(not item.upstream_assets for item in items),
+            monitored_count=sum(item.freshness_slo_seconds is not None for item in items),
             items=items,
         )
 

@@ -423,6 +423,25 @@ class MetricsApiTests(unittest.TestCase):
             response.json()["impacted_assets"],
         )
 
+    def test_asset_catalog_exposes_ownership_and_lineage(self) -> None:
+        response = self.client.get("/api/v1/operations/assets")
+
+        self.assertEqual(200, response.status_code)
+        body = response.json()
+        self.assertEqual(5, body["asset_count"])
+        self.assertEqual(1, body["source_count"])
+        self.assertEqual(1, body["monitored_count"])
+        clickhouse = next(
+            item for item in body["items"]
+            if item["asset_id"] == "clickhouse.minute-metrics"
+        )
+        self.assertEqual("realtime-warehouse", clickhouse["owner"])
+        self.assertEqual(["flink.minute-metrics"], clickhouse["upstream_assets"])
+        self.assertEqual(
+            ["api.metrics", "dashboard.operations"],
+            clickhouse["downstream_assets"],
+        )
+
     def test_asset_freshness_rejects_unknown_assets(self) -> None:
         response = self.client.get(
             "/api/v1/operations/assets/unknown/freshness"
@@ -487,6 +506,10 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("/api/v1/quality/trend", document["paths"])
         self.assertIn("/api/v1/anomalies/summary", document["paths"])
         self.assertIn(
+            "/api/v1/operations/assets",
+            document["paths"],
+        )
+        self.assertIn(
             "/api/v1/operations/assets/{asset_id}/freshness",
             document["paths"],
         )
@@ -494,6 +517,7 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("QualityRunsResponse", document["components"]["schemas"])
         self.assertIn("AnomalySummaryResponse", document["components"]["schemas"])
         self.assertIn("AssetFreshnessResponse", document["components"]["schemas"])
+        self.assertIn("AssetCatalogResponse", document["components"]["schemas"])
 
     def test_dashboard_and_assets_are_served_with_security_headers(self) -> None:
         page = self.client.get("/dashboard")

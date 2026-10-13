@@ -87,6 +87,23 @@ class DataAssetCatalog:
         except KeyError as error:
             raise DataCatalogError(f"unknown asset: {asset_id}") from error
 
+    def list_assets(self) -> tuple[DataAsset, ...]:
+        """Return the complete catalog in a stable upstream-first order."""
+        ordered: list[DataAsset] = []
+        remaining = set(self._assets)
+        while remaining:
+            ready = sorted(
+                asset_id
+                for asset_id in remaining
+                if all(upstream not in remaining for upstream in self._assets[asset_id].upstreams)
+            )
+            if not ready:
+                raise DataCatalogError("asset lineage must be acyclic")
+            for asset_id in ready:
+                ordered.append(self._assets[asset_id])
+                remaining.remove(asset_id)
+        return tuple(ordered)
+
     def downstream(self, asset_id: str, *, max_depth: int = 10) -> tuple[str, ...]:
         self.get(asset_id)
         if max_depth < 1:

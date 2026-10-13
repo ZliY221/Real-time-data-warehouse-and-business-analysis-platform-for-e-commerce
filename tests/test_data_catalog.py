@@ -21,6 +21,14 @@ class DataAssetCatalogTests(unittest.TestCase):
             self.catalog.downstream("clickhouse.minute-metrics"),
         )
 
+    def test_catalog_listing_is_stable_and_upstream_first(self) -> None:
+        assets = self.catalog.list_assets()
+        positions = {asset.asset_id: index for index, asset in enumerate(assets)}
+        self.assertEqual(5, len(assets))
+        for asset in assets:
+            for upstream in asset.upstreams:
+                self.assertLess(positions[upstream], positions[asset.asset_id])
+
     def test_freshness_evaluation_exposes_slo_and_impact(self) -> None:
         evaluation = self.catalog.evaluate_freshness(
             "clickhouse.minute-metrics",

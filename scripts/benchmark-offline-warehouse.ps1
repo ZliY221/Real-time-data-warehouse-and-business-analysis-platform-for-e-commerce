@@ -10,36 +10,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$runtimePython = $null
-$runtimePythonArguments = @()
-if ($env:PYTHON) {
-    if (-not (Get-Command $env:PYTHON -ErrorAction SilentlyContinue)) {
-        throw "The Python executable configured in the PYTHON environment variable was not found."
-    }
-    & $env:PYTHON -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" *> $null
-    if ($LASTEXITCODE -ne 0) {
-        throw "The configured Python executable must be Python 3.11 or newer."
-    }
-    $runtimePython = $env:PYTHON
-}
-else {
-    foreach ($candidate in @("python", "python3", "py")) {
-        if (Get-Command $candidate -ErrorAction SilentlyContinue) {
-            $candidateArguments = @()
-            if ($candidate -eq "py") { $candidateArguments = @("-3") }
-            & $candidate @candidateArguments -c `
-                "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" *> $null
-            if ($LASTEXITCODE -eq 0) {
-                $runtimePython = $candidate
-                $runtimePythonArguments = $candidateArguments
-                break
-            }
-        }
-    }
-}
-if (-not $runtimePython) {
-    throw "Python 3 was not found. Set the PYTHON environment variable if needed."
-}
+. (Join-Path $PSScriptRoot "python-runtime.ps1")
+$pythonRuntime = Resolve-ProjectPython -MinimumVersion "3.11" -RepoRoot $repoRoot
+$runtimePython = $pythonRuntime.Executable
+$runtimePythonArguments = @($pythonRuntime.Arguments)
 
 $previousPythonPath = $env:PYTHONPATH
 Push-Location $repoRoot

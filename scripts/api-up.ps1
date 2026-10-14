@@ -9,6 +9,10 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $previousPythonPath = $env:PYTHONPATH
+. (Join-Path $PSScriptRoot "python-runtime.ps1")
+$pythonRuntime = Resolve-ProjectPython -MinimumVersion "3.11" -RepoRoot $repoRoot
+$pythonExecutable = $pythonRuntime.Executable
+$pythonArguments = @($pythonRuntime.Arguments)
 
 Push-Location $repoRoot
 try {
@@ -23,7 +27,7 @@ try {
         $arguments += "--reload"
     }
 
-    python @arguments
+    & $pythonExecutable @pythonArguments @arguments
     if ($LASTEXITCODE -ne 0) {
         throw "The metrics API stopped with exit code $LASTEXITCODE."
     }

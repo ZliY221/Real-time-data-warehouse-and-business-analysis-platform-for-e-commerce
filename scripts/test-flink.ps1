@@ -41,7 +41,17 @@ function Find-Jdk17Home {
         if (-not (Test-Path -LiteralPath $javaPath -PathType Leaf)) {
             continue
         }
-        $versionText = (& $javaPath -version 2>&1 | Out-String)
+        $previousPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $versionText = (& $javaPath -version 2>&1 | Out-String)
+        }
+        catch {
+            $versionText = ""
+        }
+        finally {
+            $ErrorActionPreference = $previousPreference
+        }
         if ($versionText -match 'version "(?<major>\d+)') {
             if ([int]$Matches.major -ge 17) {
                 return $candidateHome
@@ -63,7 +73,7 @@ Push-Location (Join-Path $repoRoot "flink-job")
 try {
     $env:JAVA_HOME = $jdkHome
     $env:Path = (Join-Path $jdkHome "bin") + [System.IO.Path]::PathSeparator + $previousPath
-    java -version
+    & java --version
     mvn --batch-mode --no-transfer-progress clean verify
     if ($LASTEXITCODE -ne 0) {
         throw "Flink Maven verification failed."

@@ -96,14 +96,15 @@ test("quality history errors have a focused recovery message", () => {
 
 test("asset health filters combine status and owner", () => {
   const items = [
-    { asset_id: "a", status: "fresh", owner: "warehouse" },
-    { asset_id: "b", status: "stale", owner: "warehouse" },
-    { asset_id: "c", status: "stale", owner: "api" },
+    { asset_id: "a", status: "fresh", owner: "warehouse", priority_score: 0 },
+    { asset_id: "b", status: "stale", owner: "warehouse", priority_score: 121 },
+    { asset_id: "c", status: "stale", owner: "api", priority_score: 140 },
   ];
   assert.deepEqual(
     filterAssetHealth(items, { status: "stale", owner: "warehouse" }).map((item) => item.asset_id),
     ["b"],
   );
   assert.equal(filterAssetHealth(items, { owner: "api" }).length, 1);
+  assert.deepEqual(filterAssetHealth(items).map((item) => item.asset_id), ["c", "b", "a"]);
   assert.deepEqual(filterAssetHealth(null), []);
 });

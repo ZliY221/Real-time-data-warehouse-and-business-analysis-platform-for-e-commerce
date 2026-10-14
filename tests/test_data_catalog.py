@@ -38,6 +38,7 @@ class DataAssetCatalogTests(unittest.TestCase):
         self.assertEqual("stale", evaluation.status)
         self.assertEqual(125, evaluation.lag_seconds)
         self.assertEqual(("api.metrics", "dashboard.operations"), evaluation.impacted_assets)
+        self.assertEqual(141, evaluation.priority_score)
 
     def test_missing_observation_is_explicit(self) -> None:
         evaluation = self.catalog.evaluate_freshness(
@@ -47,6 +48,7 @@ class DataAssetCatalogTests(unittest.TestCase):
         )
         self.assertEqual("no_data", evaluation.status)
         self.assertIsNone(evaluation.lag_seconds)
+        self.assertEqual(240, evaluation.priority_score)
 
     def test_invalid_catalog_rejects_cycles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

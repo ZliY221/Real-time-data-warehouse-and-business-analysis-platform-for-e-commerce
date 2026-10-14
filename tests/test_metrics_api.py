@@ -460,6 +460,9 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual({"fresh": 0, "stale": 1, "no_data": 0}, body["status_counts"])
         self.assertEqual(["api.metrics", "dashboard.operations"], body["impacted_assets"])
         self.assertEqual("realtime-warehouse", body["items"][0]["owner"])
+        self.assertEqual(1, body["priority_count"])
+        self.assertEqual(1, body["items"][0]["priority_rank"])
+        self.assertEqual(141, body["items"][0]["priority_score"])
 
     def test_asset_freshness_rejects_unknown_assets(self) -> None:
         response = self.client.get(

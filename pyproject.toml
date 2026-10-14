@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ecommerce-realtime-warehouse"
-version = "0.12.3"
+version = "0.13.3"
 description = "A reproducible real-time ecommerce data pipeline"
 requires-python = ">=3.11"
 

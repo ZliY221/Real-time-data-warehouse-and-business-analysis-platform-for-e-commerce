@@ -89,7 +89,10 @@ export function qualityPassRate(runs) {
 export function filterAssetHealth(items, { status = "", owner = "" } = {}) {
   if (!Array.isArray(items)) return [];
   return items.filter((item) =>
-    (!status || item?.status === status) && (!owner || item?.owner === owner));
+    (!status || item?.status === status) && (!owner || item?.owner === owner))
+    .sort((left, right) =>
+      (Number(right?.priority_score) - Number(left?.priority_score)) ||
+      String(left?.asset_id).localeCompare(String(right?.asset_id)));
 }
 
 export function anomalyTypeLabel(value) {

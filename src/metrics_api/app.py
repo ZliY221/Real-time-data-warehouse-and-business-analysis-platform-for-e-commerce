@@ -487,6 +487,10 @@ def create_app(
             status: sum(item.status == status for item in evaluations)
             for status in ("fresh", "stale", "no_data")
         }
+        prioritized = sorted(
+            evaluations,
+            key=lambda item: (-item.priority_score, item.asset.asset_id),
+        )
         return {
             "generated_at": now,
             "status": (
@@ -501,8 +505,11 @@ def create_app(
                 if item.status != "fresh"
                 for impacted in item.impacted_assets
             }),
+            "priority_count": sum(item.status != "fresh" for item in evaluations),
             "items": [
                 {
+                    "priority_rank": rank,
+                    "priority_score": item.priority_score,
                     "asset_id": item.asset.asset_id,
                     "owner": item.asset.owner,
                     "status": item.status,
@@ -511,7 +518,7 @@ def create_app(
                     "lag_seconds": item.lag_seconds,
                     "impacted_assets": list(item.impacted_assets),
                 }
-                for item in evaluations
+                for rank, item in enumerate(prioritized, start=1)
             ],
         }
 

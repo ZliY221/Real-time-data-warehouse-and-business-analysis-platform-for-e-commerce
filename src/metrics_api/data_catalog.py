@@ -34,6 +34,15 @@ class FreshnessEvaluation:
     lag_seconds: int | None
     impacted_assets: tuple[str, ...]
 
+    @property
+    def priority_score(self) -> int:
+        """Return a stable operations score based on severity, lag, and blast radius."""
+        severity = {"fresh": 0, "stale": 100, "no_data": 200}[self.status]
+        lag_pressure = 0
+        if self.lag_seconds is not None and self.asset.freshness_slo_seconds:
+            lag_pressure = min(99, self.lag_seconds // self.asset.freshness_slo_seconds)
+        return severity + len(self.impacted_assets) * 20 + lag_pressure
+
 
 class DataAssetCatalog:
     def __init__(self, assets: list[DataAsset]) -> None:

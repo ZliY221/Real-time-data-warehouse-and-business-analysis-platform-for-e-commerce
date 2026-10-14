@@ -758,13 +758,14 @@ function renderAssetHealthTable() {
   elements.assetTableNote.textContent = `显示 ${formatInteger(items.length)} / ${formatInteger(runtimeState.assetHealthItems.length)} 项`;
   elements.assetTable.innerHTML = items.length
     ? items.map((item) => `<tr>
+        <td><strong>#${formatInteger(item.priority_rank)}</strong><br><small>${formatInteger(item.priority_score)} 分</small></td>
         <td>${item.asset_id}</td>
         <td>${item.owner}</td>
         <td><span class="quality-pill quality-pill--${item.status === "fresh" ? "pass" : "fail"}">${assetStatusLabel(item.status)}</span></td>
         <td>${item.lag_seconds === null ? "—" : `${formatInteger(item.lag_seconds)} 秒`}</td>
         <td>${item.impacted_assets.length ? item.impacted_assets.join("、") : "—"}</td>
       </tr>`).join("")
-    : '<tr><td colspan="5" class="table-message">当前筛选条件下没有资产</td></tr>';
+    : '<tr><td colspan="6" class="table-message">当前筛选条件下没有资产</td></tr>';
 }
 
 async function refreshAssetHealth() {
@@ -790,7 +791,7 @@ async function refreshAssetHealth() {
     elements.assetImpactCount.textContent = "—";
     runtimeState.assetHealthItems = [];
     elements.assetTableNote.textContent = "筛选不可用";
-    elements.assetTable.innerHTML = `<tr><td colspan="5" class="table-message">${error instanceof Error ? error.message : "资产健康读取失败"}</td></tr>`;
+    elements.assetTable.innerHTML = `<tr><td colspan="6" class="table-message">${error instanceof Error ? error.message : "资产健康读取失败"}</td></tr>`;
   }
 }
 

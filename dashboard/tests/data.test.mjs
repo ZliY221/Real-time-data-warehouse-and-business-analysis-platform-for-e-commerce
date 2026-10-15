@@ -6,6 +6,7 @@ import {
   anomalyTypeLabel,
   apiErrorMessage,
   buildMetricQuery,
+  buildContributionRows,
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
@@ -82,6 +83,16 @@ test("comparison helpers derive the prior equal period and readable growth", () 
   assert.equal(formatGrowthRate(0.125), "+12.5%");
   assert.equal(formatGrowthRate(-0.04), "-4.0%");
   assert.equal(formatGrowthRate(null), "暂无基准");
+});
+
+test("contribution rows merge missing dimensions and rank absolute GMV change", () => {
+  const rows = buildContributionRows(
+    [{ name: "north", gmv: "150.00" }, { name: "east", gmv: "80.00" }],
+    [{ name: "north", gmv: "100.00" }, { name: "south", gmv: "120.00" }],
+  );
+  assert.deepEqual(rows.map(row => [row.name, row.deltaGmv]), [
+    ["south", -120], ["north", 50], ["east", 80],
+  ].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])));
 });
 
 test("lag and API errors provide clear user-facing states", () => {

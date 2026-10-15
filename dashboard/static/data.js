@@ -104,6 +104,19 @@ export function formatGrowthRate(value) {
   return `${rate > 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`;
 }
 
+export function buildContributionRows(currentItems, baselineItems, limit = 5) {
+  const baseline = new Map((baselineItems || []).map(item => [item.name, Number(item.gmv)]));
+  const current = new Map((currentItems || []).map(item => [item.name, Number(item.gmv)]));
+  const names = new Set([...current.keys(), ...baseline.keys()]);
+  return [...names].map(name => ({
+    name,
+    currentGmv: current.get(name) || 0,
+    baselineGmv: baseline.get(name) || 0,
+    deltaGmv: (current.get(name) || 0) - (baseline.get(name) || 0),
+  })).sort((left, right) => Math.abs(right.deltaGmv) - Math.abs(left.deltaGmv)
+    || left.name.localeCompare(right.name)).slice(0, limit);
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

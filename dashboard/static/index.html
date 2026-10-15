@@ -133,6 +133,13 @@
               <option value="week">上周同期</option>
             </select>
           </label>
+          <label class="field">
+            <span>变化贡献</span>
+            <select id="comparison-dimension" name="comparison-dimension">
+              <option value="region">按地区</option>
+              <option value="channel">按渠道</option>
+            </select>
+          </label>
           <div class="filter-form__actions">
             <label class="saved-view-control"><span>经营视图</span><select id="saved-view" aria-label="已保存经营视图"><option value="">选择已保存视图</option></select></label>
             <input id="saved-view-name" class="saved-view-name" maxlength="30" placeholder="视图名称" aria-label="视图名称">
@@ -291,6 +298,10 @@
             <span>客单价变化</span>
             <strong id="comparison-aov">—</strong>
           </article>
+        </div>
+        <div class="contribution-panel">
+          <span class="eyebrow">GMV 变化贡献</span>
+          <ul id="comparison-contributions"><li><span>正在加载维度变化</span></li></ul>
         </div>
       </section>
 

@@ -2,6 +2,7 @@ import {
   anomalyReasonLabel,
   anomalyTypeLabel,
   apiErrorMessage,
+  buildContributionRows,
   buildMetricQuery,
   createLocalRange,
   createComparisonPeriod,
@@ -23,6 +24,7 @@ const elements = {
   region: document.querySelector("#region-filter"),
   channel: document.querySelector("#channel-filter"),
   comparisonMode: document.querySelector("#comparison-mode"),
+  comparisonDimension: document.querySelector("#comparison-dimension"),
   refresh: document.querySelector("#refresh-button"),
   reset: document.querySelector("#reset-button"),
   retry: document.querySelector("#retry-button"),
@@ -48,6 +50,7 @@ const elements = {
   comparisonOrders: document.querySelector("#comparison-orders"),
   comparisonGmv: document.querySelector("#comparison-gmv"),
   comparisonAov: document.querySelector("#comparison-aov"),
+  comparisonContributions: document.querySelector("#comparison-contributions"),
   trendChart: document.querySelector("#trend-chart"),
   regionChart: document.querySelector("#region-chart"),
   channelChart: document.querySelector("#channel-chart"),
@@ -127,6 +130,7 @@ function applySavedView(view) {
   elements.region.value = view.filters.region;
   elements.channel.value = view.filters.channel;
   elements.comparisonMode.value = view.comparisonMode;
+  elements.comparisonDimension.value = view.comparisonDimension;
   setAutoRefresh(view.refreshSeconds);
   void refreshDashboard();
 }
@@ -275,6 +279,13 @@ function renderComparison(comparison) {
   const baseline = comparison.baseline.filters;
   const modeLabel = elements.comparisonMode.selectedOptions[0]?.textContent || "对比区间";
   elements.comparisonPeriod.textContent = `${modeLabel} · ${formatTimestamp(baseline.start)} 至 ${formatTimestamp(baseline.end)}`;
+}
+
+function renderContributions(currentItems, baselineItems) {
+  const rows = buildContributionRows(currentItems, baselineItems);
+  elements.comparisonContributions.innerHTML = rows.length ? rows.map(row => `
+    <li><span>${displayDimension(row.name)}</span><strong class="${row.deltaGmv >= 0 ? "is-positive" : "is-negative"}">${row.deltaGmv > 0 ? "+" : ""}${formatMoney(String(row.deltaGmv))}</strong></li>
+  `).join("") : "<li><span>当前维度暂无可对比数据</span></li>";
 }
 
 function baseChartOption(description) {
@@ -912,11 +923,16 @@ async function refreshDashboard() {
   const anomalyRefresh = refreshAnomalies(filters);
   const assetRefresh = refreshAssetHealth();
   try {
-    const [summary, comparison, timeSeries, regions, channels, recent] = await Promise.all([
+    const comparisonPeriod = createComparisonPeriod(filters, elements.comparisonMode.value);
+    const contributionDimension = elements.comparisonDimension.value;
+    const baselineFilters = {
+      ...filters, start: comparisonPeriod.baseline_start, end: comparisonPeriod.baseline_end,
+    };
+    const [summary, comparison, timeSeries, regions, channels, recent, baselineBreakdown] = await Promise.all([
       fetchJson("/api/v1/metrics/summary", queryFor(filters)),
       fetchJson(
         "/api/v1/metrics/comparison",
-        queryFor(filters, createComparisonPeriod(filters, elements.comparisonMode.value)),
+        queryFor(filters, comparisonPeriod),
       ),
       fetchJson(
         "/api/v1/metrics/timeseries",
@@ -931,10 +947,18 @@ async function refreshDashboard() {
         queryFor(filters, { dimension: "channel", limit: 12 }),
       ),
       fetchJson("/api/v1/metrics/minutes", queryFor(filters, { limit: 12 })),
+      fetchJson(
+        "/api/v1/metrics/breakdown",
+        queryFor(baselineFilters, { dimension: contributionDimension, limit: 12 }),
+      ),
     ]);
 
     renderSummary(summary);
     renderComparison(comparison);
+    renderContributions(
+      contributionDimension === "region" ? regions.items : channels.items,
+      baselineBreakdown.items,
+    );
     renderTrend(timeSeries);
     renderRegion(regions.items);
     renderChannel(channels.items);
@@ -1002,6 +1026,7 @@ elements.reset.addEventListener("click", () => {
   elements.region.value = "";
   elements.channel.value = "";
   elements.comparisonMode.value = "previous";
+  elements.comparisonDimension.value = "region";
   setQuickRange(24);
 });
 
@@ -1011,6 +1036,7 @@ elements.autoRefreshInterval.addEventListener("change", () => {
   void refreshDashboard();
 });
 elements.comparisonMode.addEventListener("change", () => void refreshDashboard());
+elements.comparisonDimension.addEventListener("change", () => void refreshDashboard());
 elements.liveRefreshToggle.addEventListener("click", () => {
   const next = runtimeState.autoRefreshSeconds > 0 ? 0 : runtimeState.previousAutoRefreshSeconds;
   setAutoRefresh(next);
@@ -1023,6 +1049,7 @@ elements.saveView.addEventListener("click", () => {
     runtimeState.savedViews = upsertSavedView(runtimeState.savedViews, {
       id, name, quickRangeHours: runtimeState.quickRangeHours,
       filters: currentFilters(), comparisonMode: elements.comparisonMode.value,
+      comparisonDimension: elements.comparisonDimension.value,
       refreshSeconds: runtimeState.autoRefreshSeconds,
     });
     renderSavedViews(); elements.savedView.value = id; elements.savedViewName.value = ""; elements.deleteView.disabled = false;

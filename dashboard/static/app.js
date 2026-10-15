@@ -11,6 +11,7 @@ import {
   formatTimestamp,
   qualityPassRate,
 } from "./data.js";
+import { parseSavedViews, removeSavedView, upsertSavedView } from "./saved_views.js";
 
 const elements = {
   body: document.body,
@@ -25,6 +26,10 @@ const elements = {
   autoRefreshInterval: document.querySelector("#auto-refresh-interval"),
   autoRefreshCountdown: document.querySelector("#auto-refresh-countdown"),
   liveRefreshToggle: document.querySelector("#live-refresh-toggle"),
+  savedView: document.querySelector("#saved-view"),
+  savedViewName: document.querySelector("#saved-view-name"),
+  saveView: document.querySelector("#save-view-button"),
+  deleteView: document.querySelector("#delete-view-button"),
   quickRanges: [...document.querySelectorAll("[data-hours]")],
   status: document.querySelector("#connection-status"),
   statusText: document.querySelector("#connection-status-text"),
@@ -93,7 +98,30 @@ const runtimeState = {
   previousAutoRefreshSeconds: 5,
   nextRefreshAt: 0,
   refreshing: false,
+  savedViews: parseSavedViews(localStorage.getItem("commerce.savedViews")),
 };
+
+function renderSavedViews() {
+  const selected = elements.savedView.value;
+  elements.savedView.replaceChildren(new Option("选择已保存视图", ""), ...runtimeState.savedViews.map(view => new Option(view.name, view.id)));
+  elements.savedView.value = runtimeState.savedViews.some(view => view.id === selected) ? selected : "";
+  elements.deleteView.disabled = !elements.savedView.value;
+  localStorage.setItem("commerce.savedViews", JSON.stringify(runtimeState.savedViews));
+}
+
+function applySavedView(view) {
+  if (view.quickRangeHours) setQuickRange(view.quickRangeHours, false);
+  else {
+    runtimeState.quickRangeHours = null;
+    elements.start.value = view.filters.start;
+    elements.end.value = view.filters.end;
+    for (const button of elements.quickRanges) button.classList.remove("is-active");
+  }
+  elements.region.value = view.filters.region;
+  elements.channel.value = view.filters.channel;
+  setAutoRefresh(view.refreshSeconds);
+  void refreshDashboard();
+}
 
 function cssToken(name) {
   return getComputedStyle(document.documentElement)
@@ -957,6 +985,26 @@ elements.liveRefreshToggle.addEventListener("click", () => {
   setAutoRefresh(next);
   if (next > 0) void refreshDashboard();
 });
+elements.saveView.addEventListener("click", () => {
+  const name = elements.savedViewName.value.trim();
+  const id = elements.savedView.value || `view-${Date.now()}`;
+  try {
+    runtimeState.savedViews = upsertSavedView(runtimeState.savedViews, {
+      id, name, quickRangeHours: runtimeState.quickRangeHours,
+      filters: currentFilters(), refreshSeconds: runtimeState.autoRefreshSeconds,
+    });
+    renderSavedViews(); elements.savedView.value = id; elements.savedViewName.value = ""; elements.deleteView.disabled = false;
+  } catch (error) { renderFailure(error); }
+});
+elements.savedView.addEventListener("change", () => {
+  const view = runtimeState.savedViews.find(item => item.id === elements.savedView.value);
+  elements.deleteView.disabled = !view;
+  if (view) applySavedView(view);
+});
+elements.deleteView.addEventListener("click", () => {
+  runtimeState.savedViews = removeSavedView(runtimeState.savedViews, elements.savedView.value);
+  renderSavedViews();
+});
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Number(elements.autoRefreshInterval.value) > 0) {
@@ -974,6 +1022,7 @@ try {
   initializeCharts();
   setQuickRange(24, false);
   setAutoRefresh(Number(elements.autoRefreshInterval.value));
+  renderSavedViews();
   void refreshDashboard();
 } catch (error) {
   renderFailure(error instanceof Error ? error : new Error("看板初始化失败。"));

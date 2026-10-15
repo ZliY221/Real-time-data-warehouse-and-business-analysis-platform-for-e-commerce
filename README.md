@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v0.15.0-1e40af)
+![Version](https://img.shields.io/badge/version-v0.16.0-1e40af)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -87,6 +87,7 @@ flowchart LR
 - 展示 GMV、订单量、客单价、趋势、地区和渠道分布。
 - 展示质量历史、拒绝与迟到事件摘要以及资产健康状态。
 - 支持按健康状态和责任团队筛选资产，并定位受影响下游。
+- 支持保存、应用和删除个人经营视图，保留时间窗口、维度筛选与刷新频率。
 
 ## 工程结构
 
@@ -137,4 +138,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v0.15.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v0.16.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

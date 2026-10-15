@@ -284,7 +284,7 @@ function renderComparison(comparison) {
 function renderContributions(currentItems, baselineItems) {
   const rows = buildContributionRows(currentItems, baselineItems);
   elements.comparisonContributions.innerHTML = rows.length ? rows.map(row => `
-    <li><span>${displayDimension(row.name)}</span><strong class="${row.deltaGmv >= 0 ? "is-positive" : "is-negative"}">${row.deltaGmv > 0 ? "+" : ""}${formatMoney(String(row.deltaGmv))}</strong></li>
+    <li><button type="button" data-contribution-name="${encodeURIComponent(row.name)}"><span>${displayDimension(row.name)}</span><strong class="${row.deltaGmv >= 0 ? "is-positive" : "is-negative"}">${row.deltaGmv > 0 ? "+" : ""}${formatMoney(String(row.deltaGmv))}</strong></button></li>
   `).join("") : "<li><span>当前维度暂无可对比数据</span></li>";
 }
 
@@ -1037,6 +1037,18 @@ elements.autoRefreshInterval.addEventListener("change", () => {
 });
 elements.comparisonMode.addEventListener("change", () => void refreshDashboard());
 elements.comparisonDimension.addEventListener("change", () => void refreshDashboard());
+elements.comparisonContributions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-contribution-name]");
+  if (!button) return;
+  const name = decodeURIComponent(button.dataset.contributionName);
+  const dimension = elements.comparisonDimension.value;
+  const select = dimension === "region" ? elements.region : elements.channel;
+  const values = dimension === "region" ? dimensionOptions.regions : dimensionOptions.channels;
+  values.add(name);
+  syncSelect(select, values, dimension === "region" ? "全部地区" : "全部渠道");
+  select.value = name;
+  void refreshDashboard();
+});
 elements.liveRefreshToggle.addEventListener("click", () => {
   const next = runtimeState.autoRefreshSeconds > 0 ? 0 : runtimeState.previousAutoRefreshSeconds;
   setAutoRefresh(next);

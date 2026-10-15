@@ -622,7 +622,9 @@ h3 {
 .comparison-card__value--down { color: var(--color-danger); }
 .contribution-panel { grid-column: 1 / -1; border-top: 1px solid var(--color-border); padding-top: var(--space-md); }
 .contribution-panel ul { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-sm); margin: 0.5rem 0 0; padding: 0; list-style: none; }
-.contribution-panel li { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; border-radius: 10px; background: var(--color-surface); font-size: 0.78rem; }
+.contribution-panel li { border-radius: 10px; background: var(--color-surface); font-size: 0.78rem; }
+.contribution-panel button { display: flex; width: 100%; justify-content: space-between; gap: 0.5rem; padding: 0.55rem 0.7rem; border: 0; border-radius: inherit; color: inherit; background: transparent; cursor: pointer; text-align: left; }
+.contribution-panel button:hover, .contribution-panel button:focus-visible { background: color-mix(in srgb, var(--color-primary) 10%, transparent); outline: 2px solid color-mix(in srgb, var(--color-primary) 35%, transparent); }
 .contribution-panel strong { font-family: "Fira Code", monospace; white-space: nowrap; }
 .contribution-panel .is-positive { color: var(--color-success); }
 .contribution-panel .is-negative { color: var(--color-danger); }

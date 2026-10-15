@@ -96,6 +96,17 @@ test("contribution rows merge missing dimensions and rank absolute GMV change", 
   ].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])));
 });
 
+test("contribution rows normalize non-finite GMV values", () => {
+  const rows = buildContributionRows(
+    [{ name: "north", gmv: "Infinity" }, { name: "east", gmv: "invalid" }],
+    [{ name: "north", gmv: "10.00" }],
+  );
+  assert.deepEqual(rows.map(row => [row.name, row.currentGmv, row.deltaGmv]), [
+    ["north", 0, -10], ["east", 0, 0],
+  ]);
+  assert.ok(rows.every(row => Number.isFinite(row.deltaGmv)));
+});
+
 test("contribution context identifies an active drilldown", () => {
   assert.deepEqual(getContributionContext("region", { region: "north" }), { dimension: "region", name: "north" });
   assert.equal(getContributionContext("channel", { channel: "" }), null);

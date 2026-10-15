@@ -105,8 +105,12 @@ export function formatGrowthRate(value) {
 }
 
 export function buildContributionRows(currentItems, baselineItems, limit = 5) {
-  const baseline = new Map((baselineItems || []).map(item => [item.name, Number(item.gmv)]));
-  const current = new Map((currentItems || []).map(item => [item.name, Number(item.gmv)]));
+  const safeGmv = value => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const baseline = new Map((baselineItems || []).map(item => [item.name, safeGmv(item.gmv)]));
+  const current = new Map((currentItems || []).map(item => [item.name, safeGmv(item.gmv)]));
   const names = new Set([...current.keys(), ...baseline.keys()]);
   return [...names].map(name => ({
     name,

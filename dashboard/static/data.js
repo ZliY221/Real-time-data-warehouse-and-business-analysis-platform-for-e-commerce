@@ -127,6 +127,49 @@ export function getContributionContext(dimension, filters) {
   return name ? { dimension, name } : null;
 }
 
+export function buildDashboardShareQuery(view) {
+  const filters = view?.filters || {};
+  createComparisonPeriod(filters, view?.comparisonMode || "previous");
+  const comparisonMode = ["previous", "day", "week"].includes(view?.comparisonMode)
+    ? view.comparisonMode : "previous";
+  const comparisonDimension = ["region", "channel"].includes(view?.comparisonDimension)
+    ? view.comparisonDimension : "region";
+  const refreshSeconds = [0, 5, 15, 30].includes(Number(view?.refreshSeconds))
+    ? Number(view.refreshSeconds) : 5;
+  const query = new URLSearchParams({
+    view: "1",
+    start: String(filters.start),
+    end: String(filters.end),
+    comparison: comparisonMode,
+    dimension: comparisonDimension,
+    refresh: String(refreshSeconds),
+  });
+  if (filters.region) query.set("region", String(filters.region));
+  if (filters.channel) query.set("channel", String(filters.channel));
+  return query;
+}
+
+export function parseDashboardShareQuery(search) {
+  const query = new URLSearchParams(search);
+  if (query.get("view") !== "1" || !query.get("start") || !query.get("end")) return null;
+  const comparisonMode = query.get("comparison") || "previous";
+  const comparisonDimension = query.get("dimension") || "region";
+  const refreshSeconds = Number(query.get("refresh") ?? 5);
+  if (!["previous", "day", "week"].includes(comparisonMode)) return null;
+  if (!["region", "channel"].includes(comparisonDimension)) return null;
+  if (![0, 5, 15, 30].includes(refreshSeconds)) return null;
+  const filters = {
+    start: query.get("start"), end: query.get("end"),
+    region: query.get("region") || "", channel: query.get("channel") || "",
+  };
+  try {
+    createComparisonPeriod(filters, comparisonMode);
+  } catch {
+    return null;
+  }
+  return { filters, comparisonMode, comparisonDimension, refreshSeconds };
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

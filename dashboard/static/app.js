@@ -3,6 +3,7 @@ import {
   anomalyTypeLabel,
   apiErrorMessage,
   buildContributionRows,
+  buildDashboardShareQuery,
   buildMetricQuery,
   createLocalRange,
   createComparisonPeriod,
@@ -14,6 +15,7 @@ import {
   formatMoney,
   formatTimestamp,
   qualityPassRate,
+  parseDashboardShareQuery,
 } from "./data.js";
 import { parseSavedViews, removeSavedView, upsertSavedView } from "./saved_views.js";
 
@@ -36,6 +38,7 @@ const elements = {
   savedViewName: document.querySelector("#saved-view-name"),
   saveView: document.querySelector("#save-view-button"),
   deleteView: document.querySelector("#delete-view-button"),
+  shareView: document.querySelector("#share-view-button"),
   quickRanges: [...document.querySelectorAll("[data-hours]")],
   status: document.querySelector("#connection-status"),
   statusText: document.querySelector("#connection-status-text"),
@@ -1091,6 +1094,23 @@ elements.deleteView.addEventListener("click", () => {
   runtimeState.savedViews = removeSavedView(runtimeState.savedViews, elements.savedView.value);
   renderSavedViews();
 });
+elements.shareView.addEventListener("click", async () => {
+  try {
+    const query = buildDashboardShareQuery({
+      filters: currentFilters(), comparisonMode: elements.comparisonMode.value,
+      comparisonDimension: elements.comparisonDimension.value,
+      refreshSeconds: runtimeState.autoRefreshSeconds,
+    });
+    const url = new URL(window.location.href);
+    url.search = query.toString();
+    window.history.replaceState({}, "", url);
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url.toString());
+    else window.prompt("复制经营视图链接", url.toString());
+    elements.liveStatus.textContent = "经营视图链接已生成，可发送给其他使用者直接恢复当前筛选。";
+  } catch (error) {
+    elements.liveStatus.textContent = error instanceof Error ? `分享链接生成失败：${error.message}` : "分享链接生成失败。";
+  }
+});
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Number(elements.autoRefreshInterval.value) > 0) {
@@ -1106,7 +1126,24 @@ for (const button of elements.quickRanges) {
 
 try {
   initializeCharts();
-  setQuickRange(24, false);
+  const sharedView = parseDashboardShareQuery(window.location.search);
+  if (sharedView) {
+    runtimeState.quickRangeHours = null;
+    elements.start.value = sharedView.filters.start;
+    elements.end.value = sharedView.filters.end;
+    if (sharedView.filters.region) dimensionOptions.regions.add(sharedView.filters.region);
+    if (sharedView.filters.channel) dimensionOptions.channels.add(sharedView.filters.channel);
+    syncSelect(elements.region, dimensionOptions.regions, "全部地区");
+    syncSelect(elements.channel, dimensionOptions.channels, "全部渠道");
+    elements.region.value = sharedView.filters.region;
+    elements.channel.value = sharedView.filters.channel;
+    elements.comparisonMode.value = sharedView.comparisonMode;
+    elements.comparisonDimension.value = sharedView.comparisonDimension;
+    elements.autoRefreshInterval.value = String(sharedView.refreshSeconds);
+    for (const button of elements.quickRanges) button.classList.remove("is-active");
+  } else {
+    setQuickRange(24, false);
+  }
   setAutoRefresh(Number(elements.autoRefreshInterval.value));
   renderSavedViews();
   void refreshDashboard();

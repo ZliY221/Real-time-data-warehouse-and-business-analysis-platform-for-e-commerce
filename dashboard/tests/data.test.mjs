@@ -7,6 +7,7 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   buildContributionRows,
+  buildDashboardShareQuery,
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
@@ -16,6 +17,7 @@ import {
   formatLag,
   formatMoney,
   qualityPassRate,
+  parseDashboardShareQuery,
   toApiTimestamp,
 } from "../static/data.js";
 
@@ -111,6 +113,25 @@ test("contribution context identifies an active drilldown", () => {
   assert.deepEqual(getContributionContext("region", { region: "north" }), { dimension: "region", name: "north" });
   assert.equal(getContributionContext("channel", { channel: "" }), null);
   assert.throws(() => getContributionContext("unknown", {}), /unsupported contribution dimension/);
+});
+
+test("dashboard share query restores filters and interaction settings", () => {
+  const query = buildDashboardShareQuery({
+    filters: {
+      start: "2026-10-15T08:00", end: "2026-10-15T10:00",
+      region: "华北&重点", channel: "web",
+    },
+    comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
+  });
+  assert.deepEqual(parseDashboardShareQuery(query), {
+    filters: {
+      start: "2026-10-15T08:00", end: "2026-10-15T10:00",
+      region: "华北&重点", channel: "web",
+    },
+    comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
+  });
+  assert.equal(parseDashboardShareQuery("?view=1&start=invalid&end=invalid"), null);
+  assert.equal(parseDashboardShareQuery("?start=2026-10-15T08:00&end=2026-10-15T10:00"), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

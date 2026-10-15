@@ -10,6 +10,7 @@ import {
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
+  getContributionContext,
   formatGrowthRate,
   formatInteger,
   formatLag,
@@ -93,6 +94,12 @@ test("contribution rows merge missing dimensions and rank absolute GMV change", 
   assert.deepEqual(rows.map(row => [row.name, row.deltaGmv]), [
     ["south", -120], ["north", 50], ["east", 80],
   ].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])));
+});
+
+test("contribution context identifies an active drilldown", () => {
+  assert.deepEqual(getContributionContext("region", { region: "north" }), { dimension: "region", name: "north" });
+  assert.equal(getContributionContext("channel", { channel: "" }), null);
+  assert.throws(() => getContributionContext("unknown", {}), /unsupported contribution dimension/);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

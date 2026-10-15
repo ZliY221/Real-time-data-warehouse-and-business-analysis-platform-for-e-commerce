@@ -117,6 +117,12 @@ export function buildContributionRows(currentItems, baselineItems, limit = 5) {
     || left.name.localeCompare(right.name)).slice(0, limit);
 }
 
+export function getContributionContext(dimension, filters) {
+  if (!["region", "channel"].includes(dimension)) throw new Error("unsupported contribution dimension");
+  const name = String(filters?.[dimension] || "").trim();
+  return name ? { dimension, name } : null;
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

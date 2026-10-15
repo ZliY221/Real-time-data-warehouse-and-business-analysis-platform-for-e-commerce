@@ -7,6 +7,7 @@ import {
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
+  getContributionContext,
   formatInteger,
   formatLag,
   formatGrowthRate,
@@ -51,6 +52,9 @@ const elements = {
   comparisonGmv: document.querySelector("#comparison-gmv"),
   comparisonAov: document.querySelector("#comparison-aov"),
   comparisonContributions: document.querySelector("#comparison-contributions"),
+  contributionContext: document.querySelector("#contribution-context"),
+  contributionContextText: document.querySelector("#contribution-context-text"),
+  clearContribution: document.querySelector("#clear-contribution"),
   trendChart: document.querySelector("#trend-chart"),
   regionChart: document.querySelector("#region-chart"),
   channelChart: document.querySelector("#channel-chart"),
@@ -283,9 +287,14 @@ function renderComparison(comparison) {
 
 function renderContributions(currentItems, baselineItems) {
   const rows = buildContributionRows(currentItems, baselineItems);
+  const context = getContributionContext(elements.comparisonDimension.value, currentFilters());
   elements.comparisonContributions.innerHTML = rows.length ? rows.map(row => `
-    <li><button type="button" data-contribution-name="${encodeURIComponent(row.name)}"><span>${displayDimension(row.name)}</span><strong class="${row.deltaGmv >= 0 ? "is-positive" : "is-negative"}">${row.deltaGmv > 0 ? "+" : ""}${formatMoney(String(row.deltaGmv))}</strong></button></li>
+    <li class="${context?.name === row.name ? "is-active" : ""}"><button type="button" data-contribution-name="${encodeURIComponent(row.name)}" aria-pressed="${context?.name === row.name}"><span>${displayDimension(row.name)}</span><strong class="${row.deltaGmv >= 0 ? "is-positive" : "is-negative"}">${row.deltaGmv > 0 ? "+" : ""}${formatMoney(String(row.deltaGmv))}</strong></button></li>
   `).join("") : "<li><span>当前维度暂无可对比数据</span></li>";
+  elements.contributionContext.hidden = !context;
+  elements.contributionContextText.textContent = context
+    ? `当前下钻：${context.dimension === "region" ? "地区" : "渠道"} · ${displayDimension(context.name)}`
+    : "";
 }
 
 function baseChartOption(description) {
@@ -1047,6 +1056,12 @@ elements.comparisonContributions.addEventListener("click", (event) => {
   values.add(name);
   syncSelect(select, values, dimension === "region" ? "全部地区" : "全部渠道");
   select.value = name;
+  void refreshDashboard();
+});
+elements.clearContribution.addEventListener("click", () => {
+  const dimension = elements.comparisonDimension.value;
+  const select = dimension === "region" ? elements.region : elements.channel;
+  select.value = "";
   void refreshDashboard();
 });
 elements.liveRefreshToggle.addEventListener("click", () => {

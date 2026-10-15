@@ -22,6 +22,7 @@ class FakeRepository:
             "average_order_value": "0.00",
             "latest_processed_at": None,
         }
+        self.summary_rows: list[dict[str, Any]] = []
         self.time_series_rows: list[dict[str, Any]] = []
         self.breakdown_rows: list[dict[str, Any]] = []
         self.anomaly_rows: list[dict[str, Any]] = []
@@ -46,7 +47,7 @@ class FakeRepository:
         if self.error:
             raise self.error
         self.last_summary_query = query
-        return self.summary_row
+        return self.summary_rows.pop(0) if self.summary_rows else self.summary_row
 
     def fetch_time_series(self, **query: Any) -> list[dict[str, Any]]:
         if self.error:
@@ -228,6 +229,40 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual(0, body["order_count"])
         self.assertEqual("0.00", body["gmv"])
         self.assertIsNone(body["latest_processed_at"])
+
+    def test_comparison_reports_exact_deltas_and_growth_rates(self) -> None:
+        self.repository.summary_rows = [
+            {"order_count": 120, "gmv": "1500.50", "average_order_value": "12.50", "latest_processed_at": "2026-10-15T02:00:00Z"},
+            {"order_count": 100, "gmv": "1200.25", "average_order_value": "12.00", "latest_processed_at": "2026-10-14T02:00:00Z"},
+        ]
+        response = self.client.get("/api/v1/metrics/comparison", params={
+            "start": "2026-10-15T00:00:00Z", "end": "2026-10-15T02:00:00Z",
+            "baseline_start": "2026-10-14T00:00:00Z", "baseline_end": "2026-10-14T02:00:00Z",
+            "region": "辽宁", "channel": "app",
+        })
+        self.assertEqual(200, response.status_code)
+        body = response.json()
+        self.assertEqual(20, body["delta"]["order_count"])
+        self.assertEqual("300.25", body["delta"]["gmv"])
+        self.assertEqual(0.2, body["delta"]["order_count_rate"])
+        self.assertEqual(0.250156, body["delta"]["gmv_rate"])
+        self.assertEqual("辽宁", body["current"]["filters"]["region"])
+
+    def test_comparison_rejects_unequal_ranges_and_handles_zero_baseline(self) -> None:
+        invalid = self.client.get("/api/v1/metrics/comparison", params={
+            "start": "2026-10-15T00:00:00Z", "end": "2026-10-15T02:00:00Z",
+            "baseline_start": "2026-10-14T00:00:00Z", "baseline_end": "2026-10-14T01:00:00Z",
+        })
+        self.assertEqual(422, invalid.status_code)
+        self.repository.summary_rows = [
+            {"order_count": 1, "gmv": "10.00", "average_order_value": "10.00", "latest_processed_at": None},
+            {"order_count": 0, "gmv": "0.00", "average_order_value": "0.00", "latest_processed_at": None},
+        ]
+        valid = self.client.get("/api/v1/metrics/comparison", params={
+            "start": "2026-10-15T00:00:00Z", "end": "2026-10-15T01:00:00Z",
+            "baseline_start": "2026-10-14T00:00:00Z", "baseline_end": "2026-10-14T01:00:00Z",
+        })
+        self.assertIsNone(valid.json()["delta"]["gmv_rate"])
 
     def test_invalid_or_excessive_time_ranges_are_rejected(self) -> None:
         reversed_response = self.client.get(
@@ -522,6 +557,7 @@ class MetricsApiTests(unittest.TestCase):
 
         self.assertIn("/api/v1/metrics/minutes", document["paths"])
         self.assertIn("/api/v1/metrics/summary", document["paths"])
+        self.assertIn("/api/v1/metrics/comparison", document["paths"])
         self.assertIn("/api/v1/metrics/timeseries", document["paths"])
         self.assertIn("/api/v1/metrics/breakdown", document["paths"])
         self.assertIn("/api/v1/quality/runs", document["paths"])
@@ -538,6 +574,7 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("MinuteMetricsResponse", document["components"]["schemas"])
         self.assertIn("QualityRunsResponse", document["components"]["schemas"])
         self.assertIn("AnomalySummaryResponse", document["components"]["schemas"])
+        self.assertIn("MetricComparisonResponse", document["components"]["schemas"])
         self.assertIn("AssetFreshnessResponse", document["components"]["schemas"])
         self.assertIn("AssetCatalogResponse", document["components"]["schemas"])
 

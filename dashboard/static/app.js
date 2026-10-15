@@ -4,9 +4,11 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
+  createPreviousPeriod,
   filterAssetHealth,
   formatInteger,
   formatLag,
+  formatGrowthRate,
   formatMoney,
   formatTimestamp,
   qualityPassRate,
@@ -41,6 +43,10 @@ const elements = {
   kpiAov: document.querySelector("#kpi-aov"),
   kpiLag: document.querySelector("#kpi-lag"),
   kpiUpdatedAt: document.querySelector("#kpi-updated-at"),
+  comparisonPeriod: document.querySelector("#comparison-period"),
+  comparisonOrders: document.querySelector("#comparison-orders"),
+  comparisonGmv: document.querySelector("#comparison-gmv"),
+  comparisonAov: document.querySelector("#comparison-aov"),
   trendChart: document.querySelector("#trend-chart"),
   regionChart: document.querySelector("#region-chart"),
   channelChart: document.querySelector("#channel-chart"),
@@ -251,6 +257,21 @@ function renderSummary(summary) {
   elements.kpiUpdatedAt.textContent = summary.latest_processed_at
     ? `最近处理：${formatTimestamp(summary.latest_processed_at, { seconds: true })}`
     : "筛选范围内暂无处理记录";
+}
+
+function renderComparison(comparison) {
+  const metrics = [
+    [elements.comparisonOrders, comparison.delta.order_count_rate],
+    [elements.comparisonGmv, comparison.delta.gmv_rate],
+    [elements.comparisonAov, comparison.delta.average_order_value_rate],
+  ];
+  for (const [element, rate] of metrics) {
+    element.textContent = formatGrowthRate(rate);
+    element.classList.toggle("comparison-card__value--up", Number(rate) > 0);
+    element.classList.toggle("comparison-card__value--down", Number(rate) < 0);
+  }
+  const baseline = comparison.baseline.filters;
+  elements.comparisonPeriod.textContent = `对比 ${formatTimestamp(baseline.start)} 至 ${formatTimestamp(baseline.end)}`;
 }
 
 function baseChartOption(description) {
@@ -888,8 +909,12 @@ async function refreshDashboard() {
   const anomalyRefresh = refreshAnomalies(filters);
   const assetRefresh = refreshAssetHealth();
   try {
-    const [summary, timeSeries, regions, channels, recent] = await Promise.all([
+    const [summary, comparison, timeSeries, regions, channels, recent] = await Promise.all([
       fetchJson("/api/v1/metrics/summary", queryFor(filters)),
+      fetchJson(
+        "/api/v1/metrics/comparison",
+        queryFor(filters, createPreviousPeriod(filters)),
+      ),
       fetchJson(
         "/api/v1/metrics/timeseries",
         queryFor(filters, { bucket: "auto" }),
@@ -906,6 +931,7 @@ async function refreshDashboard() {
     ]);
 
     renderSummary(summary);
+    renderComparison(comparison);
     renderTrend(timeSeries);
     renderRegion(regions.items);
     renderChannel(channels.items);

@@ -80,6 +80,26 @@ export function createLocalRange(hours, now = new Date()) {
   };
 }
 
+export function createPreviousPeriod(filters) {
+  const start = new Date(filters.start);
+  const end = new Date(filters.end);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    throw new Error("请输入有效的开始和结束时间。");
+  }
+  const duration = end.getTime() - start.getTime();
+  return {
+    baseline_start: new Date(start.getTime() - duration).toISOString(),
+    baseline_end: start.toISOString(),
+  };
+}
+
+export function formatGrowthRate(value) {
+  if (value === null || value === undefined) return "暂无基准";
+  const rate = Number(value);
+  if (!Number.isFinite(rate)) return "暂无基准";
+  return `${rate > 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`;
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

@@ -7,7 +7,9 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
+  createPreviousPeriod,
   filterAssetHealth,
+  formatGrowthRate,
   formatInteger,
   formatLag,
   formatMoney,
@@ -60,6 +62,18 @@ test("timestamps and quick ranges are deterministic for an injected clock", () =
     new Date(range.end).getTime() - new Date(range.start).getTime(),
     21_600_000,
   );
+});
+
+test("comparison helpers derive the prior equal period and readable growth", () => {
+  const period = createPreviousPeriod({
+    start: "2026-10-15T08:00:00Z",
+    end: "2026-10-15T10:00:00Z",
+  });
+  assert.equal(period.baseline_start, "2026-10-15T06:00:00.000Z");
+  assert.equal(period.baseline_end, "2026-10-15T08:00:00.000Z");
+  assert.equal(formatGrowthRate(0.125), "+12.5%");
+  assert.equal(formatGrowthRate(-0.04), "-4.0%");
+  assert.equal(formatGrowthRate(null), "暂无基准");
 });
 
 test("lag and API errors provide clear user-facing states", () => {

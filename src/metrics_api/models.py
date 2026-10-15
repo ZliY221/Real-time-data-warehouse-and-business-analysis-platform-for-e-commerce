@@ -67,6 +67,22 @@ class MetricSummaryResponse(UtcModel):
     latest_processed_at: datetime | None = None
 
 
+class MetricComparisonDelta(UtcModel):
+    order_count: int
+    gmv: str
+    average_order_value: str
+    order_count_rate: float | None = None
+    gmv_rate: float | None = None
+    average_order_value_rate: float | None = None
+
+
+class MetricComparisonResponse(UtcModel):
+    generated_at: datetime
+    current: MetricSummaryResponse
+    baseline: MetricSummaryResponse
+    delta: MetricComparisonDelta
+
+
 TimeBucket = Literal["auto", "1m", "5m", "15m", "1h"]
 ResolvedTimeBucket = Literal["1m", "5m", "15m", "1h"]
 BreakdownDimension = Literal["region", "channel"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 import sqlite3
 from threading import Lock
@@ -27,6 +28,8 @@ from metrics_api.models import (
     ErrorResponse,
     HealthResponse,
     MetricFilters,
+    MetricComparisonDelta,
+    MetricComparisonResponse,
     MetricSummaryResponse,
     MinuteMetric,
     MinuteMetricsResponse,
@@ -144,7 +147,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="0.16.0",
+        version="1.0.0",
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(
@@ -295,6 +298,71 @@ def create_app(
             gmv=str(row["gmv"]),
             average_order_value=str(row["average_order_value"]),
             latest_processed_at=row.get("latest_processed_at"),
+        )
+
+    @app.get(
+        "/api/v1/metrics/comparison",
+        response_model=MetricComparisonResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["metrics"],
+    )
+    def metric_comparison(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        start: Annotated[datetime, Query(description="Current inclusive UTC start time")],
+        end: Annotated[datetime, Query(description="Current exclusive UTC end time")],
+        baseline_start: Annotated[datetime, Query(description="Baseline inclusive UTC start time")],
+        baseline_end: Annotated[datetime, Query(description="Baseline exclusive UTC end time")],
+        region: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
+        channel: Annotated[str | None, Query(min_length=1, max_length=50)] = None,
+    ) -> MetricComparisonResponse:
+        try:
+            current_start, current_end = _resolve_range(start, end)
+            previous_start, previous_end = _resolve_range(baseline_start, baseline_end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        if current_end - current_start != previous_end - previous_start:
+            raise HTTPException(status_code=422, detail="current and baseline ranges must have equal duration")
+
+        generated_at = datetime.now(UTC)
+
+        def summary_for(range_start: datetime, range_end: datetime) -> MetricSummaryResponse:
+            row = metrics_repository.fetch_summary(
+                start=range_start, end=range_end, region=region, channel=channel
+            )
+            order_count = int(row["order_count"])
+            return MetricSummaryResponse(
+                generated_at=generated_at,
+                filters=MetricFilters(start=range_start, end=range_end, region=region, channel=channel),
+                has_data=order_count > 0,
+                order_count=order_count,
+                gmv=str(row["gmv"]),
+                average_order_value=str(row["average_order_value"]),
+                latest_processed_at=row.get("latest_processed_at"),
+            )
+
+        current = summary_for(current_start, current_end)
+        baseline = summary_for(previous_start, previous_end)
+
+        def rate(current_value: Decimal, baseline_value: Decimal) -> float | None:
+            if baseline_value == 0:
+                return None
+            return round(float((current_value - baseline_value) / baseline_value), 6)
+
+        current_gmv, baseline_gmv = Decimal(current.gmv), Decimal(baseline.gmv)
+        current_aov = Decimal(current.average_order_value)
+        baseline_aov = Decimal(baseline.average_order_value)
+        return MetricComparisonResponse(
+            generated_at=generated_at,
+            current=current,
+            baseline=baseline,
+            delta=MetricComparisonDelta(
+                order_count=current.order_count - baseline.order_count,
+                gmv=str((current_gmv - baseline_gmv).quantize(Decimal("0.01"))),
+                average_order_value=str((current_aov - baseline_aov).quantize(Decimal("0.01"))),
+                order_count_rate=rate(Decimal(current.order_count), Decimal(baseline.order_count)),
+                gmv_rate=rate(current_gmv, baseline_gmv),
+                average_order_value_rate=rate(current_aov, baseline_aov),
+            ),
         )
 
     @app.get(

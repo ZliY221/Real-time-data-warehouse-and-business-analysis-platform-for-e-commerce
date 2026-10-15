@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v0.16.0-1e40af)
+![Version](https://img.shields.io/badge/version-v1.0.0-1e40af)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -21,6 +21,7 @@
 | 关注点 | 项目实现 |
 | --- | --- |
 | 经营分析 | 分钟订单量、GMV、客单价、地区与渠道表现 |
+| 周期决策 | 当前区间与上一等长区间的订单、GMV、客单价增长对比 |
 | 实时计算 | Kafka、Flink Event Time、Watermark、状态去重 |
 | 数据存储 | ClickHouse 实时指标与异常审计、DuckDB 分层数仓 |
 | 数据可信 | 契约校验、质量门禁、批流逐键对账、新鲜度 SLO |
@@ -88,6 +89,7 @@ flowchart LR
 - 展示质量历史、拒绝与迟到事件摘要以及资产健康状态。
 - 支持按健康状态和责任团队筛选资产，并定位受影响下游。
 - 支持保存、应用和删除个人经营视图，保留时间窗口、维度筛选与刷新频率。
+- 自动生成上一等长经营周期，联动地区和渠道筛选展示三项核心指标环比。
 
 ## 工程结构
 
@@ -138,4 +140,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v0.16.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v1.0.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

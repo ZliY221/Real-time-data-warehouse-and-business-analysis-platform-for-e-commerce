@@ -13,7 +13,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.13.4"
+VERSION = "0.15.0"
 
 
 def _output_path(value: Path) -> Path:

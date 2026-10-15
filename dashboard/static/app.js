@@ -22,6 +22,9 @@ const elements = {
   refresh: document.querySelector("#refresh-button"),
   reset: document.querySelector("#reset-button"),
   retry: document.querySelector("#retry-button"),
+  autoRefreshInterval: document.querySelector("#auto-refresh-interval"),
+  autoRefreshCountdown: document.querySelector("#auto-refresh-countdown"),
+  liveRefreshToggle: document.querySelector("#live-refresh-toggle"),
   quickRanges: [...document.querySelectorAll("[data-hours]")],
   status: document.querySelector("#connection-status"),
   statusText: document.querySelector("#connection-status-text"),
@@ -80,7 +83,17 @@ const reducedMotion = window.matchMedia(
 const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 const charts = {};
 const dimensionOptions = { regions: new Set(), channels: new Set() };
-const runtimeState = { dataMode: "clickhouse", assetHealthItems: [] };
+const runtimeState = {
+  dataMode: "clickhouse",
+  assetHealthItems: [],
+  quickRangeHours: 24,
+  refreshTimer: undefined,
+  countdownTimer: undefined,
+  autoRefreshSeconds: 5,
+  previousAutoRefreshSeconds: 5,
+  nextRefreshAt: 0,
+  refreshing: false,
+};
 
 function cssToken(name) {
   return getComputedStyle(document.documentElement)
@@ -149,6 +162,7 @@ function setLoading(loading) {
 }
 
 function setQuickRange(hours, refresh = true) {
+  runtimeState.quickRangeHours = hours;
   const range = createLocalRange(hours);
   elements.start.value = range.start;
   elements.end.value = range.end;
@@ -834,6 +848,11 @@ function renderFailure(error) {
 }
 
 async function refreshDashboard() {
+  if (runtimeState.refreshing) return;
+  runtimeState.refreshing = true;
+  if (runtimeState.quickRangeHours !== null) {
+    setQuickRange(runtimeState.quickRangeHours, false);
+  }
   elements.errorBanner.hidden = true;
   setLoading(true);
   const filters = currentFilters();
@@ -882,11 +901,39 @@ async function refreshDashboard() {
   } finally {
     await Promise.all([qualityRefresh, anomalyRefresh, assetRefresh]);
     setLoading(false);
+    runtimeState.refreshing = false;
+  }
+}
+
+function setAutoRefresh(seconds) {
+  if (runtimeState.refreshTimer) window.clearInterval(runtimeState.refreshTimer);
+  if (runtimeState.countdownTimer) window.clearInterval(runtimeState.countdownTimer);
+  runtimeState.refreshTimer = undefined;
+  runtimeState.countdownTimer = undefined;
+  runtimeState.autoRefreshSeconds = seconds;
+  elements.autoRefreshInterval.value = String(seconds);
+  if (seconds > 0) {
+    runtimeState.previousAutoRefreshSeconds = seconds;
+    runtimeState.nextRefreshAt = Date.now() + seconds * 1000;
+    runtimeState.refreshTimer = window.setInterval(() => {
+      runtimeState.nextRefreshAt = Date.now() + seconds * 1000;
+      if (!document.hidden) void refreshDashboard();
+    }, seconds * 1000);
+    runtimeState.countdownTimer = window.setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((runtimeState.nextRefreshAt - Date.now()) / 1000));
+      elements.autoRefreshCountdown.textContent = `${remaining} 秒后更新`;
+    }, 1000);
+    elements.liveRefreshToggle.textContent = "暂停实时刷新";
+    elements.autoRefreshCountdown.textContent = `${seconds} 秒后更新`;
+  } else {
+    elements.liveRefreshToggle.textContent = "继续实时刷新";
+    elements.autoRefreshCountdown.textContent = "实时刷新已暂停";
   }
 }
 
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
+  runtimeState.quickRangeHours = null;
   for (const button of elements.quickRanges) {
     button.classList.remove("is-active");
     button.setAttribute("aria-pressed", "false");
@@ -901,6 +948,21 @@ elements.reset.addEventListener("click", () => {
 });
 
 elements.retry.addEventListener("click", () => void refreshDashboard());
+elements.autoRefreshInterval.addEventListener("change", () => {
+  setAutoRefresh(Number(elements.autoRefreshInterval.value));
+  void refreshDashboard();
+});
+elements.liveRefreshToggle.addEventListener("click", () => {
+  const next = runtimeState.autoRefreshSeconds > 0 ? 0 : runtimeState.previousAutoRefreshSeconds;
+  setAutoRefresh(next);
+  if (next > 0) void refreshDashboard();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Number(elements.autoRefreshInterval.value) > 0) {
+    void refreshDashboard();
+  }
+});
 
 for (const button of elements.quickRanges) {
   button.addEventListener("click", () =>
@@ -911,6 +973,7 @@ for (const button of elements.quickRanges) {
 try {
   initializeCharts();
   setQuickRange(24, false);
+  setAutoRefresh(Number(elements.autoRefreshInterval.value));
   void refreshDashboard();
 } catch (error) {
   renderFailure(error instanceof Error ? error : new Error("看板初始化失败。"));

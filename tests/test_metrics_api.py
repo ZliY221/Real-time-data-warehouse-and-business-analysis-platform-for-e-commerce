@@ -553,6 +553,10 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("nosniff", page.headers["x-content-type-options"])
         self.assertEqual(200, script.status_code)
         self.assertIn("refreshDashboard", script.text)
+        self.assertIn("auto-refresh-interval", page.text)
+        self.assertIn("setAutoRefresh", script.text)
+        self.assertIn("live-refresh-toggle", page.text)
+        self.assertIn("autoRefreshCountdown", script.text)
 
 
 if __name__ == "__main__":

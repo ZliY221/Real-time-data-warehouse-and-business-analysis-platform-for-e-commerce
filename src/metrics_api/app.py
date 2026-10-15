@@ -147,7 +147,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="1.0.0",
+        version="1.1.0",
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(

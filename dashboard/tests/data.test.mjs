@@ -7,7 +7,7 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
-  createPreviousPeriod,
+  createComparisonPeriod,
   filterAssetHealth,
   formatGrowthRate,
   formatInteger,
@@ -65,12 +65,20 @@ test("timestamps and quick ranges are deterministic for an injected clock", () =
 });
 
 test("comparison helpers derive the prior equal period and readable growth", () => {
-  const period = createPreviousPeriod({
+  const period = createComparisonPeriod({
     start: "2026-10-15T08:00:00Z",
     end: "2026-10-15T10:00:00Z",
   });
   assert.equal(period.baseline_start, "2026-10-15T06:00:00.000Z");
   assert.equal(period.baseline_end, "2026-10-15T08:00:00.000Z");
+  const day = createComparisonPeriod({
+    start: "2026-10-15T08:00:00Z", end: "2026-10-15T10:00:00Z",
+  }, "day");
+  assert.equal(day.baseline_start, "2026-10-14T08:00:00.000Z");
+  const week = createComparisonPeriod({
+    start: "2026-10-15T08:00:00Z", end: "2026-10-15T10:00:00Z",
+  }, "week");
+  assert.equal(week.baseline_end, "2026-10-08T10:00:00.000Z");
   assert.equal(formatGrowthRate(0.125), "+12.5%");
   assert.equal(formatGrowthRate(-0.04), "-4.0%");
   assert.equal(formatGrowthRate(null), "暂无基准");

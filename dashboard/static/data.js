@@ -80,16 +80,20 @@ export function createLocalRange(hours, now = new Date()) {
   };
 }
 
-export function createPreviousPeriod(filters) {
+export function createComparisonPeriod(filters, mode = "previous") {
   const start = new Date(filters.start);
   const end = new Date(filters.end);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
     throw new Error("请输入有效的开始和结束时间。");
   }
   const duration = end.getTime() - start.getTime();
+  const offset = mode === "previous" ? duration
+    : mode === "day" ? 24 * 60 * 60 * 1000
+      : mode === "week" ? 7 * 24 * 60 * 60 * 1000 : NaN;
+  if (!Number.isFinite(offset)) throw new Error("请选择有效的对比基准。");
   return {
-    baseline_start: new Date(start.getTime() - duration).toISOString(),
-    baseline_end: start.toISOString(),
+    baseline_start: new Date(start.getTime() - offset).toISOString(),
+    baseline_end: new Date(end.getTime() - offset).toISOString(),
   };
 }
 

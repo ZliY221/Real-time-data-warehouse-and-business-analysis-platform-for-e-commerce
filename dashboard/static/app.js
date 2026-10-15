@@ -4,7 +4,7 @@ import {
   apiErrorMessage,
   buildMetricQuery,
   createLocalRange,
-  createPreviousPeriod,
+  createComparisonPeriod,
   filterAssetHealth,
   formatInteger,
   formatLag,
@@ -22,6 +22,7 @@ const elements = {
   end: document.querySelector("#end-time"),
   region: document.querySelector("#region-filter"),
   channel: document.querySelector("#channel-filter"),
+  comparisonMode: document.querySelector("#comparison-mode"),
   refresh: document.querySelector("#refresh-button"),
   reset: document.querySelector("#reset-button"),
   retry: document.querySelector("#retry-button"),
@@ -125,6 +126,7 @@ function applySavedView(view) {
   }
   elements.region.value = view.filters.region;
   elements.channel.value = view.filters.channel;
+  elements.comparisonMode.value = view.comparisonMode;
   setAutoRefresh(view.refreshSeconds);
   void refreshDashboard();
 }
@@ -271,7 +273,8 @@ function renderComparison(comparison) {
     element.classList.toggle("comparison-card__value--down", Number(rate) < 0);
   }
   const baseline = comparison.baseline.filters;
-  elements.comparisonPeriod.textContent = `对比 ${formatTimestamp(baseline.start)} 至 ${formatTimestamp(baseline.end)}`;
+  const modeLabel = elements.comparisonMode.selectedOptions[0]?.textContent || "对比区间";
+  elements.comparisonPeriod.textContent = `${modeLabel} · ${formatTimestamp(baseline.start)} 至 ${formatTimestamp(baseline.end)}`;
 }
 
 function baseChartOption(description) {
@@ -913,7 +916,7 @@ async function refreshDashboard() {
       fetchJson("/api/v1/metrics/summary", queryFor(filters)),
       fetchJson(
         "/api/v1/metrics/comparison",
-        queryFor(filters, createPreviousPeriod(filters)),
+        queryFor(filters, createComparisonPeriod(filters, elements.comparisonMode.value)),
       ),
       fetchJson(
         "/api/v1/metrics/timeseries",
@@ -998,6 +1001,7 @@ elements.form.addEventListener("submit", (event) => {
 elements.reset.addEventListener("click", () => {
   elements.region.value = "";
   elements.channel.value = "";
+  elements.comparisonMode.value = "previous";
   setQuickRange(24);
 });
 
@@ -1006,6 +1010,7 @@ elements.autoRefreshInterval.addEventListener("change", () => {
   setAutoRefresh(Number(elements.autoRefreshInterval.value));
   void refreshDashboard();
 });
+elements.comparisonMode.addEventListener("change", () => void refreshDashboard());
 elements.liveRefreshToggle.addEventListener("click", () => {
   const next = runtimeState.autoRefreshSeconds > 0 ? 0 : runtimeState.previousAutoRefreshSeconds;
   setAutoRefresh(next);
@@ -1017,7 +1022,8 @@ elements.saveView.addEventListener("click", () => {
   try {
     runtimeState.savedViews = upsertSavedView(runtimeState.savedViews, {
       id, name, quickRangeHours: runtimeState.quickRangeHours,
-      filters: currentFilters(), refreshSeconds: runtimeState.autoRefreshSeconds,
+      filters: currentFilters(), comparisonMode: elements.comparisonMode.value,
+      refreshSeconds: runtimeState.autoRefreshSeconds,
     });
     renderSavedViews(); elements.savedView.value = id; elements.savedViewName.value = ""; elements.deleteView.disabled = false;
   } catch (error) { renderFailure(error); }

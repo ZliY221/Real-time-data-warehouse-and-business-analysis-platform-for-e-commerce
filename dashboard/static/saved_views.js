@@ -7,6 +7,7 @@ export function normalizeSavedViews(value) {
       id: String(item.id || ""),
       name: String(item.name || "").trim().slice(0, 30),
       quickRangeHours: [1, 6, 24].includes(Number(item.quickRangeHours)) ? Number(item.quickRangeHours) : null,
+      comparisonMode: ["previous", "day", "week"].includes(item.comparisonMode) ? item.comparisonMode : "previous",
       filters: {
         start: String(item.filters?.start || ""), end: String(item.filters?.end || ""),
         region: String(item.filters?.region || ""), channel: String(item.filters?.channel || ""),

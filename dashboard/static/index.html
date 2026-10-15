@@ -125,6 +125,14 @@
               <option value="">全部渠道</option>
             </select>
           </label>
+          <label class="field">
+            <span>对比基准</span>
+            <select id="comparison-mode" name="comparison-mode">
+              <option value="previous">上一等长时段</option>
+              <option value="day">昨日同期</option>
+              <option value="week">上周同期</option>
+            </select>
+          </label>
           <div class="filter-form__actions">
             <label class="saved-view-control"><span>经营视图</span><select id="saved-view" aria-label="已保存经营视图"><option value="">选择已保存视图</option></select></label>
             <input id="saved-view-name" class="saved-view-name" maxlength="30" placeholder="视图名称" aria-label="视图名称">
@@ -267,7 +275,7 @@
       <section class="comparison-panel" aria-labelledby="comparison-title">
         <div class="comparison-panel__intro">
           <span class="eyebrow">经营周期对比</span>
-          <h2 id="comparison-title">当前时段与上一等长时段</h2>
+          <h2 id="comparison-title">当前时段与基准时段</h2>
           <p id="comparison-period">正在计算对比区间</p>
         </div>
         <div class="comparison-grid">

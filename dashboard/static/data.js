@@ -187,6 +187,19 @@ export function dashboardShareExpiry(search, now = new Date()) {
   };
 }
 
+export function inspectDashboardShareQuery(search, now = new Date()) {
+  const query = new URLSearchParams(search);
+  if (!query.has("view")) return { status: "NO_LINK", usable: false };
+  if (query.get("view") !== "1") return { status: "UNSUPPORTED_VERSION", usable: false };
+  if (!query.get("start") || !query.get("end")) return { status: "INVALID", usable: false };
+  const expiry = dashboardShareExpiry(query, now);
+  if (!expiry) return { status: "INVALID", usable: false };
+  if (expiry.status === "EXPIRED") return { status: "EXPIRED", usable: false };
+  return parseDashboardShareQuery(query, now)
+    ? { status: expiry.status, usable: true }
+    : { status: "INVALID", usable: false };
+}
+
 export function summarizeDashboardShareView(view) {
   if (!view?.filters?.start || !view?.filters?.end) throw new Error("分享视图缺少时间范围");
   const scope = [view.filters.region, view.filters.channel].filter(Boolean).join(" / ") || "全部地区与渠道";

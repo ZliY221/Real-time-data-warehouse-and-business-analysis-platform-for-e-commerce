@@ -15,6 +15,7 @@ import {
   createComparisonPeriod,
   filterAssetHealth,
   getContributionContext,
+  inspectDashboardShareQuery,
   formatGrowthRate,
   formatInteger,
   formatLag,
@@ -187,6 +188,21 @@ test("dashboard share expiry reports remaining time and urgency", () => {
   assert.equal(dashboardShareExpiry(query, new Date("2026-10-22T12:00:00Z")).status, "EXPIRING_SOON");
   assert.equal(dashboardShareExpiry(query, new Date("2026-10-24T00:00:00Z")).status, "EXPIRED");
   assert.equal(dashboardShareExpiry("?expires=invalid", now), null);
+});
+
+test("dashboard share inspection explains invalid handoff links", () => {
+  const now = new Date("2026-10-16T00:00:00Z");
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+  }, now);
+  assert.deepEqual(inspectDashboardShareQuery(query, now), { status: "ACTIVE", usable: true });
+  assert.deepEqual(inspectDashboardShareQuery("", now), { status: "NO_LINK", usable: false });
+  assert.deepEqual(inspectDashboardShareQuery("?view=2", now), { status: "UNSUPPORTED_VERSION", usable: false });
+  assert.deepEqual(inspectDashboardShareQuery("?view=1", now), { status: "INVALID", usable: false });
+  assert.deepEqual(
+    inspectDashboardShareQuery(query, new Date("2026-10-24T00:00:00Z")),
+    { status: "EXPIRED", usable: false },
+  );
 });
 
 test("lag and API errors provide clear user-facing states", () => {

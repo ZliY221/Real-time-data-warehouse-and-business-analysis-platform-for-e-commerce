@@ -12,6 +12,7 @@ import {
   createComparisonPeriod,
   filterAssetHealth,
   getContributionContext,
+  inspectDashboardShareQuery,
   formatInteger,
   formatLag,
   formatGrowthRate,
@@ -1133,6 +1134,7 @@ for (const button of elements.quickRanges) {
 
 try {
   initializeCharts();
+  const sharedViewState = inspectDashboardShareQuery(window.location.search);
   const sharedView = parseDashboardShareQuery(window.location.search);
   if (sharedView) {
     const canonicalQuery = canonicalizeDashboardShareQuery(window.location.search);
@@ -1152,6 +1154,14 @@ try {
     for (const button of elements.quickRanges) button.classList.remove("is-active");
   } else {
     setQuickRange(24, false);
+    if (sharedViewState.status !== "NO_LINK") {
+      const stateLabel = {
+        EXPIRED: "分享链接已过期，已使用默认经营视图。",
+        UNSUPPORTED_VERSION: "分享链接版本不受支持，已使用默认经营视图。",
+        INVALID: "分享链接参数不完整，已使用默认经营视图。",
+      }[sharedViewState.status];
+      if (stateLabel) elements.liveStatus.textContent = stateLabel;
+    }
   }
   setAutoRefresh(Number(elements.autoRefreshInterval.value));
   renderSavedViews();

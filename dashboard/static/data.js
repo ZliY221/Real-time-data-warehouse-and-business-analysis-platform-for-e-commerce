@@ -180,6 +180,18 @@ export function summarizeDashboardShareView(view) {
   return `${view.filters.start} 至 ${view.filters.end} · ${scope} · ${mode}`;
 }
 
+export function canonicalizeDashboardShareQuery(search, now = new Date()) {
+  if (!parseDashboardShareQuery(search, now)) return null;
+  const source = new URLSearchParams(search);
+  const allowed = new Set([
+    "view", "start", "end", "comparison", "dimension", "refresh",
+    "expires", "region", "channel",
+  ]);
+  for (const key of [...source.keys()]) if (!allowed.has(key)) source.delete(key);
+  source.sort();
+  return source;
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

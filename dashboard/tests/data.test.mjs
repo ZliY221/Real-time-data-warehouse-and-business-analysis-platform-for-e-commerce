@@ -8,6 +8,7 @@ import {
   buildMetricQuery,
   buildContributionRows,
   buildDashboardShareQuery,
+  canonicalizeDashboardShareQuery,
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
@@ -145,6 +146,19 @@ test("dashboard share view has a concise handoff summary", () => {
   });
   assert.equal(summary, "2026-10-15T08:00 至 2026-10-15T10:00 · 华北 / web · 昨日同期");
   assert.throws(() => summarizeDashboardShareView({ filters: {} }), /时间范围/);
+});
+
+test("dashboard share query removes unsupported parameters and has stable order", () => {
+  const now = new Date("2026-10-16T00:00:00Z");
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00", region: "north", channel: "" },
+    comparisonMode: "previous", comparisonDimension: "region", refreshSeconds: 5,
+  }, now);
+  query.set("token", "should-not-travel");
+  const canonical = canonicalizeDashboardShareQuery(query, now);
+  assert.equal(canonical.has("token"), false);
+  assert.equal([...canonical.keys()].join(","), [...canonical.keys()].sort().join(","));
+  assert.equal(canonicalizeDashboardShareQuery("?view=1&start=bad", now), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

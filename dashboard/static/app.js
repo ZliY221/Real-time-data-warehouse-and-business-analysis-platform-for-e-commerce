@@ -4,6 +4,7 @@ import {
   apiErrorMessage,
   buildContributionRows,
   buildDashboardShareQuery,
+  canonicalizeDashboardShareQuery,
   buildMetricQuery,
   createLocalRange,
   createComparisonPeriod,
@@ -1130,6 +1131,8 @@ try {
   initializeCharts();
   const sharedView = parseDashboardShareQuery(window.location.search);
   if (sharedView) {
+    const canonicalQuery = canonicalizeDashboardShareQuery(window.location.search);
+    if (canonicalQuery) window.history.replaceState({}, "", `${window.location.pathname}?${canonicalQuery}`);
     runtimeState.quickRangeHours = null;
     elements.start.value = sharedView.filters.start;
     elements.end.value = sharedView.filters.end;

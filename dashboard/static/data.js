@@ -173,6 +173,20 @@ export function parseDashboardShareQuery(search, now = new Date()) {
   return { filters, comparisonMode, comparisonDimension, refreshSeconds };
 }
 
+export function dashboardShareExpiry(search, now = new Date()) {
+  const query = new URLSearchParams(search);
+  const expiresAt = new Date(query.get("expires") || "");
+  if (Number.isNaN(expiresAt.getTime())) return null;
+  const remainingMs = expiresAt.getTime() - now.getTime();
+  if (remainingMs <= 0) return { status: "EXPIRED", expiresAt: expiresAt.toISOString(), remainingHours: 0 };
+  const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+  return {
+    status: remainingHours <= 24 ? "EXPIRING_SOON" : "ACTIVE",
+    expiresAt: expiresAt.toISOString(),
+    remainingHours,
+  };
+}
+
 export function summarizeDashboardShareView(view) {
   if (!view?.filters?.start || !view?.filters?.end) throw new Error("分享视图缺少时间范围");
   const scope = [view.filters.region, view.filters.channel].filter(Boolean).join(" / ") || "全部地区与渠道";

@@ -9,6 +9,7 @@ import {
   buildContributionRows,
   buildDashboardShareQuery,
   canonicalizeDashboardShareQuery,
+  dashboardShareExpiry,
   dashboardShareFingerprint,
   createLocalRange,
   createComparisonPeriod,
@@ -173,6 +174,19 @@ test("dashboard share fingerprint is stable for the same canonical view", () => 
   assert.equal(dashboardShareFingerprint(query, now), first);
   assert.match(first, /^VIEW-[0-9A-F]{8}$/);
   assert.equal(dashboardShareFingerprint("?invalid=1", now), null);
+});
+
+test("dashboard share expiry reports remaining time and urgency", () => {
+  const now = new Date("2026-10-16T00:00:00Z");
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+  }, now);
+  assert.deepEqual(dashboardShareExpiry(query, now), {
+    status: "ACTIVE", expiresAt: "2026-10-23T00:00:00.000Z", remainingHours: 168,
+  });
+  assert.equal(dashboardShareExpiry(query, new Date("2026-10-22T12:00:00Z")).status, "EXPIRING_SOON");
+  assert.equal(dashboardShareExpiry(query, new Date("2026-10-24T00:00:00Z")).status, "EXPIRED");
+  assert.equal(dashboardShareExpiry("?expires=invalid", now), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

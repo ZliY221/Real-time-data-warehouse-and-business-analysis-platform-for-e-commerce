@@ -5,6 +5,7 @@ import {
   buildContributionRows,
   buildDashboardShareQuery,
   canonicalizeDashboardShareQuery,
+  dashboardShareFingerprint,
   buildMetricQuery,
   createLocalRange,
   createComparisonPeriod,
@@ -1109,7 +1110,8 @@ elements.shareView.addEventListener("click", async () => {
     if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url.toString());
     else window.prompt("复制经营视图链接", url.toString());
     const summary = summarizeDashboardShareView(parseDashboardShareQuery(query));
-    elements.liveStatus.textContent = `经营视图链接已生成：${summary}`;
+    const fingerprint = dashboardShareFingerprint(query);
+    elements.liveStatus.textContent = `经营视图链接已生成：${summary} · ${fingerprint}`;
   } catch (error) {
     elements.liveStatus.textContent = error instanceof Error ? `分享链接生成失败：${error.message}` : "分享链接生成失败。";
   }

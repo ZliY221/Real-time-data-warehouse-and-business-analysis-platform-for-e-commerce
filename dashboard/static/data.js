@@ -192,6 +192,17 @@ export function canonicalizeDashboardShareQuery(search, now = new Date()) {
   return source;
 }
 
+export function dashboardShareFingerprint(search, now = new Date()) {
+  const canonical = canonicalizeDashboardShareQuery(search, now);
+  if (!canonical) return null;
+  let hash = 2166136261;
+  for (const character of canonical.toString()) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `VIEW-${(hash >>> 0).toString(16).toUpperCase().padStart(8, "0")}`;
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

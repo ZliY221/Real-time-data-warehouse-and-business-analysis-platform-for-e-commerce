@@ -9,6 +9,7 @@ import {
   buildContributionRows,
   buildDashboardShareQuery,
   canonicalizeDashboardShareQuery,
+  dashboardShareFingerprint,
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
@@ -159,6 +160,19 @@ test("dashboard share query removes unsupported parameters and has stable order"
   assert.equal(canonical.has("token"), false);
   assert.equal([...canonical.keys()].join(","), [...canonical.keys()].sort().join(","));
   assert.equal(canonicalizeDashboardShareQuery("?view=1&start=bad", now), null);
+});
+
+test("dashboard share fingerprint is stable for the same canonical view", () => {
+  const now = new Date("2026-10-16T00:00:00Z");
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00", region: "north", channel: "web" },
+    comparisonMode: "week", comparisonDimension: "channel", refreshSeconds: 15,
+  }, now);
+  const first = dashboardShareFingerprint(query, now);
+  query.set("ignored", "value");
+  assert.equal(dashboardShareFingerprint(query, now), first);
+  assert.match(first, /^VIEW-[0-9A-F]{8}$/);
+  assert.equal(dashboardShareFingerprint("?invalid=1", now), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

@@ -170,6 +170,13 @@ export function parseDashboardShareQuery(search) {
   return { filters, comparisonMode, comparisonDimension, refreshSeconds };
 }
 
+export function summarizeDashboardShareView(view) {
+  if (!view?.filters?.start || !view?.filters?.end) throw new Error("分享视图缺少时间范围");
+  const scope = [view.filters.region, view.filters.channel].filter(Boolean).join(" / ") || "全部地区与渠道";
+  const mode = { previous: "上一时段", day: "昨日同期", week: "上周同期" }[view.comparisonMode] || "上一时段";
+  return `${view.filters.start} 至 ${view.filters.end} · ${scope} · ${mode}`;
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

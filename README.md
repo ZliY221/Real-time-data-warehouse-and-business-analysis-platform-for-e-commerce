@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v1.5.0-1e40af)
+![Version](https://img.shields.io/badge/version-v1.6.0-1e40af)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -144,4 +144,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v1.5.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v1.6.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

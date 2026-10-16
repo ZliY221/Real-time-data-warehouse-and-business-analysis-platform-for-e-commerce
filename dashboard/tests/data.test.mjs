@@ -18,6 +18,7 @@ import {
   formatMoney,
   qualityPassRate,
   parseDashboardShareQuery,
+  summarizeDashboardShareView,
   toApiTimestamp,
 } from "../static/data.js";
 
@@ -132,6 +133,15 @@ test("dashboard share query restores filters and interaction settings", () => {
   });
   assert.equal(parseDashboardShareQuery("?view=1&start=invalid&end=invalid"), null);
   assert.equal(parseDashboardShareQuery("?start=2026-10-15T08:00&end=2026-10-15T10:00"), null);
+});
+
+test("dashboard share view has a concise handoff summary", () => {
+  const summary = summarizeDashboardShareView({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00", region: "华北", channel: "web" },
+    comparisonMode: "day",
+  });
+  assert.equal(summary, "2026-10-15T08:00 至 2026-10-15T10:00 · 华北 / web · 昨日同期");
+  assert.throws(() => summarizeDashboardShareView({ filters: {} }), /时间范围/);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

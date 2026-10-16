@@ -16,6 +16,7 @@ import {
   formatTimestamp,
   qualityPassRate,
   parseDashboardShareQuery,
+  summarizeDashboardShareView,
 } from "./data.js";
 import { parseSavedViews, removeSavedView, upsertSavedView } from "./saved_views.js";
 
@@ -1106,7 +1107,8 @@ elements.shareView.addEventListener("click", async () => {
     window.history.replaceState({}, "", url);
     if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url.toString());
     else window.prompt("复制经营视图链接", url.toString());
-    elements.liveStatus.textContent = "经营视图链接已生成，可发送给其他使用者直接恢复当前筛选。";
+    const summary = summarizeDashboardShareView(parseDashboardShareQuery(query));
+    elements.liveStatus.textContent = `经营视图链接已生成：${summary}`;
   } catch (error) {
     elements.liveStatus.textContent = error instanceof Error ? `分享链接生成失败：${error.message}` : "分享链接生成失败。";
   }

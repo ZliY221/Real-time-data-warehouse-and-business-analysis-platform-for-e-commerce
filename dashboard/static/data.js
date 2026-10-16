@@ -127,7 +127,7 @@ export function getContributionContext(dimension, filters) {
   return name ? { dimension, name } : null;
 }
 
-export function buildDashboardShareQuery(view) {
+export function buildDashboardShareQuery(view, now = new Date()) {
   const filters = view?.filters || {};
   createComparisonPeriod(filters, view?.comparisonMode || "previous");
   const comparisonMode = ["previous", "day", "week"].includes(view?.comparisonMode)
@@ -143,15 +143,18 @@ export function buildDashboardShareQuery(view) {
     comparison: comparisonMode,
     dimension: comparisonDimension,
     refresh: String(refreshSeconds),
+    expires: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
   if (filters.region) query.set("region", String(filters.region));
   if (filters.channel) query.set("channel", String(filters.channel));
   return query;
 }
 
-export function parseDashboardShareQuery(search) {
+export function parseDashboardShareQuery(search, now = new Date()) {
   const query = new URLSearchParams(search);
   if (query.get("view") !== "1" || !query.get("start") || !query.get("end")) return null;
+  const expiresAt = new Date(query.get("expires") || "");
+  if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) return null;
   const comparisonMode = query.get("comparison") || "previous";
   const comparisonDimension = query.get("dimension") || "region";
   const refreshSeconds = Number(query.get("refresh") ?? 5);

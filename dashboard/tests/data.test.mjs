@@ -117,14 +117,15 @@ test("contribution context identifies an active drilldown", () => {
 });
 
 test("dashboard share query restores filters and interaction settings", () => {
+  const now = new Date("2026-10-16T00:00:00Z");
   const query = buildDashboardShareQuery({
     filters: {
       start: "2026-10-15T08:00", end: "2026-10-15T10:00",
       region: "华北&重点", channel: "web",
     },
     comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
-  });
-  assert.deepEqual(parseDashboardShareQuery(query), {
+  }, now);
+  assert.deepEqual(parseDashboardShareQuery(query, now), {
     filters: {
       start: "2026-10-15T08:00", end: "2026-10-15T10:00",
       region: "华北&重点", channel: "web",
@@ -133,6 +134,8 @@ test("dashboard share query restores filters and interaction settings", () => {
   });
   assert.equal(parseDashboardShareQuery("?view=1&start=invalid&end=invalid"), null);
   assert.equal(parseDashboardShareQuery("?start=2026-10-15T08:00&end=2026-10-15T10:00"), null);
+  assert.equal(parseDashboardShareQuery(query, new Date("2026-10-23T00:00:01Z")), null);
+  assert.equal(query.get("expires"), "2026-10-23T00:00:00.000Z");
 });
 
 test("dashboard share view has a concise handoff summary", () => {

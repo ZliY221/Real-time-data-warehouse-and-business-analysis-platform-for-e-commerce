@@ -60,6 +60,16 @@
       </div>
     </header>
 
+    <nav class="commerce-nav" aria-label="经营看板导航">
+      <div class="commerce-nav__inner">
+        <a class="is-active" href="#dashboard-content">经营总览</a>
+        <a href="#comparison">周期对比</a>
+        <a href="#dimensions">地区与渠道</a>
+        <a href="#asset-health">链路健康</a>
+        <a href="#quality-diagnostics">质量诊断</a>
+      </div>
+    </nav>
+
     <main id="dashboard-content" class="shell" tabindex="-1">
       <section class="hero" aria-labelledby="page-title">
         <div>
@@ -73,6 +83,7 @@
         <div class="hero__meta" aria-label="数据口径说明">
           <span>时间口径：UTC 存储，本地时区展示</span>
           <span>金额口径：人民币，保留两位小数</span>
+          <span>页面路径：概览 → 下钻 → 质量复核</span>
         </div>
       </section>
 
@@ -282,7 +293,7 @@
         </article>
       </section>
 
-      <section class="comparison-panel" aria-labelledby="comparison-title">
+      <section id="comparison" class="comparison-panel" aria-labelledby="comparison-title">
         <div class="comparison-panel__intro">
           <span class="eyebrow">经营周期对比</span>
           <h2 id="comparison-title">当前时段与基准时段</h2>
@@ -310,6 +321,7 @@
       </section>
 
       <section
+        id="trend"
         class="chart-card chart-card--wide"
         aria-labelledby="trend-title"
       >
@@ -337,7 +349,7 @@
         </div>
       </section>
 
-      <section class="chart-grid" aria-label="维度表现">
+      <section id="dimensions" class="chart-grid" aria-label="维度表现">
         <article class="chart-card" aria-labelledby="region-title">
           <div class="section-heading">
             <div>
@@ -429,7 +441,7 @@
         </div>
       </section>
 
-      <section class="quality-section" aria-labelledby="asset-health-title">
+      <section id="asset-health" class="quality-section" aria-labelledby="asset-health-title">
         <div class="section-heading quality-section__heading">
           <div>
             <p class="section-kicker">数据资产运维</p>
@@ -542,7 +554,7 @@
         </div>
       </section>
 
-      <section class="quality-section" aria-labelledby="quality-title">
+      <section id="quality-diagnostics" class="quality-section" aria-labelledby="quality-title">
         <div class="section-heading quality-section__heading">
           <div>
             <p class="section-kicker">质量可观测性</p>

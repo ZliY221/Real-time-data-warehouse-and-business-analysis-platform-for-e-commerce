@@ -276,6 +276,10 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("ResizeObserver", javascript)
         self.assertIn("prefers-reduced-motion", css)
         self.assertIn("@media (prefers-color-scheme: dark)", css)
+        self.assertIn('class="commerce-nav"', html)
+        self.assertIn('id="quality-diagnostics"', html)
+        self.assertIn("Commerce Pulse layout", css)
+        self.assertIn("grid-template-columns: repeat(6", css)
 
     def test_ci_and_unified_script_run_dashboard_tests(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(

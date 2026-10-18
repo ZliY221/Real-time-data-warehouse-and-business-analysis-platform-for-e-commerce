@@ -1265,3 +1265,243 @@ tbody tr:hover {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Commerce Pulse layout: a retail-oriented bento workspace with distinct
+   colors for revenue, orders, customers and data health. */
+:root {
+  color-scheme: light;
+  --color-primary: #b8325d;
+  --color-primary-strong: #8f2448;
+  --color-secondary: #2563eb;
+  --color-accent: #d97706;
+  --color-accent-soft: #fff4db;
+  --color-background: #f8f5f2;
+  --color-surface: #fffdfb;
+  --color-surface-raised: #ffffff;
+  --color-foreground: #43152b;
+  --color-text: #2d2530;
+  --color-text-muted: #6e6370;
+  --color-border: #e8ded9;
+  --color-border-strong: #cfbfba;
+  --color-success: #087f72;
+  --color-success-soft: #e9f7f3;
+  --color-warning: #a95f08;
+  --color-warning-soft: #fff4db;
+  --color-danger: #b4233f;
+  --color-danger-soft: #ffedf0;
+  --color-ring: #b8325d;
+  --chart-grid: #e5dedb;
+  --chart-orders: #d97706;
+  --chart-gmv: #b8325d;
+  --shadow-sm: 0 2px 8px rgb(67 21 43 / 6%);
+  --shadow-md: 0 18px 46px rgb(67 21 43 / 9%);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  font-family: "Nunito Sans", "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+body {
+  background:
+    radial-gradient(circle at 88% 2%, rgb(245 158 11 / 13%), transparent 24rem),
+    radial-gradient(circle at 8% 16%, rgb(37 99 235 / 7%), transparent 28rem),
+    var(--color-background);
+}
+
+.topbar {
+  position: relative;
+  border-bottom: 0;
+  background: #fffdfb;
+  backdrop-filter: none;
+}
+
+.brand__mark {
+  color: #ffffff;
+  background: linear-gradient(145deg, #b8325d, #df6b42);
+  border-radius: 14px 14px 4px;
+  box-shadow: 0 8px 22px rgb(184 50 93 / 22%);
+}
+
+.commerce-nav {
+  border-block: 1px solid var(--color-border);
+  background: rgb(255 253 251 / 92%);
+}
+
+.commerce-nav__inner {
+  width: min(calc(100% - 2rem), var(--content-width));
+  min-height: 48px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.commerce-nav__inner::-webkit-scrollbar { display: none; }
+
+.commerce-nav a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 13px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 10px;
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.commerce-nav a:hover,
+.commerce-nav a:focus-visible,
+.commerce-nav a.is-active {
+  color: var(--color-primary-strong);
+  background: #fbe9ee;
+}
+
+.shell { padding-top: 1.35rem; }
+
+.hero {
+  position: relative;
+  min-height: 200px;
+  padding: clamp(1.5rem, 4vw, 2.8rem);
+  color: #fffaf7;
+  background:
+    linear-gradient(118deg, rgb(88 27 58 / 96%), rgb(164 43 85 / 94%) 52%, rgb(218 104 61 / 90%));
+  border: 0;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgb(93 30 60 / 18%);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  right: -70px;
+  bottom: -130px;
+  width: 310px;
+  height: 310px;
+  border: 42px solid rgb(255 255 255 / 9%);
+  border-radius: 50%;
+}
+
+.hero > * { position: relative; z-index: 1; }
+.hero .eyebrow, .hero__description { color: #f6dce5; }
+.hero h1 { max-width: 680px; color: white; }
+.hero__description { max-width: 760px; }
+.hero__meta {
+  align-self: end;
+  min-width: min(100%, 320px);
+  padding: 14px 16px;
+  color: #fff7f2;
+  background: rgb(255 255 255 / 10%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 14px;
+}
+.hero__meta span { color: inherit; }
+
+.filter-panel {
+  margin-top: -18px;
+  position: relative;
+  z-index: 2;
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+}
+
+.filter-form__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.filter-form__actions .button {
+  flex: 0 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.filter-form__actions .saved-view-control {
+  min-width: 170px;
+}
+
+.filter-form__actions .live-refresh-control {
+  min-width: 112px;
+}
+
+.quick-range__button.is-active,
+.button--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.kpi-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.kpi-card {
+  grid-column: span 1;
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgb(67 21 43 / 6%);
+}
+
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: #2563eb;
+}
+
+.kpi-card--primary { grid-column: span 2; background: linear-gradient(145deg, #fff7f9, #ffffff); }
+.kpi-card--primary::before { background: #b8325d; }
+.kpi-card:nth-child(2)::before { background: #d97706; }
+.kpi-card:nth-child(3)::before { background: #0f766e; }
+.kpi-card:nth-child(4) { grid-column: span 2; background: linear-gradient(145deg, #f3f6ff, #ffffff); }
+.kpi-card:nth-child(4)::before { background: #6d5bd0; }
+
+.comparison-panel {
+  border: 1px solid #ead9d0;
+  border-radius: 20px;
+  background:
+    linear-gradient(120deg, #fff9f4, #fffdfb 55%, #f4f7ff);
+  box-shadow: var(--shadow-sm);
+}
+
+.comparison-card:nth-child(1) { border-top: 3px solid #d97706; }
+.comparison-card:nth-child(2) { border-top: 3px solid #b8325d; }
+.comparison-card:nth-child(3) { border-top: 3px solid #0f766e; }
+
+.chart-card,
+.table-card,
+.quality-stat {
+  border-radius: 18px;
+  box-shadow: 0 12px 34px rgb(67 21 43 / 5%);
+}
+
+.chart-grid .chart-card:first-child { border-top: 4px solid #2563eb; }
+.chart-grid .chart-card:last-child { border-top: 4px solid #d97706; }
+.quality-summary-grid .quality-stat:nth-child(1) { background: #f3f6ff; }
+.quality-summary-grid .quality-stat:nth-child(2) { background: #eaf7f3; }
+.quality-summary-grid .quality-stat:nth-child(3) { background: #fff0f1; }
+.quality-summary-grid .quality-stat:nth-child(4) { background: #fff6df; }
+
+thead { background: #f6f1ee; }
+.data-badge { border-radius: 999px; }
+
+@media (max-width: 1050px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-card, .kpi-card--primary, .kpi-card:nth-child(4) { grid-column: span 1; }
+}
+
+@media (max-width: 700px) {
+  .commerce-nav__inner { width: calc(100% - 1rem); }
+  .hero { min-height: 0; border-radius: 18px; }
+  .hero__meta { background: rgb(255 255 255 / 9%); border-color: rgb(255 255 255 / 18%); }
+  .filter-panel { margin-top: 1rem; }
+  .kpi-grid { grid-template-columns: 1fr; }
+}

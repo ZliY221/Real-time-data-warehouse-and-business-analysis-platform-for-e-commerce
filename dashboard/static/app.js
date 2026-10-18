@@ -44,6 +44,7 @@ const elements = {
   saveView: document.querySelector("#save-view-button"),
   deleteView: document.querySelector("#delete-view-button"),
   shareView: document.querySelector("#share-view-button"),
+  shareContext: document.querySelector("#share-context"),
   quickRanges: [...document.querySelectorAll("[data-hours]")],
   status: document.querySelector("#connection-status"),
   statusText: document.querySelector("#connection-status-text"),
@@ -1086,6 +1087,7 @@ elements.saveView.addEventListener("click", () => {
       filters: currentFilters(), comparisonMode: elements.comparisonMode.value,
       comparisonDimension: elements.comparisonDimension.value,
       refreshSeconds: runtimeState.autoRefreshSeconds,
+      handoffContext: elements.shareContext.value,
     });
     renderSavedViews(); elements.savedView.value = id; elements.savedViewName.value = ""; elements.deleteView.disabled = false;
   } catch (error) { renderFailure(error); }

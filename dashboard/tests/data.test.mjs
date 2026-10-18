@@ -128,6 +128,7 @@ test("dashboard share query restores filters and interaction settings", () => {
       region: "华北&重点", channel: "web",
     },
     comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
+    issuedAt: "2026-10-16T00:00:00.000Z", handoffContext: "",
   }, now);
   assert.deepEqual(parseDashboardShareQuery(query, now), {
     filters: {
@@ -136,10 +137,11 @@ test("dashboard share query restores filters and interaction settings", () => {
     },
     comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
   });
-  assert.equal(parseDashboardShareQuery("?view=1&start=invalid&end=invalid"), null);
+  assert.equal(parseDashboardShareQuery("?view=2&start=invalid&end=invalid"), null);
   assert.equal(parseDashboardShareQuery("?start=2026-10-15T08:00&end=2026-10-15T10:00"), null);
   assert.equal(parseDashboardShareQuery(query, new Date("2026-10-23T00:00:01Z")), null);
   assert.equal(query.get("expires"), "2026-10-23T00:00:00.000Z");
+  assert.equal(query.get("issued"), "2026-10-16T00:00:00.000Z");
 });
 
 test("dashboard share view has a concise handoff summary", () => {
@@ -161,7 +163,7 @@ test("dashboard share query removes unsupported parameters and has stable order"
   const canonical = canonicalizeDashboardShareQuery(query, now);
   assert.equal(canonical.has("token"), false);
   assert.equal([...canonical.keys()].join(","), [...canonical.keys()].sort().join(","));
-  assert.equal(canonicalizeDashboardShareQuery("?view=1&start=bad", now), null);
+  assert.equal(canonicalizeDashboardShareQuery("?view=2&start=bad", now), null);
 });
 
 test("dashboard share fingerprint is stable for the same canonical view", () => {
@@ -197,8 +199,8 @@ test("dashboard share inspection explains invalid handoff links", () => {
   }, now);
   assert.deepEqual(inspectDashboardShareQuery(query, now), { status: "ACTIVE", usable: true });
   assert.deepEqual(inspectDashboardShareQuery("", now), { status: "NO_LINK", usable: false });
-  assert.deepEqual(inspectDashboardShareQuery("?view=2", now), { status: "UNSUPPORTED_VERSION", usable: false });
-  assert.deepEqual(inspectDashboardShareQuery("?view=1", now), { status: "INVALID", usable: false });
+  assert.deepEqual(inspectDashboardShareQuery("?view=99", now), { status: "UNSUPPORTED_VERSION", usable: false });
+  assert.deepEqual(inspectDashboardShareQuery("?view=2", now), { status: "INVALID", usable: false });
   assert.deepEqual(
     inspectDashboardShareQuery(query, new Date("2026-10-24T00:00:00Z")),
     { status: "EXPIRED", usable: false },

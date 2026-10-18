@@ -137,7 +137,8 @@ export function buildDashboardShareQuery(view, now = new Date()) {
   const refreshSeconds = [0, 5, 15, 30].includes(Number(view?.refreshSeconds))
     ? Number(view.refreshSeconds) : 5;
   const query = new URLSearchParams({
-    view: "1",
+    view: "2",
+    issued: now.toISOString(),
     start: String(filters.start),
     end: String(filters.end),
     comparison: comparisonMode,
@@ -147,12 +148,16 @@ export function buildDashboardShareQuery(view, now = new Date()) {
   });
   if (filters.region) query.set("region", String(filters.region));
   if (filters.channel) query.set("channel", String(filters.channel));
+  const context = String(view?.handoffContext || "").trim();
+  if (context) query.set("context", context.slice(0, 80));
   return query;
 }
 
 export function parseDashboardShareQuery(search, now = new Date()) {
   const query = new URLSearchParams(search);
-  if (query.get("view") !== "1" || !query.get("start") || !query.get("end")) return null;
+  if (query.get("view") !== "2" || !query.get("start") || !query.get("end")) return null;
+  const issuedAt = new Date(query.get("issued") || "");
+  if (Number.isNaN(issuedAt.getTime()) || issuedAt > now) return null;
   const expiresAt = new Date(query.get("expires") || "");
   if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) return null;
   const comparisonMode = query.get("comparison") || "previous";
@@ -170,7 +175,10 @@ export function parseDashboardShareQuery(search, now = new Date()) {
   } catch {
     return null;
   }
-  return { filters, comparisonMode, comparisonDimension, refreshSeconds };
+  return {
+    filters, comparisonMode, comparisonDimension, refreshSeconds,
+    issuedAt: issuedAt.toISOString(), handoffContext: query.get("context") || "",
+  };
 }
 
 export function dashboardShareExpiry(search, now = new Date()) {
@@ -190,7 +198,7 @@ export function dashboardShareExpiry(search, now = new Date()) {
 export function inspectDashboardShareQuery(search, now = new Date()) {
   const query = new URLSearchParams(search);
   if (!query.has("view")) return { status: "NO_LINK", usable: false };
-  if (query.get("view") !== "1") return { status: "UNSUPPORTED_VERSION", usable: false };
+  if (query.get("view") !== "2") return { status: "UNSUPPORTED_VERSION", usable: false };
   if (!query.get("start") || !query.get("end")) return { status: "INVALID", usable: false };
   const expiry = dashboardShareExpiry(query, now);
   if (!expiry) return { status: "INVALID", usable: false };
@@ -212,7 +220,7 @@ export function canonicalizeDashboardShareQuery(search, now = new Date()) {
   const source = new URLSearchParams(search);
   const allowed = new Set([
     "view", "start", "end", "comparison", "dimension", "refresh",
-    "expires", "region", "channel",
+    "issued", "expires", "region", "channel", "context",
   ]);
   for (const key of [...source.keys()]) if (!allowed.has(key)) source.delete(key);
   source.sort();

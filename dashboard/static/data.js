@@ -322,6 +322,19 @@ export function dashboardShareChecklistProgress(search, completedSteps = [], now
   };
 }
 
+export function dashboardShareHandoffReadiness(search, completedSteps = [], now = new Date()) {
+  const health = dashboardShareHealth(search, now);
+  if (health.status === "NO_LINK") return { status: "NOT_APPLICABLE", blockers: [] };
+  const progress = dashboardShareChecklistProgress(search, completedSteps, now);
+  if (["EXPIRED", "UNSUPPORTED_VERSION", "INVALID"].includes(health.status)) {
+    return { status: "BLOCKED", blockers: dashboardShareRecommendations(search, now) };
+  }
+  if (progress.remainingCount > 0) {
+    return { status: "ACTION_REQUIRED", blockers: progress.remainingSteps };
+  }
+  return { status: "READY", blockers: [] };
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

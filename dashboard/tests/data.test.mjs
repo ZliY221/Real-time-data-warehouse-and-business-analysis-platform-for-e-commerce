@@ -16,6 +16,7 @@ import {
   dashboardShareFingerprint,
   dashboardShareHealth,
   dashboardShareChecklistProgress,
+  dashboardShareHandoffReadiness,
   dashboardShareRecommendations,
   createLocalRange,
   createComparisonPeriod,
@@ -298,6 +299,22 @@ test("dashboard share checklist wraps recommendations with handoff controls", ()
   assert.throws(
     () => dashboardShareChecklistProgress(query, ["UNKNOWN_STEP"], new Date("2026-10-16T12:00:00Z")),
     /未知/,
+  );
+  assert.deepEqual(
+    dashboardShareHandoffReadiness(query, ["VERIFY_FINGERPRINT"], new Date("2026-10-16T12:00:00Z")),
+    { status: "ACTION_REQUIRED", blockers: ["CONTINUE_ANALYSIS", "RECORD_HANDOFF"] },
+  );
+  assert.deepEqual(
+    dashboardShareHandoffReadiness(
+      query,
+      ["VERIFY_FINGERPRINT", "CONTINUE_ANALYSIS", "RECORD_HANDOFF"],
+      new Date("2026-10-16T12:00:00Z"),
+    ),
+    { status: "READY", blockers: [] },
+  );
+  assert.deepEqual(
+    dashboardShareHandoffReadiness(query, [], new Date("2026-10-24T00:00:00Z")),
+    { status: "BLOCKED", blockers: ["REQUEST_NEW_LINK"] },
   );
 });
 

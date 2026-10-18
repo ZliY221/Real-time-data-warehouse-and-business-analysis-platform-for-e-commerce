@@ -10,6 +10,7 @@ import {
   dashboardShareExpiry,
   dashboardShareHealth,
   dashboardShareChecklistProgress,
+  dashboardShareHandoffReadiness,
   dashboardShareRecommendations,
   buildMetricQuery,
   createLocalRange,
@@ -1177,7 +1178,8 @@ try {
     const recommendations = dashboardShareRecommendations(window.location.search);
     const checklist = buildDashboardShareChecklist(window.location.search);
     const progress = dashboardShareChecklistProgress(window.location.search, ["VERIFY_FINGERPRINT"]);
-    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary} · ${shareHealth.status} · ${recommendations.join(" → ")} · 清单进度 ${progress.completedCount}/${progress.totalCount} · ${checklist.join(" → ")}`;
+    const readiness = dashboardShareHandoffReadiness(window.location.search, ["VERIFY_FINGERPRINT"]);
+    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary} · ${shareHealth.status} · 交接 ${readiness.status} · ${recommendations.join(" → ")} · 清单进度 ${progress.completedCount}/${progress.totalCount} · ${checklist.join(" → ")}`;
     for (const button of elements.quickRanges) button.classList.remove("is-active");
   } else {
     setQuickRange(24, false);

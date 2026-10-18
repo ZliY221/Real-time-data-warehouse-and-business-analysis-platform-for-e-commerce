@@ -195,6 +195,18 @@ export function dashboardShareExpiry(search, now = new Date()) {
   };
 }
 
+export function renewDashboardShareQuery(search, now = new Date()) {
+  const parsed = parseDashboardShareQuery(search, now);
+  if (!parsed) return null;
+  return buildDashboardShareQuery({
+    filters: parsed.filters,
+    comparisonMode: parsed.comparisonMode,
+    comparisonDimension: parsed.comparisonDimension,
+    refreshSeconds: parsed.refreshSeconds,
+    handoffContext: parsed.handoffContext,
+  }, now);
+}
+
 export function inspectDashboardShareQuery(search, now = new Date()) {
   const query = new URLSearchParams(search);
   if (!query.has("view")) return { status: "NO_LINK", usable: false };

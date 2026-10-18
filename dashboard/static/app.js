@@ -13,6 +13,7 @@ import {
   filterAssetHealth,
   getContributionContext,
   inspectDashboardShareQuery,
+  renewDashboardShareQuery,
   formatInteger,
   formatLag,
   formatGrowthRate,
@@ -45,6 +46,7 @@ const elements = {
   deleteView: document.querySelector("#delete-view-button"),
   shareView: document.querySelector("#share-view-button"),
   shareContext: document.querySelector("#share-context"),
+  renewShare: document.querySelector("#renew-share-button"),
   quickRanges: [...document.querySelectorAll("[data-hours]")],
   status: document.querySelector("#connection-status"),
   statusText: document.querySelector("#connection-status-text"),
@@ -1120,6 +1122,19 @@ elements.shareView.addEventListener("click", async () => {
   } catch (error) {
     elements.liveStatus.textContent = error instanceof Error ? `分享链接生成失败：${error.message}` : "分享链接生成失败。";
   }
+});
+elements.renewShare.addEventListener("click", async () => {
+  const renewed = renewDashboardShareQuery(window.location.search);
+  if (!renewed) {
+    elements.liveStatus.textContent = "当前页面没有可续期的有效分享链接。";
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.search = renewed.toString();
+  window.history.replaceState({}, "", url);
+  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url.toString());
+  else window.prompt("复制续期后的经营视图链接", url.toString());
+  elements.liveStatus.textContent = `分享链接已续期，有效 ${dashboardShareExpiry(renewed).remainingHours} 小时。`;
 });
 
 document.addEventListener("visibilitychange", () => {

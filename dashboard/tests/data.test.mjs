@@ -22,6 +22,7 @@ import {
   formatMoney,
   qualityPassRate,
   parseDashboardShareQuery,
+  renewDashboardShareQuery,
   summarizeDashboardShareView,
   toApiTimestamp,
 } from "../static/data.js";
@@ -205,6 +206,20 @@ test("dashboard share inspection explains invalid handoff links", () => {
     inspectDashboardShareQuery(query, new Date("2026-10-24T00:00:00Z")),
     { status: "EXPIRED", usable: false },
   );
+});
+
+test("dashboard share renewal preserves the view and restarts validity", () => {
+  const issuedAt = new Date("2026-10-16T00:00:00Z");
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00", region: "north" },
+    comparisonMode: "week", handoffContext: "周度经营复盘",
+  }, issuedAt);
+  const renewedAt = new Date("2026-10-18T00:00:00Z");
+  const renewed = renewDashboardShareQuery(query, renewedAt);
+  assert.equal(renewed.get("issued"), "2026-10-18T00:00:00.000Z");
+  assert.equal(renewed.get("expires"), "2026-10-25T00:00:00.000Z");
+  assert.equal(renewed.get("context"), "周度经营复盘");
+  assert.equal(renewDashboardShareQuery("?view=2", renewedAt), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

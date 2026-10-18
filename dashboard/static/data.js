@@ -298,6 +298,13 @@ export function dashboardShareRecommendations(search, now = new Date()) {
   }[status] || ["CHECK_LINK_PARAMETERS"];
 }
 
+export function buildDashboardShareChecklist(search, now = new Date()) {
+  const health = dashboardShareHealth(search, now);
+  const recommendations = dashboardShareRecommendations(search, now);
+  if (health.status === "NO_LINK") return [];
+  return ["VERIFY_FINGERPRINT", ...recommendations, "RECORD_HANDOFF"];
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

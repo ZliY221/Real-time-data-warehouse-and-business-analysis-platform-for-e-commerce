@@ -5,6 +5,7 @@ import {
   buildContributionRows,
   buildDashboardShareQuery,
   buildDashboardShareHandoff,
+  buildDashboardShareChecklist,
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
   dashboardShareHealth,
@@ -1173,7 +1174,8 @@ try {
     const handoff = buildDashboardShareHandoff(window.location.search);
     const shareHealth = dashboardShareHealth(window.location.search);
     const recommendations = dashboardShareRecommendations(window.location.search);
-    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary} · ${shareHealth.status} · ${recommendations.join(" → ")}`;
+    const checklist = buildDashboardShareChecklist(window.location.search);
+    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary} · ${shareHealth.status} · ${recommendations.join(" → ")} · 清单 ${checklist.join(" → ")}`;
     for (const button of elements.quickRanges) button.classList.remove("is-active");
   } else {
     setQuickRange(24, false);

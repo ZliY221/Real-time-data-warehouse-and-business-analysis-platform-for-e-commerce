@@ -9,6 +9,7 @@ import {
   buildContributionRows,
   buildDashboardShareQuery,
   buildDashboardShareHandoff,
+  buildDashboardShareChecklist,
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
   dashboardShareAge,
@@ -269,6 +270,19 @@ test("dashboard share recommendations map health to actions", () => {
   assert.deepEqual(dashboardShareRecommendations(query, new Date("2026-10-22T12:00:00Z")), ["RENEW_LINK", "VERIFY_TIME_RANGE"]);
   assert.deepEqual(dashboardShareRecommendations(query, new Date("2026-10-24T00:00:00Z")), ["REQUEST_NEW_LINK"]);
   assert.deepEqual(dashboardShareRecommendations("", new Date("2026-10-18T00:00:00Z")), []);
+});
+
+test("dashboard share checklist wraps recommendations with handoff controls", () => {
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+  }, new Date("2026-10-16T00:00:00Z"));
+  assert.deepEqual(buildDashboardShareChecklist(query, new Date("2026-10-16T12:00:00Z")), [
+    "VERIFY_FINGERPRINT", "CONTINUE_ANALYSIS", "RECORD_HANDOFF",
+  ]);
+  assert.deepEqual(buildDashboardShareChecklist(query, new Date("2026-10-22T12:00:00Z")), [
+    "VERIFY_FINGERPRINT", "RENEW_LINK", "VERIFY_TIME_RANGE", "RECORD_HANDOFF",
+  ]);
+  assert.deepEqual(buildDashboardShareChecklist("", new Date("2026-10-18T00:00:00Z")), []);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

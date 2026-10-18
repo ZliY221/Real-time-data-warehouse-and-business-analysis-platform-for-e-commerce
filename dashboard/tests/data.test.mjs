@@ -14,6 +14,7 @@ import {
   dashboardShareAge,
   dashboardShareFingerprint,
   dashboardShareHealth,
+  dashboardShareRecommendations,
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
@@ -258,6 +259,16 @@ test("dashboard share health prioritizes expiry over age", () => {
   assert.equal(dashboardShareHealth(query, new Date("2026-10-18T00:00:00Z")).status, "STALE");
   assert.equal(dashboardShareHealth(query, new Date("2026-10-22T12:00:00Z")).status, "RENEW_SOON");
   assert.equal(dashboardShareHealth(query, new Date("2026-10-24T00:00:00Z")).status, "EXPIRED");
+});
+
+test("dashboard share recommendations map health to actions", () => {
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+  }, new Date("2026-10-16T00:00:00Z"));
+  assert.deepEqual(dashboardShareRecommendations(query, new Date("2026-10-16T12:00:00Z")), ["CONTINUE_ANALYSIS"]);
+  assert.deepEqual(dashboardShareRecommendations(query, new Date("2026-10-22T12:00:00Z")), ["RENEW_LINK", "VERIFY_TIME_RANGE"]);
+  assert.deepEqual(dashboardShareRecommendations(query, new Date("2026-10-24T00:00:00Z")), ["REQUEST_NEW_LINK"]);
+  assert.deepEqual(dashboardShareRecommendations("", new Date("2026-10-18T00:00:00Z")), []);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

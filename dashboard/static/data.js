@@ -285,6 +285,19 @@ export function dashboardShareHealth(search, now = new Date()) {
   return { status, actionable: status !== "HEALTHY" };
 }
 
+export function dashboardShareRecommendations(search, now = new Date()) {
+  const status = dashboardShareHealth(search, now).status;
+  return {
+    HEALTHY: ["CONTINUE_ANALYSIS"],
+    STALE: ["VERIFY_TIME_RANGE"],
+    RENEW_SOON: ["RENEW_LINK", "VERIFY_TIME_RANGE"],
+    EXPIRED: ["REQUEST_NEW_LINK"],
+    UNSUPPORTED_VERSION: ["REQUEST_SUPPORTED_LINK"],
+    INVALID: ["CHECK_LINK_PARAMETERS"],
+    NO_LINK: [],
+  }[status] || ["CHECK_LINK_PARAMETERS"];
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

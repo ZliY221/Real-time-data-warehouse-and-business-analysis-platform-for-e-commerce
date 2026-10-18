@@ -8,6 +8,7 @@ import {
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
   dashboardShareHealth,
+  dashboardShareRecommendations,
   buildMetricQuery,
   createLocalRange,
   createComparisonPeriod,
@@ -1171,7 +1172,8 @@ try {
     elements.shareContext.value = sharedView.handoffContext;
     const handoff = buildDashboardShareHandoff(window.location.search);
     const shareHealth = dashboardShareHealth(window.location.search);
-    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary} · ${shareHealth.status}`;
+    const recommendations = dashboardShareRecommendations(window.location.search);
+    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary} · ${shareHealth.status} · ${recommendations.join(" → ")}`;
     for (const button of elements.quickRanges) button.classList.remove("is-active");
   } else {
     setQuickRange(24, false);

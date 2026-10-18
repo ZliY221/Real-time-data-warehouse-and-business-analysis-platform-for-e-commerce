@@ -13,6 +13,7 @@ import {
   dashboardShareExpiry,
   dashboardShareAge,
   dashboardShareFingerprint,
+  dashboardShareHealth,
   createLocalRange,
   createComparisonPeriod,
   filterAssetHealth,
@@ -247,6 +248,16 @@ test("dashboard share handoff combines identity age and validity", () => {
   assert.equal(handoff.remainingHours, 162);
   assert.match(handoff.summary, /活动复盘.*剩余 162 小时/);
   assert.equal(buildDashboardShareHandoff("?view=2", new Date("2026-10-16T06:00:00Z")), null);
+});
+
+test("dashboard share health prioritizes expiry over age", () => {
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+  }, new Date("2026-10-16T00:00:00Z"));
+  assert.deepEqual(dashboardShareHealth(query, new Date("2026-10-16T12:00:00Z")), { status: "HEALTHY", actionable: false });
+  assert.equal(dashboardShareHealth(query, new Date("2026-10-18T00:00:00Z")).status, "STALE");
+  assert.equal(dashboardShareHealth(query, new Date("2026-10-22T12:00:00Z")).status, "RENEW_SOON");
+  assert.equal(dashboardShareHealth(query, new Date("2026-10-24T00:00:00Z")).status, "EXPIRED");
 });
 
 test("lag and API errors provide clear user-facing states", () => {

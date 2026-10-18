@@ -275,6 +275,16 @@ export function buildDashboardShareHandoff(search, now = new Date()) {
   };
 }
 
+export function dashboardShareHealth(search, now = new Date()) {
+  const inspection = inspectDashboardShareQuery(search, now);
+  if (!inspection.usable) return { status: inspection.status, actionable: inspection.status !== "NO_LINK" };
+  const expiry = dashboardShareExpiry(search, now);
+  const age = dashboardShareAge(search, now);
+  const status = expiry.status === "EXPIRING_SOON" ? "RENEW_SOON"
+    : age.status === "AGING" ? "STALE" : "HEALTHY";
+  return { status, actionable: status !== "HEALTHY" };
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

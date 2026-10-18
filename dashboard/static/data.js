@@ -305,6 +305,23 @@ export function buildDashboardShareChecklist(search, now = new Date()) {
   return ["VERIFY_FINGERPRINT", ...recommendations, "RECORD_HANDOFF"];
 }
 
+export function dashboardShareChecklistProgress(search, completedSteps = [], now = new Date()) {
+  const checklist = buildDashboardShareChecklist(search, now);
+  const completed = [...new Set(completedSteps)];
+  if (completed.some((step) => !checklist.includes(step))) {
+    throw new Error("交接清单包含未知的已完成步骤。");
+  }
+  const remaining = checklist.filter((step) => !completed.includes(step));
+  return {
+    totalCount: checklist.length,
+    completedCount: completed.length,
+    remainingCount: remaining.length,
+    completionRate: checklist.length ? completed.length / checklist.length : 0,
+    completedSteps: completed,
+    remainingSteps: remaining,
+  };
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

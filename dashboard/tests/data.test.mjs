@@ -15,6 +15,7 @@ import {
   dashboardShareAge,
   dashboardShareFingerprint,
   dashboardShareHealth,
+  dashboardShareChecklistProgress,
   dashboardShareRecommendations,
   createLocalRange,
   createComparisonPeriod,
@@ -283,6 +284,21 @@ test("dashboard share checklist wraps recommendations with handoff controls", ()
     "VERIFY_FINGERPRINT", "RENEW_LINK", "VERIFY_TIME_RANGE", "RECORD_HANDOFF",
   ]);
   assert.deepEqual(buildDashboardShareChecklist("", new Date("2026-10-18T00:00:00Z")), []);
+  assert.deepEqual(
+    dashboardShareChecklistProgress(query, ["VERIFY_FINGERPRINT"], new Date("2026-10-16T12:00:00Z")),
+    {
+      totalCount: 3,
+      completedCount: 1,
+      remainingCount: 2,
+      completionRate: 1 / 3,
+      completedSteps: ["VERIFY_FINGERPRINT"],
+      remainingSteps: ["CONTINUE_ANALYSIS", "RECORD_HANDOFF"],
+    },
+  );
+  assert.throws(
+    () => dashboardShareChecklistProgress(query, ["UNKNOWN_STEP"], new Date("2026-10-16T12:00:00Z")),
+    /未知/,
+  );
 });
 
 test("lag and API errors provide clear user-facing states", () => {

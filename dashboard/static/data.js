@@ -195,6 +195,14 @@ export function dashboardShareExpiry(search, now = new Date()) {
   };
 }
 
+export function dashboardShareAge(search, now = new Date()) {
+  const query = new URLSearchParams(search);
+  const issuedAt = new Date(query.get("issued") || "");
+  if (Number.isNaN(issuedAt.getTime()) || issuedAt > now) return null;
+  const ageHours = Math.floor((now.getTime() - issuedAt.getTime()) / (60 * 60 * 1000));
+  return { status: ageHours <= 24 ? "FRESH" : "AGING", issuedAt: issuedAt.toISOString(), ageHours };
+}
+
 export function renewDashboardShareQuery(search, now = new Date()) {
   const parsed = parseDashboardShareQuery(search, now);
   if (!parsed) return null;

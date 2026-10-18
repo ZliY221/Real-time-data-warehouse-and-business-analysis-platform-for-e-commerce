@@ -6,6 +6,7 @@ import {
   buildDashboardShareQuery,
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
+  dashboardShareAge,
   dashboardShareFingerprint,
   buildMetricQuery,
   createLocalRange,
@@ -1168,6 +1169,9 @@ try {
     elements.comparisonMode.value = sharedView.comparisonMode;
     elements.comparisonDimension.value = sharedView.comparisonDimension;
     elements.autoRefreshInterval.value = String(sharedView.refreshSeconds);
+    elements.shareContext.value = sharedView.handoffContext;
+    const shareAge = dashboardShareAge(window.location.search);
+    elements.liveStatus.textContent = `已恢复分享视图：${sharedView.handoffContext || "未填写交接主题"} · 链接已签发 ${shareAge.ageHours} 小时。`;
     for (const button of elements.quickRanges) button.classList.remove("is-active");
   } else {
     setQuickRange(24, false);

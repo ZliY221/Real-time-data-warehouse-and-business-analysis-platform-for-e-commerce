@@ -10,6 +10,7 @@ import {
   buildDashboardShareQuery,
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
+  dashboardShareAge,
   dashboardShareFingerprint,
   createLocalRange,
   createComparisonPeriod,
@@ -220,6 +221,17 @@ test("dashboard share renewal preserves the view and restarts validity", () => {
   assert.equal(renewed.get("expires"), "2026-10-25T00:00:00.000Z");
   assert.equal(renewed.get("context"), "周度经营复盘");
   assert.equal(renewDashboardShareQuery("?view=2", renewedAt), null);
+});
+
+test("dashboard share age distinguishes fresh and aging links", () => {
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+  }, new Date("2026-10-16T00:00:00Z"));
+  assert.deepEqual(dashboardShareAge(query, new Date("2026-10-16T12:00:00Z")), {
+    status: "FRESH", issuedAt: "2026-10-16T00:00:00.000Z", ageHours: 12,
+  });
+  assert.equal(dashboardShareAge(query, new Date("2026-10-18T00:00:00Z")).status, "AGING");
+  assert.equal(dashboardShareAge("?issued=invalid", new Date("2026-10-18T00:00:00Z")), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

@@ -258,6 +258,23 @@ export function dashboardShareFingerprint(search, now = new Date()) {
   return `VIEW-${(hash >>> 0).toString(16).toUpperCase().padStart(8, "0")}`;
 }
 
+export function buildDashboardShareHandoff(search, now = new Date()) {
+  const view = parseDashboardShareQuery(search, now);
+  const expiry = dashboardShareExpiry(search, now);
+  const age = dashboardShareAge(search, now);
+  const fingerprint = dashboardShareFingerprint(search, now);
+  if (!view || !expiry || !age || !fingerprint) return null;
+  const context = view.handoffContext || "经营视图交接";
+  return {
+    context,
+    fingerprint,
+    ageStatus: age.status,
+    ageHours: age.ageHours,
+    remainingHours: expiry.remainingHours,
+    summary: `${context} · ${fingerprint} · 已签发 ${age.ageHours} 小时 · 剩余 ${expiry.remainingHours} 小时`,
+  };
+}
+
 export function qualityPassRate(runs) {
   if (!Array.isArray(runs) || runs.length === 0) return null;
   const passed = runs.filter((run) => run?.passed === true).length;

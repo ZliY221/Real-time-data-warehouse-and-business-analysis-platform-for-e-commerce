@@ -4,10 +4,9 @@ import {
   apiErrorMessage,
   buildContributionRows,
   buildDashboardShareQuery,
+  buildDashboardShareHandoff,
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
-  dashboardShareAge,
-  dashboardShareFingerprint,
   buildMetricQuery,
   createLocalRange,
   createComparisonPeriod,
@@ -1117,9 +1116,8 @@ elements.shareView.addEventListener("click", async () => {
     if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url.toString());
     else window.prompt("复制经营视图链接", url.toString());
     const summary = summarizeDashboardShareView(parseDashboardShareQuery(query));
-    const expiry = dashboardShareExpiry(query);
-    const fingerprint = dashboardShareFingerprint(query);
-    elements.liveStatus.textContent = `经营视图链接已生成：${summary} · 有效 ${expiry.remainingHours} 小时 · ${fingerprint}`;
+    const handoff = buildDashboardShareHandoff(query);
+    elements.liveStatus.textContent = `经营视图链接已生成：${summary} · ${handoff.summary}`;
   } catch (error) {
     elements.liveStatus.textContent = error instanceof Error ? `分享链接生成失败：${error.message}` : "分享链接生成失败。";
   }
@@ -1170,8 +1168,8 @@ try {
     elements.comparisonDimension.value = sharedView.comparisonDimension;
     elements.autoRefreshInterval.value = String(sharedView.refreshSeconds);
     elements.shareContext.value = sharedView.handoffContext;
-    const shareAge = dashboardShareAge(window.location.search);
-    elements.liveStatus.textContent = `已恢复分享视图：${sharedView.handoffContext || "未填写交接主题"} · 链接已签发 ${shareAge.ageHours} 小时。`;
+    const handoff = buildDashboardShareHandoff(window.location.search);
+    elements.liveStatus.textContent = `已恢复分享视图：${handoff.summary}`;
     for (const button of elements.quickRanges) button.classList.remove("is-active");
   } else {
     setQuickRange(24, false);

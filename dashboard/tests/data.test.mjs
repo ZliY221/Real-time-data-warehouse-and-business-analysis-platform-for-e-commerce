@@ -8,6 +8,7 @@ import {
   buildMetricQuery,
   buildContributionRows,
   buildDashboardShareQuery,
+  buildDashboardShareHandoff,
   canonicalizeDashboardShareQuery,
   dashboardShareExpiry,
   dashboardShareAge,
@@ -130,7 +131,6 @@ test("dashboard share query restores filters and interaction settings", () => {
       region: "华北&重点", channel: "web",
     },
     comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
-    issuedAt: "2026-10-16T00:00:00.000Z", handoffContext: "",
   }, now);
   assert.deepEqual(parseDashboardShareQuery(query, now), {
     filters: {
@@ -138,6 +138,7 @@ test("dashboard share query restores filters and interaction settings", () => {
       region: "华北&重点", channel: "web",
     },
     comparisonMode: "day", comparisonDimension: "channel", refreshSeconds: 15,
+    issuedAt: "2026-10-16T00:00:00.000Z", handoffContext: "",
   });
   assert.equal(parseDashboardShareQuery("?view=2&start=invalid&end=invalid"), null);
   assert.equal(parseDashboardShareQuery("?start=2026-10-15T08:00&end=2026-10-15T10:00"), null);
@@ -232,6 +233,20 @@ test("dashboard share age distinguishes fresh and aging links", () => {
   });
   assert.equal(dashboardShareAge(query, new Date("2026-10-18T00:00:00Z")).status, "AGING");
   assert.equal(dashboardShareAge("?issued=invalid", new Date("2026-10-18T00:00:00Z")), null);
+});
+
+test("dashboard share handoff combines identity age and validity", () => {
+  const query = buildDashboardShareQuery({
+    filters: { start: "2026-10-15T08:00", end: "2026-10-15T10:00" },
+    handoffContext: "活动复盘",
+  }, new Date("2026-10-16T00:00:00Z"));
+  const handoff = buildDashboardShareHandoff(query, new Date("2026-10-16T06:00:00Z"));
+  assert.equal(handoff.context, "活动复盘");
+  assert.match(handoff.fingerprint, /^VIEW-[0-9A-F]{8}$/);
+  assert.equal(handoff.ageHours, 6);
+  assert.equal(handoff.remainingHours, 162);
+  assert.match(handoff.summary, /活动复盘.*剩余 162 小时/);
+  assert.equal(buildDashboardShareHandoff("?view=2", new Date("2026-10-16T06:00:00Z")), null);
 });
 
 test("lag and API errors provide clear user-facing states", () => {

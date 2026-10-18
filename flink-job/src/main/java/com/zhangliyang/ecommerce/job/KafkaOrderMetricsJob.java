@@ -4,6 +4,7 @@ import com.zhangliyang.ecommerce.pipeline.OrderMetricsPipeline;
 import com.zhangliyang.ecommerce.pipeline.OrderMetricsTopology;
 import com.zhangliyang.ecommerce.sink.ClickHouseAnomalySink;
 import com.zhangliyang.ecommerce.sink.ClickHouseMinuteMetricSink;
+import com.zhangliyang.ecommerce.sink.ClickHouseProductMetricSink;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.core.execution.CheckpointingMode;
@@ -65,11 +66,18 @@ public final class KafkaOrderMetricsJob {
                     topology.getMetrics(),
                     config,
                     clickHousePassword);
+            ClickHouseProductMetricSink.attach(
+                    topology.getProductMetrics(),
+                    config,
+                    clickHousePassword);
         }
         if (config.getMetricsSinkMode().writesConsole()) {
             topology.getMetrics()
                     .print("minute-metrics")
                     .name("print-minute-metrics");
+            topology.getProductMetrics()
+                    .print("product-minute-metrics")
+                    .name("print-product-minute-metrics");
         }
         if (config.getAnomalySinkMode().writesClickHouse()) {
             ClickHouseAnomalySink.attach(

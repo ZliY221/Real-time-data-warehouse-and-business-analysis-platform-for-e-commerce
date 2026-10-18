@@ -28,6 +28,27 @@ SELECT
     processed_at
 FROM ecommerce.minute_metrics FINAL;
 
+CREATE TABLE IF NOT EXISTS ecommerce.product_minute_metrics
+(
+    window_start DateTime64(3, 'UTC'),
+    window_end DateTime64(3, 'UTC'),
+    category LowCardinality(String),
+    sku_id String,
+    order_count UInt64,
+    unit_quantity UInt64,
+    gmv Decimal(18, 2),
+    version UInt64,
+    processed_at DateTime64(3, 'UTC')
+)
+ENGINE = ReplacingMergeTree(version)
+PARTITION BY toYYYYMM(window_start)
+ORDER BY (window_start, category, sku_id);
+
+CREATE VIEW IF NOT EXISTS ecommerce.product_minute_metrics_latest AS
+SELECT window_start, window_end, category, sku_id, order_count, unit_quantity,
+       gmv, version, processed_at
+FROM ecommerce.product_minute_metrics FINAL;
+
 CREATE TABLE IF NOT EXISTS ecommerce.rejected_order_events
 (
     rejection_id FixedString(64),

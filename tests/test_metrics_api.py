@@ -26,11 +26,13 @@ class FakeRepository:
         self.time_series_rows: list[dict[str, Any]] = []
         self.breakdown_rows: list[dict[str, Any]] = []
         self.anomaly_rows: list[dict[str, Any]] = []
+        self.product_rows: list[dict[str, Any]] = []
         self.last_minute_query: dict[str, Any] | None = None
         self.last_summary_query: dict[str, Any] | None = None
         self.last_time_series_query: dict[str, Any] | None = None
         self.last_breakdown_query: dict[str, Any] | None = None
         self.last_anomaly_query: dict[str, Any] | None = None
+        self.last_product_query: dict[str, Any] | None = None
         self.error: MetricsRepositoryError | None = None
 
     def ping(self) -> None:
@@ -66,6 +68,12 @@ class FakeRepository:
             raise self.error
         self.last_anomaly_query = query
         return self.anomaly_rows
+
+    def fetch_product_breakdown(self, **query: Any) -> list[dict[str, Any]]:
+        if self.error:
+            raise self.error
+        self.last_product_query = query
+        return self.product_rows
 
 
 class FakeQualityHistory:
@@ -378,6 +386,21 @@ class MetricsApiTests(unittest.TestCase):
 
         self.assertEqual(422, response.status_code)
         self.assertIsNone(self.repository.last_breakdown_query)
+
+    def test_product_breakdown_supports_category_and_sku_drilldown(self) -> None:
+        self.repository.product_rows = [{
+            "name": "sku-phone", "category": "digital", "order_count": 8,
+            "unit_quantity": 11, "gmv": "2399.00", "average_unit_price": "218.09",
+        }]
+        response = self.client.get("/api/v1/products/breakdown", params={
+            "start": "2026-10-03T00:00:00Z", "end": "2026-10-04T00:00:00Z",
+            "dimension": "sku", "category": "digital", "limit": 10,
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("sku", response.json()["dimension"])
+        self.assertEqual(11, response.json()["items"][0]["unit_quantity"])
+        self.assertEqual("digital", self.repository.last_product_query["category"])
+        self.assertEqual(10, self.repository.last_product_query["limit"])
 
     def test_quality_runs_are_newest_first_and_support_pass_filtering(self) -> None:
         response = self.client.get(

@@ -27,6 +27,8 @@ class OrderEventJsonParserTest {
         assertEquals("辽宁", event.getRegion());
         assertEquals("app", event.getChannel());
         assertEquals(new BigDecimal("559.30"), event.getTotalAmount());
+        assertEquals(1, event.getItems().length);
+        assertEquals("digital", event.getItems()[0].getCategory());
     }
 
     @Test
@@ -88,7 +90,7 @@ class OrderEventJsonParserTest {
                 "\"channel\":\"app\"," +
                 "\"currency\":\"CNY\"," +
                 "\"total_amount\":\"" + totalAmount + "\"," +
-                "\"items\":[]}}";
+                "\"items\":[{\"sku_id\":\"sku-phone\",\"category\":\"digital\",\"quantity\":1,\"unit_price\":\"" + totalAmount + "\",\"line_amount\":\"" + totalAmount + "\"}]}}";
     }
 }
 

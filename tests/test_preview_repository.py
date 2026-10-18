@@ -51,6 +51,23 @@ class PreviewMetricsRepositoryTests(unittest.TestCase):
         gmv_values = [Decimal(item["gmv"]) for item in breakdown]
         self.assertEqual(sorted(gmv_values, reverse=True), gmv_values)
 
+    def test_product_preview_supports_category_to_sku_drilldown(self) -> None:
+        categories = self.repository.fetch_product_breakdown(
+            start=self.query["start"], end=self.query["end"], category=None,
+            dimension="category", limit=12,
+        )
+        skus = self.repository.fetch_product_breakdown(
+            start=self.query["start"], end=self.query["end"], category="digital",
+            dimension="sku", limit=12,
+        )
+        self.assertGreaterEqual(len(categories), 4)
+        self.assertTrue(skus)
+        self.assertEqual({"digital"}, {item["category"] for item in skus})
+        self.assertEqual(
+            sorted((Decimal(item["gmv"]) for item in skus), reverse=True),
+            [Decimal(item["gmv"]) for item in skus],
+        )
+
     def test_preview_app_identifies_in_memory_data_source(self) -> None:
         quality_history = PreviewQualityHistory(self.now)
         with TestClient(

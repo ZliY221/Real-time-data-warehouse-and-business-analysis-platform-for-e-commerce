@@ -74,6 +74,10 @@ const elements = {
   trendChart: document.querySelector("#trend-chart"),
   regionChart: document.querySelector("#region-chart"),
   channelChart: document.querySelector("#channel-chart"),
+  productChart: document.querySelector("#product-chart"),
+  productCategory: document.querySelector("#product-category-filter"),
+  productNote: document.querySelector("#product-note"),
+  productTable: document.querySelector("#product-table-body"),
   qualityTrendChart: document.querySelector("#quality-trend-chart"),
   trendEmpty: document.querySelector("#trend-empty"),
   qualityTrendEmpty: document.querySelector("#quality-trend-empty"),
@@ -174,6 +178,9 @@ function initializeCharts() {
     renderer: "canvas",
   });
   charts.channel = window.echarts.init(elements.channelChart, theme, {
+    renderer: "canvas",
+  });
+  charts.product = window.echarts.init(elements.productChart, theme, {
     renderer: "canvas",
   });
   charts.quality = window.echarts.init(elements.qualityTrendChart, theme, {
@@ -544,6 +551,44 @@ function renderBreakdownTable(target, items) {
     rows.push(row);
   }
   target.replaceChildren(...rows);
+}
+
+function productQuery(filters) {
+  const parameters = new URLSearchParams({
+    start: filters.start,
+    end: filters.end,
+    dimension: elements.productCategory.value ? "sku" : "category",
+    limit: "12",
+  });
+  if (elements.productCategory.value) parameters.set("category", elements.productCategory.value);
+  return parameters;
+}
+
+function renderProducts(response) {
+  const items = response.items;
+  const selected = elements.productCategory.value;
+  if (response.dimension === "category") {
+    const options = items.map(item => item.category);
+    elements.productCategory.replaceChildren(
+      new Option("全部品类", ""),
+      ...options.map(category => new Option(category, category)),
+    );
+    elements.productCategory.value = selected;
+  }
+  elements.productNote.textContent = selected
+    ? `${selected} 品类下共 ${items.length} 个 SKU，按成交额排序。`
+    : `共 ${items.length} 个品类，选择品类可继续下钻 SKU。`;
+  elements.productTable.innerHTML = items.length
+    ? items.map(item => `<tr><td>${item.name}</td><td>${formatInteger(item.order_count)}</td><td>${formatInteger(item.unit_quantity)}</td><td>${formatMoney(item.gmv)}</td><td>${formatMoney(item.average_unit_price)}</td></tr>`).join("")
+    : '<tr><td colspan="5" class="table-message">当前时间范围没有商品数据</td></tr>';
+  charts.product.setOption({
+    animationDuration: reducedMotion ? 0 : 420,
+    grid: { left: 18, right: 28, top: 10, bottom: 18, containLabel: true },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", axisLabel: { formatter: value => `¥${formatInteger(value)}` }, splitLine: { lineStyle: { color: cssToken("--color-border") } } },
+    yAxis: { type: "category", data: [...items].reverse().map(item => item.name), axisTick: { show: false } },
+    series: [{ name: "成交额", type: "bar", data: [...items].reverse().map(item => Number(item.gmv)), itemStyle: { color: "#0f766e", borderRadius: [0, 6, 6, 0] } }],
+  }, true);
 }
 
 function renderRecent(items) {
@@ -931,7 +976,7 @@ function renderFailure(error) {
     '<tr><td colspan="6" class="table-message">数据服务暂时不可用</td></tr>';
   setConnectionState("error", "数据服务不可用");
   elements.liveStatus.textContent = `数据刷新失败：${error.message}`;
-  for (const chart of [charts.trend, charts.region, charts.channel])
+  for (const chart of [charts.trend, charts.region, charts.channel, charts.product])
     chart.clear();
 }
 
@@ -953,7 +998,7 @@ async function refreshDashboard() {
     const baselineFilters = {
       ...filters, start: comparisonPeriod.baseline_start, end: comparisonPeriod.baseline_end,
     };
-    const [summary, comparison, timeSeries, regions, channels, recent, baselineBreakdown] = await Promise.all([
+    const [summary, comparison, timeSeries, regions, channels, recent, baselineBreakdown, products] = await Promise.all([
       fetchJson("/api/v1/metrics/summary", queryFor(filters)),
       fetchJson(
         "/api/v1/metrics/comparison",
@@ -976,6 +1021,7 @@ async function refreshDashboard() {
         "/api/v1/metrics/breakdown",
         queryFor(baselineFilters, { dimension: contributionDimension, limit: 12 }),
       ),
+      fetchJson("/api/v1/products/breakdown", productQuery(filters)),
     ]);
 
     renderSummary(summary);
@@ -988,6 +1034,7 @@ async function refreshDashboard() {
     renderRegion(regions.items);
     renderChannel(channels.items);
     renderRecent(recent.items);
+    renderProducts(products);
     updateDimensionOptions(regions.items, channels.items);
     elements.lastRefreshed.textContent = `页面刷新 ${formatTimestamp(new Date(), { seconds: true })}`;
     elements.previewBanner.hidden = runtimeState.dataMode !== "preview";
@@ -1047,11 +1094,16 @@ elements.form.addEventListener("submit", (event) => {
   void refreshDashboard();
 });
 
+elements.productCategory.addEventListener("change", () => {
+  void refreshDashboard();
+});
+
 elements.reset.addEventListener("click", () => {
   elements.region.value = "";
   elements.channel.value = "";
   elements.comparisonMode.value = "previous";
   elements.comparisonDimension.value = "region";
+  elements.productCategory.value = "";
   setQuickRange(24);
 });
 

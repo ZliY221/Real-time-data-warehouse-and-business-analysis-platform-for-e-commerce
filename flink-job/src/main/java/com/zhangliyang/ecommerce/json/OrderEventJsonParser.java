@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangliyang.ecommerce.core.OrderEventValidator;
 import com.zhangliyang.ecommerce.model.OrderEvent;
+import com.zhangliyang.ecommerce.model.OrderItem;
 import com.zhangliyang.ecommerce.model.RejectedEvent;
 
 import java.math.BigDecimal;
@@ -40,7 +41,8 @@ public class OrderEventJsonParser {
                     parseInstantMillis(requireText(root, "ingest_time"), "ingest_time"),
                     requireText(payload, "region"),
                     requireText(payload, "channel"),
-                    parseMoney(requireText(payload, "total_amount")));
+                    parseMoney(requireText(payload, "total_amount")),
+                    parseItems(payload));
 
             if (!OrderEventValidator.isValid(event)) {
                 return rejected(
@@ -91,6 +93,31 @@ public class OrderEventJsonParser {
             throw new IllegalArgumentException("total_amount must have exactly two decimal places");
         }
         return amount;
+    }
+
+    private static OrderItem[] parseItems(JsonNode payload) {
+        JsonNode items = payload.get("items");
+        if (items == null || !items.isArray()) {
+            throw new IllegalArgumentException("items must be an array");
+        }
+        OrderItem[] result = new OrderItem[items.size()];
+        int index = 0;
+        for (JsonNode item : items) {
+            if (!item.isObject()) {
+                throw new IllegalArgumentException("each item must be an object");
+            }
+            int quantity = item.path("quantity").asInt(0);
+            if (quantity < 1) {
+                throw new IllegalArgumentException("item quantity must be positive");
+            }
+            result[index++] = new OrderItem(
+                    requireText(item, "sku_id"),
+                    requireText(item, "category"),
+                    quantity,
+                    parseMoney(requireText(item, "unit_price")),
+                    parseMoney(requireText(item, "line_amount")));
+        }
+        return result;
     }
 
     private static OrderEventParseResult rejected(

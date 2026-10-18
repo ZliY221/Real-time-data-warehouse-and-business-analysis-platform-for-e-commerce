@@ -2,6 +2,7 @@ package com.zhangliyang.ecommerce.pipeline;
 
 import com.zhangliyang.ecommerce.model.MinuteMetric;
 import com.zhangliyang.ecommerce.model.RejectedEvent;
+import com.zhangliyang.ecommerce.model.ProductMetric;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.CloseableIterator;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,12 @@ class OrderMetricsJsonTopologyTest {
         assertEquals(1, metrics.size());
         assertEquals(1L, metrics.get(0).getOrderCount());
 
+        List<ProductMetric> products = collect(topology.getProductMetrics().executeAndCollect());
+        assertEquals(1, products.size());
+        assertEquals("digital", products.get(0).getCategory());
+        assertEquals("sku-1", products.get(0).getSkuId());
+        assertEquals(2L, products.get(0).getUnitQuantity());
+
         List<RejectedEvent> rejected = collect(
                 topology.getRejectedEvents().executeAndCollect());
         assertEquals(2, rejected.size());
@@ -56,7 +63,8 @@ class OrderMetricsJsonTopologyTest {
                 "\"order_id\":\"ord-1\"," +
                 "\"region\":\"辽宁\"," +
                 "\"channel\":\"app\"," +
-                "\"total_amount\":\"" + amount + "\"}}";
+                "\"total_amount\":\"" + amount + "\"," +
+                "\"items\":[{\"sku_id\":\"sku-1\",\"category\":\"digital\",\"quantity\":2,\"unit_price\":\"5.00\",\"line_amount\":\"10.00\"}]}}";
     }
 }
 

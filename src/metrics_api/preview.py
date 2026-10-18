@@ -14,11 +14,13 @@ class PreviewMetricsRepository:
 
     REGIONS = ("辽宁", "北京", "上海", "广东")
     CHANNELS = ("app", "mini_program", "web")
+    PRODUCTS = (("digital", "sku-phone"), ("digital", "sku-audio"), ("home", "sku-lamp"), ("sports", "sku-ball"), ("beauty", "sku-care"))
     BUCKET_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "1h": 60}
 
     def __init__(self, now: datetime | None = None) -> None:
         self.now = (now or datetime.now(UTC)).replace(second=0, microsecond=0)
         self.rows = self._generate_rows()
+        self.product_rows = self._generate_product_rows()
 
     def _generate_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
@@ -42,6 +44,18 @@ class PreviewMetricsRepository:
                             "processed_at": self.now - timedelta(seconds=18),
                         }
                     )
+        return rows
+
+    def _generate_product_rows(self) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for interval in range(288):
+            window_start = self.now - timedelta(minutes=5 * (287 - interval))
+            for product_index, (category, sku_id) in enumerate(self.PRODUCTS):
+                quantity = 1 + (interval + product_index * 3) % 7
+                unit_price = Decimal("39.00") + Decimal(product_index * 28 + interval % 11)
+                rows.append({"window_start": window_start, "category": category, "sku_id": sku_id,
+                             "order_count": max(1, quantity // 2), "unit_quantity": quantity,
+                             "gmv": unit_price * quantity})
         return rows
 
     def ping(self) -> None:
@@ -162,6 +176,32 @@ class PreviewMetricsRepository:
             and (anomaly_type is None or row["anomaly_type"] == anomaly_type)
         ]
         return rows[:limit]
+
+    def fetch_product_breakdown(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        category: str | None,
+        dimension: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in self.product_rows:
+            if not start <= row["window_start"] < end:
+                continue
+            if category is not None and row["category"] != category:
+                continue
+            grouped[row["category"] if dimension == "category" else row["sku_id"]].append(row)
+        items = []
+        for name, rows in grouped.items():
+            quantity = sum(item["unit_quantity"] for item in rows)
+            gmv = sum((item["gmv"] for item in rows), Decimal("0.00"))
+            items.append({"name": name, "category": rows[0]["category"],
+                          "order_count": sum(item["order_count"] for item in rows),
+                          "unit_quantity": quantity, "gmv": f"{gmv:.2f}",
+                          "average_unit_price": f"{gmv / quantity:.2f}" if quantity else "0.00"})
+        return sorted(items, key=lambda item: Decimal(item["gmv"]), reverse=True)[:limit]
 
 
 class PreviewQualityHistory:

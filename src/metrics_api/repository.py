@@ -68,6 +68,16 @@ class MetricsRepository(Protocol):
         limit: int,
     ) -> list[dict[str, Any]]: ...
 
+    def fetch_product_breakdown(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        category: str | None,
+        dimension: str,
+        limit: int,
+    ) -> list[dict[str, Any]]: ...
+
 
 class ClickHouseHttpRepository:
     def __init__(
@@ -236,6 +246,44 @@ FROM event_anomaly_summary
 WHERE {" AND ".join(clauses)}
 GROUP BY anomaly_type, reason
 ORDER BY anomaly_count DESC, anomaly_type ASC, reason ASC
+LIMIT {{limit:UInt32}}
+FORMAT JSONEachRow
+""".strip()
+        return self._execute(sql, parameters)
+
+    def fetch_product_breakdown(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+        category: str | None,
+        dimension: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        if dimension not in {"category", "sku"}:
+            raise ValueError(f"Unsupported product dimension: {dimension}")
+        clauses = [
+            "window_start >= {start:DateTime64(3, 'UTC')}",
+            "window_start < {end:DateTime64(3, 'UTC')}",
+        ]
+        parameters = {"start": start.isoformat(), "end": end.isoformat(), "limit": str(limit)}
+        if category is not None:
+            clauses.append("category = {category:String}")
+            parameters["category"] = category
+        name_sql = "category" if dimension == "category" else "sku_id"
+        category_sql = "category" if dimension == "category" else "any(category)"
+        sql = f"""
+SELECT {name_sql} AS name,
+       {category_sql} AS category,
+       sum(order_count) AS order_count,
+       sum(unit_quantity) AS unit_quantity,
+       toString(sum(gmv)) AS gmv,
+       if(sum(unit_quantity) = 0, '0.00', toString(round(sum(gmv) / sum(unit_quantity), 2)))
+           AS average_unit_price
+FROM product_minute_metrics_latest
+WHERE {" AND ".join(clauses)}
+GROUP BY name
+ORDER BY sum(gmv) DESC, name ASC
 LIMIT {{limit:UInt32}}
 FORMAT JSONEachRow
 """.strip()

@@ -2,6 +2,7 @@ package com.zhangliyang.ecommerce.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Objects;
 
 public class OrderEvent implements Serializable {
@@ -14,6 +15,7 @@ public class OrderEvent implements Serializable {
     private String region;
     private String channel;
     private BigDecimal totalAmount;
+    private OrderItem[] items = new OrderItem[0];
 
     public OrderEvent() {
     }
@@ -26,6 +28,18 @@ public class OrderEvent implements Serializable {
             String region,
             String channel,
             BigDecimal totalAmount) {
+        this(eventId, orderId, eventTime, ingestTime, region, channel, totalAmount, new OrderItem[0]);
+    }
+
+    public OrderEvent(
+            String eventId,
+            String orderId,
+            long eventTime,
+            long ingestTime,
+            String region,
+            String channel,
+            BigDecimal totalAmount,
+            OrderItem[] items) {
         this.eventId = eventId;
         this.orderId = orderId;
         this.eventTime = eventTime;
@@ -33,6 +47,7 @@ public class OrderEvent implements Serializable {
         this.region = region;
         this.channel = channel;
         this.totalAmount = totalAmount;
+        this.items = items == null ? new OrderItem[0] : Arrays.copyOf(items, items.length);
     }
 
     public String getEventId() {
@@ -91,6 +106,11 @@ public class OrderEvent implements Serializable {
         this.totalAmount = totalAmount;
     }
 
+    public OrderItem[] getItems() { return Arrays.copyOf(items, items.length); }
+    public void setItems(OrderItem[] items) {
+        this.items = items == null ? new OrderItem[0] : Arrays.copyOf(items, items.length);
+    }
+
     @Override
     public boolean equals(Object value) {
         if (this == value) {
@@ -106,12 +126,14 @@ public class OrderEvent implements Serializable {
                 && Objects.equals(orderId, that.orderId)
                 && Objects.equals(region, that.region)
                 && Objects.equals(channel, that.channel)
-                && Objects.equals(totalAmount, that.totalAmount);
+                && Objects.equals(totalAmount, that.totalAmount)
+                && Arrays.equals(items, that.items);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(eventId, orderId, eventTime, ingestTime, region, channel, totalAmount);
+        int result = Objects.hash(eventId, orderId, eventTime, ingestTime, region, channel, totalAmount);
+        return 31 * result + Arrays.hashCode(items);
     }
 
     @Override

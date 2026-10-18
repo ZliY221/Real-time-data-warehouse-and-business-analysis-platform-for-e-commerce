@@ -33,6 +33,9 @@ from metrics_api.models import (
     MetricSummaryResponse,
     MinuteMetric,
     MinuteMetricsResponse,
+    ProductBreakdownItem,
+    ProductBreakdownResponse,
+    ProductDimension,
     QualityRunItem,
     QualityRunsResponse,
     QualityTrendPoint,
@@ -147,7 +150,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="1.5.0",
+        version="2.10.0",
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(
@@ -443,6 +446,42 @@ def create_app(
                 region=region,
                 channel=channel,
             ),
+            dimension=dimension,
+            count=len(items),
+            items=items,
+        )
+
+    @app.get(
+        "/api/v1/products/breakdown",
+        response_model=ProductBreakdownResponse,
+        responses={503: {"model": ErrorResponse}},
+        tags=["products"],
+    )
+    def product_breakdown(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        dimension: Annotated[ProductDimension, Query()] = "category",
+        start: Annotated[datetime | None, Query(description="Inclusive UTC start time")] = None,
+        end: Annotated[datetime | None, Query(description="Exclusive UTC end time")] = None,
+        category: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+        limit: Annotated[int, Query(ge=1, le=50)] = 12,
+    ) -> ProductBreakdownResponse:
+        try:
+            resolved_start, resolved_end = _resolve_range(start, end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        rows = metrics_repository.fetch_product_breakdown(
+            start=resolved_start,
+            end=resolved_end,
+            category=category,
+            dimension=dimension,
+            limit=limit,
+        )
+        items = [ProductBreakdownItem.model_validate(row) for row in rows]
+        return ProductBreakdownResponse(
+            generated_at=datetime.now(UTC),
+            start=resolved_start,
+            end=resolved_end,
+            category=category,
             dimension=dimension,
             count=len(items),
             items=items,

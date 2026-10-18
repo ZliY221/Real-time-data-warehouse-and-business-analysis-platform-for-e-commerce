@@ -57,6 +57,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS ecommerce.rejected_order_events", schema)
         self.assertIn("CREATE TABLE IF NOT EXISTS ecommerce.late_order_events", schema)
         self.assertIn("CREATE VIEW IF NOT EXISTS ecommerce.event_anomaly_summary", schema)
+        self.assertIn("CREATE TABLE IF NOT EXISTS ecommerce.product_minute_metrics", schema)
+        self.assertIn("CREATE VIEW IF NOT EXISTS ecommerce.product_minute_metrics_latest", schema)
         self.assertIn("ORDER BY rejection_id", schema)
         self.assertIn("ORDER BY event_id", schema)
         self.assertNotIn("raw_payload", schema)
@@ -280,6 +282,8 @@ class KafkaProjectFilesTests(unittest.TestCase):
         self.assertIn('id="quality-diagnostics"', html)
         self.assertIn("Commerce Pulse layout", css)
         self.assertIn("grid-template-columns: repeat(6", css)
+        self.assertIn('id="products"', html)
+        self.assertIn("/api/v1/products/breakdown", javascript)
 
     def test_ci_and_unified_script_run_dashboard_tests(self) -> None:
         workflow = (self.root / ".github" / "workflows" / "ci.yml").read_text(

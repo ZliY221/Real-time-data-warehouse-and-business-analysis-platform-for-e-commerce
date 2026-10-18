@@ -4,6 +4,8 @@ import com.zhangliyang.ecommerce.core.OrderEventValidator;
 import com.zhangliyang.ecommerce.model.MinuteMetric;
 import com.zhangliyang.ecommerce.model.OrderEvent;
 import com.zhangliyang.ecommerce.model.RejectedEvent;
+import com.zhangliyang.ecommerce.model.ProductContribution;
+import com.zhangliyang.ecommerce.model.ProductMetric;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -68,7 +70,8 @@ public final class OrderMetricsPipeline {
         return new OrderMetricsTopology(
                 windowed.getMetrics(),
                 rejectedEvents,
-                windowed.getLateEvents());
+                windowed.getLateEvents(),
+                windowed.getProductMetrics());
     }
 
     public static WindowedMetricStreams buildFromWatermarkedEvents(
@@ -79,17 +82,27 @@ public final class OrderMetricsPipeline {
             private static final long serialVersionUID = 1L;
         };
 
-        SingleOutputStreamOperator<MinuteMetric> metrics = watermarkedEvents
+        SingleOutputStreamOperator<OrderEvent> deduplicated = watermarkedEvents
                 .keyBy(OrderEvent::getEventId)
                 .process(new DeduplicateByEventIdFunction(deduplicationTtl))
-                .name("deduplicate-by-event-id")
+                .name("deduplicate-by-event-id");
+        SingleOutputStreamOperator<MinuteMetric> metrics = deduplicated
                 .keyBy(new RegionChannelKeySelector())
                 .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
                 .allowedLateness(allowedLateness)
                 .sideOutputLateData(lateEventsTag)
                 .aggregate(new OrderAggregateFunction(), new AttachWindowMetadataFunction())
                 .name("aggregate-minute-metrics");
-        return new WindowedMetricStreams(metrics, metrics.getSideOutput(lateEventsTag));
+        SingleOutputStreamOperator<ProductContribution> contributions = deduplicated
+                .flatMap(new ExpandOrderItemsFunction())
+                .name("expand-order-items");
+        SingleOutputStreamOperator<ProductMetric> productMetrics = contributions
+                .keyBy(new ProductMetricKeySelector())
+                .window(TumblingEventTimeWindows.of(Duration.ofMinutes(1)))
+                .allowedLateness(allowedLateness)
+                .aggregate(new ProductAggregateFunction(), new AttachProductWindowFunction())
+                .name("aggregate-product-metrics");
+        return new WindowedMetricStreams(metrics, metrics.getSideOutput(lateEventsTag), productMetrics);
     }
 }
 

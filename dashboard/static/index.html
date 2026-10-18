@@ -65,6 +65,7 @@
         <a class="is-active" href="#dashboard-content">经营总览</a>
         <a href="#comparison">周期对比</a>
         <a href="#dimensions">地区与渠道</a>
+        <a href="#products">商品分析</a>
         <a href="#asset-health">链路健康</a>
         <a href="#quality-diagnostics">质量诊断</a>
       </div>
@@ -409,6 +410,22 @@
             </div>
           </details>
         </article>
+      </section>
+
+      <section id="products" class="chart-card chart-card--wide product-panel" aria-labelledby="product-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">商品经营</p>
+            <h2 id="product-title">品类与商品实时贡献</h2>
+            <p id="product-note">先查看品类排行，选择品类后下钻到 SKU。</p>
+          </div>
+          <label class="product-filter">品类<select id="product-category-filter" aria-label="商品品类筛选"><option value="">全部品类</option></select></label>
+        </div>
+        <div id="product-chart" class="chart chart--compact" role="img" aria-label="品类或商品成交额横向柱状图"></div>
+        <details class="data-details">
+          <summary>查看商品贡献数据表</summary>
+          <div class="table-scroll"><table><thead><tr><th scope="col">品类 / SKU</th><th scope="col">订单贡献</th><th scope="col">销量</th><th scope="col">成交额</th><th scope="col">平均件单价</th></tr></thead><tbody id="product-table-body"></tbody></table></div>
+        </details>
       </section>
 
       <section class="table-card" aria-labelledby="recent-title">

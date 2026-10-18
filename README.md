@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v2.9.0-b8325d)
+![Version](https://img.shields.io/badge/version-v2.10.0-b8325d)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -20,7 +20,7 @@
 
 | 关注点 | 项目实现 |
 | --- | --- |
-| 经营分析 | 分钟订单量、GMV、客单价、地区与渠道表现 |
+| 经营分析 | 分钟订单量、GMV、客单价、地区、渠道及商品品类表现 |
 | 周期决策 | 当前区间与上一等长区间的订单、GMV、客单价增长对比 |
 | 实时计算 | Kafka、Flink Event Time、Watermark、状态去重 |
 | 数据存储 | ClickHouse 实时指标与异常审计、DuckDB 分层数仓 |
@@ -94,6 +94,7 @@ flowchart LR
 - 拆解地区或渠道的 GMV 变化贡献，快速定位增长来源与下降项。
 - 点击贡献项即可下钻到对应地区或渠道，并联动刷新全局经营指标。
 - 下钻项提供选中高亮、当前上下文说明和独立清除入口。
+- 商品分析按品类或 SKU 汇总订单数、销量与 GMV，支持品类筛选和实时联动刷新。
 
 ## 工程结构
 
@@ -144,4 +145,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v2.9.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v2.10.0`。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

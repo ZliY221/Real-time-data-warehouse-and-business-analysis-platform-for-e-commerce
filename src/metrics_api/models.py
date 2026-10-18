@@ -86,6 +86,7 @@ class MetricComparisonResponse(UtcModel):
 TimeBucket = Literal["auto", "1m", "5m", "15m", "1h"]
 ResolvedTimeBucket = Literal["1m", "5m", "15m", "1h"]
 BreakdownDimension = Literal["region", "channel"]
+ProductDimension = Literal["category", "sku"]
 AnomalyType = Literal["rejected", "late"]
 
 
@@ -117,6 +118,25 @@ class BreakdownResponse(UtcModel):
     dimension: BreakdownDimension
     count: int = Field(ge=0)
     items: list[BreakdownItem]
+
+
+class ProductBreakdownItem(UtcModel):
+    name: str
+    category: str
+    order_count: int = Field(ge=0)
+    unit_quantity: int = Field(ge=0)
+    gmv: str
+    average_unit_price: str
+
+
+class ProductBreakdownResponse(UtcModel):
+    generated_at: datetime
+    start: datetime
+    end: datetime
+    category: str | None = None
+    dimension: ProductDimension
+    count: int = Field(ge=0)
+    items: list[ProductBreakdownItem]
 
 
 class AnomalyFilters(UtcModel):

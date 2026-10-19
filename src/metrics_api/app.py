@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import compare_product_windows
+from metrics_api.product_operations import compare_product_windows, product_contribution
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -151,7 +151,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="2.11.0",
+        version="2.12.0",
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(
@@ -506,6 +506,23 @@ def create_app(
         baseline = metrics_repository.fetch_product_breakdown(start=resolved_start - duration, end=resolved_start, category=category, dimension=dimension, limit=limit)
         items = compare_product_windows(current, baseline)
         return {"generated_at": datetime.now(UTC), "start": resolved_start, "end": resolved_end, "dimension": dimension, "count": len(items), "items": items}
+
+    @app.get("/api/v2/products/contribution", tags=["products"])
+    def product_contributions(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        dimension: Annotated[ProductDimension, Query()] = "category",
+        start: Annotated[datetime | None, Query()] = None,
+        end: Annotated[datetime | None, Query()] = None,
+        category: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+        limit: Annotated[int, Query(ge=1, le=50)] = 12,
+    ) -> dict[str, object]:
+        try:
+            resolved_start, resolved_end = _resolve_range(start, end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        rows = metrics_repository.fetch_product_breakdown(start=resolved_start, end=resolved_end, category=category, dimension=dimension, limit=limit)
+        items = product_contribution(rows)
+        return {"generated_at": datetime.now(UTC), "dimension": dimension, "count": len(items), "items": items}
 
     @app.get(
         "/api/v1/anomalies/summary",

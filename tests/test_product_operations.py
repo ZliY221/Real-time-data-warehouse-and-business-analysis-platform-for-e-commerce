@@ -1,6 +1,6 @@
 import unittest
 
-from metrics_api.product_operations import compare_product_windows
+from metrics_api.product_operations import compare_product_windows, product_contribution
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -11,3 +11,8 @@ class ProductOperationsTests(unittest.TestCase):
         self.assertEqual(["sku-a", "sku-b"], [item["name"] for item in items])
         self.assertEqual("UP", items[0]["trend"])
         self.assertEqual(-0.125, items[1]["gmv_rate"])
+
+    def test_contribution_calculates_gmv_and_order_shares(self):
+        items = product_contribution([{"name": "a", "gmv": "75", "order_count": 3}, {"name": "b", "gmv": "25", "order_count": 1}])
+        self.assertEqual(0.75, items[0]["gmv_share"])
+        self.assertEqual(0.75, items[0]["order_share"])

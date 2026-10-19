@@ -39,3 +39,13 @@ def product_alerts(comparisons: list[dict[str, Any]], *, rate_threshold: float =
             continue
         alerts.append({"name": item["name"], "severity": "HIGH" if abs(float(rate)) >= rate_threshold * 2 else "MEDIUM", "direction": item["trend"], "gmv_rate": rate, "message": "GMV exceeded the configured movement threshold"})
     return alerts
+
+
+def resource_plan(*, product_count: int, alert_count: int, refresh_seconds: int) -> dict[str, Any]:
+    """Recommend bounded dashboard refresh and query concurrency."""
+    if product_count < 0 or alert_count < 0 or refresh_seconds < 5:
+        raise ValueError("counts must be non-negative and refresh_seconds at least 5")
+    pressure = product_count + alert_count * 5
+    mode = "PROTECT" if pressure >= 100 else "BALANCED" if pressure >= 40 else "NORMAL"
+    minimum_refresh = 60 if mode == "PROTECT" else 30 if mode == "BALANCED" else 10
+    return {"mode": mode, "requested_refresh_seconds": refresh_seconds, "recommended_refresh_seconds": max(refresh_seconds, minimum_refresh), "max_concurrent_queries": 2 if mode == "PROTECT" else 4 if mode == "BALANCED" else 8}

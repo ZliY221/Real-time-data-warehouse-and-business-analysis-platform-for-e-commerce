@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution
+from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution, resource_plan
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -151,7 +151,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="2.13.0",
+        version="2.14.0",
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(
@@ -540,6 +540,19 @@ def create_app(
         baseline = metrics_repository.fetch_product_breakdown(start=resolved_start - duration, end=resolved_start, category=None, dimension="sku", limit=50)
         items = product_alerts(compare_product_windows(current, baseline), rate_threshold=rate_threshold)
         return {"generated_at": datetime.now(UTC), "alert_count": len(items), "rate_threshold": rate_threshold, "items": items}
+
+    @app.get("/api/v2/operations/resource-plan", tags=["operations"])
+    def product_resource_plan(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        refresh_seconds: Annotated[int, Query(ge=5, le=3600)] = 15,
+    ) -> dict[str, object]:
+        end = datetime.now(UTC)
+        start = end - DEFAULT_RANGE
+        baseline_start = start - DEFAULT_RANGE
+        current = metrics_repository.fetch_product_breakdown(start=start, end=end, category=None, dimension="sku", limit=50)
+        baseline = metrics_repository.fetch_product_breakdown(start=baseline_start, end=start, category=None, dimension="sku", limit=50)
+        alerts = product_alerts(compare_product_windows(current, baseline))
+        return {"generated_at": end, **resource_plan(product_count=len(current), alert_count=len(alerts), refresh_seconds=refresh_seconds)}
 
     @app.get(
         "/api/v1/anomalies/summary",

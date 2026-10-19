@@ -1,6 +1,6 @@
 import unittest
 
-from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution
+from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -21,3 +21,9 @@ class ProductOperationsTests(unittest.TestCase):
         items = product_alerts([{"name": "a", "gmv_rate": 0.7, "trend": "UP"}, {"name": "b", "gmv_rate": 0.1, "trend": "UP"}], rate_threshold=0.25)
         self.assertEqual(1, len(items))
         self.assertEqual("HIGH", items[0]["severity"])
+
+    def test_resource_plan_throttles_high_pressure_queries(self):
+        plan = resource_plan(product_count=80, alert_count=6, refresh_seconds=10)
+        self.assertEqual("PROTECT", plan["mode"])
+        self.assertEqual(60, plan["recommended_refresh_seconds"])
+        self.assertEqual(2, plan["max_concurrent_queries"])

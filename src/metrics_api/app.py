@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import compare_product_windows, product_contribution
+from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -151,7 +151,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="2.12.0",
+        version="2.13.0",
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(
@@ -523,6 +523,23 @@ def create_app(
         rows = metrics_repository.fetch_product_breakdown(start=resolved_start, end=resolved_end, category=category, dimension=dimension, limit=limit)
         items = product_contribution(rows)
         return {"generated_at": datetime.now(UTC), "dimension": dimension, "count": len(items), "items": items}
+
+    @app.get("/api/v2/products/alerts", tags=["products"])
+    def product_alert_feed(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+        start: Annotated[datetime | None, Query()] = None,
+        end: Annotated[datetime | None, Query()] = None,
+        rate_threshold: Annotated[float, Query(gt=0, le=5)] = 0.25,
+    ) -> dict[str, object]:
+        try:
+            resolved_start, resolved_end = _resolve_range(start, end)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        duration = resolved_end - resolved_start
+        current = metrics_repository.fetch_product_breakdown(start=resolved_start, end=resolved_end, category=None, dimension="sku", limit=50)
+        baseline = metrics_repository.fetch_product_breakdown(start=resolved_start - duration, end=resolved_start, category=None, dimension="sku", limit=50)
+        items = product_alerts(compare_product_windows(current, baseline), rate_threshold=rate_threshold)
+        return {"generated_at": datetime.now(UTC), "alert_count": len(items), "rate_threshold": rate_threshold, "items": items}
 
     @app.get(
         "/api/v1/anomalies/summary",

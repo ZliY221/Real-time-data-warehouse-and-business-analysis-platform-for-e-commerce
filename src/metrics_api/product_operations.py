@@ -26,3 +26,16 @@ def product_contribution(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     total_orders = sum(int(row["order_count"]) for row in rows)
     items = [{**row, "gmv_share": float(Decimal(str(row["gmv"])) / total_gmv) if total_gmv else 0.0, "order_share": int(row["order_count"]) / total_orders if total_orders else 0.0} for row in rows]
     return sorted(items, key=lambda item: item["gmv_share"], reverse=True)
+
+
+def product_alerts(comparisons: list[dict[str, Any]], *, rate_threshold: float = 0.25) -> list[dict[str, Any]]:
+    """Turn material product movements into explainable operating alerts."""
+    if rate_threshold <= 0:
+        raise ValueError("rate_threshold must be positive")
+    alerts = []
+    for item in comparisons:
+        rate = item.get("gmv_rate")
+        if rate is None or abs(float(rate)) < rate_threshold:
+            continue
+        alerts.append({"name": item["name"], "severity": "HIGH" if abs(float(rate)) >= rate_threshold * 2 else "MEDIUM", "direction": item["trend"], "gmv_rate": rate, "message": "GMV exceeded the configured movement threshold"})
+    return alerts

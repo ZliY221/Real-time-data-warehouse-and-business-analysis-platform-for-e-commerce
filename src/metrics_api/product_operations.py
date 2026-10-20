@@ -135,3 +135,20 @@ def alert_acknowledgement(*, alert_count: int, owner: str, acknowledged_count: i
     return {"owner": owner.strip(), "alert_count": alert_count,
             "acknowledged_count": acknowledged_count, "remaining_count": remaining,
             "status": "COMPLETE" if remaining == 0 else "IN_PROGRESS" if acknowledged_count else "PENDING"}
+
+
+def campaign_guardrail(*, discount_rate: float, inventory_status: str,
+                       campaign_status: str) -> dict[str, Any]:
+    """Check promotion launch conditions against margin and stock risk."""
+    if not 0 <= discount_rate <= 1:
+        raise ValueError("discount_rate must be between 0 and 1")
+    blockers = []
+    if discount_rate > 0.5:
+        blockers.append("discount exceeds 50% review threshold")
+    if inventory_status == "STOCKOUT_RISK":
+        blockers.append("inventory coverage is below replenishment lead time")
+    if campaign_status == "BEHIND" and discount_rate > 0.3:
+        blockers.append("campaign is behind while discount is already above 30%")
+    return {"discount_rate": discount_rate, "inventory_status": inventory_status,
+            "campaign_status": campaign_status, "blockers": blockers,
+            "launch_status": "BLOCKED" if blockers else "READY"}

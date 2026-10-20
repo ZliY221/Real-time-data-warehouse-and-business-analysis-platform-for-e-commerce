@@ -120,4 +120,6 @@ docker compose up -d
 
 `GET /api/v3/operations/alert-acknowledgement?alert_count=5&acknowledged_count=2&owner=commerce-oncall` 返回负责人、已确认和剩余告警数量，用于页面显示处置进度。
 
+`GET /api/v3/operations/campaign-guardrail` 在活动发布前检查折扣比例、库存风险和活动进度。存在高折扣、缺货风险或落后情况下继续加大折扣时返回 `BLOCKED` 及具体原因。
+
 仓库内样例数据均为合成数据。运行产物写入 `build/`，不应将业务凭据、个人数据或生产连接信息提交到仓库。

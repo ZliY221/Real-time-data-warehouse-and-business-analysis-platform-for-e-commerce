@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import alert_acknowledgement, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -59,3 +59,8 @@ class ProductOperationsTests(unittest.TestCase):
         result = alert_acknowledgement(alert_count=5, owner="commerce-oncall", acknowledged_count=2)
         self.assertEqual(3, result["remaining_count"])
         self.assertEqual("IN_PROGRESS", result["status"])
+
+    def test_campaign_guardrail_blocks_stockout_risk(self):
+        result = campaign_guardrail(discount_rate=0.2, inventory_status="STOCKOUT_RISK", campaign_status="ON_PACE")
+        self.assertEqual("BLOCKED", result["launch_status"])
+        self.assertEqual(1, len(result["blockers"]))

@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import alert_acknowledgement, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -595,6 +595,16 @@ def create_app(
     ) -> dict[str, object]:
         try:
             return conversion_funnel(views=views, carts=carts, orders=orders)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.get("/api/v3/operations/alert-acknowledgement", tags=["operations"])
+    def commerce_alert_acknowledgement(
+        alert_count: Annotated[int, Query(ge=0)], owner: Annotated[str, Query(min_length=1, max_length=80)],
+        acknowledged_count: Annotated[int, Query(ge=0)] = 0,
+    ) -> dict[str, object]:
+        try:
+            return alert_acknowledgement(alert_count=alert_count, owner=owner, acknowledged_count=acknowledged_count)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 

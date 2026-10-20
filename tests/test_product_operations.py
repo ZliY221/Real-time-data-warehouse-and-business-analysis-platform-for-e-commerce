@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import alert_acknowledgement, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -54,3 +54,8 @@ class ProductOperationsTests(unittest.TestCase):
         funnel = conversion_funnel(views=1000, carts=200, orders=100)
         self.assertEqual("VIEW_TO_CART", funnel["largest_loss_stage"])
         self.assertEqual(0.5, funnel["cart_to_order_rate"])
+
+    def test_alert_acknowledgement_tracks_remaining_work(self):
+        result = alert_acknowledgement(alert_count=5, owner="commerce-oncall", acknowledged_count=2)
+        self.assertEqual(3, result["remaining_count"])
+        self.assertEqual("IN_PROGRESS", result["status"])

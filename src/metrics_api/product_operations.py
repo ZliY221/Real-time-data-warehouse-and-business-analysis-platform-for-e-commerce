@@ -123,3 +123,15 @@ def conversion_funnel(*, views: int, carts: int, orders: int) -> dict[str, Any]:
     return {"views": views, "carts": carts, "orders": orders,
             "view_to_cart_rate": cart_rate, "cart_to_order_rate": order_rate,
             "largest_loss_stage": "VIEW_TO_CART" if view_loss >= cart_loss else "CART_TO_ORDER"}
+
+
+def alert_acknowledgement(*, alert_count: int, owner: str, acknowledged_count: int = 0) -> dict[str, Any]:
+    """Track a bounded acknowledgement plan for realtime product alerts."""
+    if alert_count < 0 or acknowledged_count < 0 or acknowledged_count > alert_count:
+        raise ValueError("acknowledgement counts are invalid")
+    if not owner.strip():
+        raise ValueError("owner is required")
+    remaining = alert_count - acknowledged_count
+    return {"owner": owner.strip(), "alert_count": alert_count,
+            "acknowledged_count": acknowledged_count, "remaining_count": remaining,
+            "status": "COMPLETE" if remaining == 0 else "IN_PROGRESS" if acknowledged_count else "PENDING"}

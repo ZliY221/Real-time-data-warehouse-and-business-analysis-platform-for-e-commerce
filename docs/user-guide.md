@@ -118,4 +118,6 @@ docker compose up -d
 
 `GET /api/v3/operations/conversion-funnel?views=1000&carts=200&orders=100` 返回浏览到加购、加购到下单的转化率及主要流失阶段。输入必须满足浏览数不少于加购数、加购数不少于订单数。
 
+`GET /api/v3/operations/alert-acknowledgement?alert_count=5&acknowledged_count=2&owner=commerce-oncall` 返回负责人、已确认和剩余告警数量，用于页面显示处置进度。
+
 仓库内样例数据均为合成数据。运行产物写入 `build/`，不应将业务凭据、个人数据或生产连接信息提交到仓库。

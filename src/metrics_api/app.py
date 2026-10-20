@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -553,6 +553,16 @@ def create_app(
         baseline = metrics_repository.fetch_product_breakdown(start=baseline_start, end=start, category=None, dimension="sku", limit=50)
         alerts = product_alerts(compare_product_windows(current, baseline))
         return {"generated_at": end, **resource_plan(product_count=len(current), alert_count=len(alerts), refresh_seconds=refresh_seconds)}
+
+    @app.get("/api/v3/operations/command-center", tags=["operations"])
+    def commerce_command_center(
+        metrics_repository: Annotated[MetricsRepository, Depends(get_repository)],
+    ) -> dict[str, object]:
+        end = datetime.now(UTC)
+        start = end - DEFAULT_RANGE
+        current = metrics_repository.fetch_product_breakdown(start=start, end=end, category=None, dimension="sku", limit=50)
+        baseline = metrics_repository.fetch_product_breakdown(start=start - DEFAULT_RANGE, end=start, category=None, dimension="sku", limit=50)
+        return {"generated_at": end, **command_center(current, baseline)}
 
     @app.get(
         "/api/v1/anomalies/summary",

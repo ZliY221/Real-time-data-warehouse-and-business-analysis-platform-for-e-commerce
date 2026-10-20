@@ -49,3 +49,14 @@ def resource_plan(*, product_count: int, alert_count: int, refresh_seconds: int)
     mode = "PROTECT" if pressure >= 100 else "BALANCED" if pressure >= 40 else "NORMAL"
     minimum_refresh = 60 if mode == "PROTECT" else 30 if mode == "BALANCED" else 10
     return {"mode": mode, "requested_refresh_seconds": refresh_seconds, "recommended_refresh_seconds": max(refresh_seconds, minimum_refresh), "max_concurrent_queries": 2 if mode == "PROTECT" else 4 if mode == "BALANCED" else 8}
+
+
+def command_center(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build one operator-facing snapshot from realtime product windows."""
+    comparisons = compare_product_windows(current, baseline)
+    alerts = product_alerts(comparisons)
+    contributions = product_contribution(current)
+    total_gmv = sum((Decimal(str(row["gmv"])) for row in current), Decimal("0"))
+    return {"product_count": len(current), "total_gmv": f"{total_gmv:.2f}",
+            "alert_count": len(alerts), "top_contributors": contributions[:3],
+            "alerts": alerts, "operating_status": "ATTENTION" if alerts else "STABLE"}

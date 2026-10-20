@@ -1,6 +1,6 @@
 import unittest
 
-from metrics_api.product_operations import compare_product_windows, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -27,3 +27,8 @@ class ProductOperationsTests(unittest.TestCase):
         self.assertEqual("PROTECT", plan["mode"])
         self.assertEqual(60, plan["recommended_refresh_seconds"])
         self.assertEqual(2, plan["max_concurrent_queries"])
+
+    def test_command_center_combines_value_and_alerts(self):
+        snapshot = command_center([{"name": "a", "gmv": "150", "order_count": 3}], [{"name": "a", "gmv": "100"}])
+        self.assertEqual("150.00", snapshot["total_gmv"])
+        self.assertEqual("ATTENTION", snapshot["operating_status"])

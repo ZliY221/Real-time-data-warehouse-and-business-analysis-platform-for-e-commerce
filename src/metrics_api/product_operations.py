@@ -110,3 +110,16 @@ def operating_briefing(*, alert_count: int, campaign_status: str,
         actions.append({"priority": "P3", "action": "Continue monitoring current operating window"})
     return {"action_count": len(actions), "actions": actions,
             "briefing_status": "ACTION_REQUIRED" if actions[0]["priority"] in {"P0", "P1"} else "MONITOR"}
+
+
+def conversion_funnel(*, views: int, carts: int, orders: int) -> dict[str, Any]:
+    """Calculate bounded realtime funnel rates and the largest loss stage."""
+    if min(views, carts, orders) < 0 or carts > views or orders > carts:
+        raise ValueError("funnel counts must be non-negative and non-increasing")
+    cart_rate = carts / views if views else 0.0
+    order_rate = orders / carts if carts else 0.0
+    view_loss = views - carts
+    cart_loss = carts - orders
+    return {"views": views, "carts": carts, "orders": orders,
+            "view_to_cart_rate": cart_rate, "cart_to_order_rate": order_rate,
+            "largest_loss_stage": "VIEW_TO_CART" if view_loss >= cart_loss else "CART_TO_ORDER"}

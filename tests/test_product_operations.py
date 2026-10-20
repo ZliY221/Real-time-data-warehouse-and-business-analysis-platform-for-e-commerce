@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -49,3 +49,8 @@ class ProductOperationsTests(unittest.TestCase):
         briefing = operating_briefing(alert_count=2, campaign_status="BEHIND", inventory_status="STOCKOUT_RISK")
         self.assertEqual("P0", briefing["actions"][0]["priority"])
         self.assertEqual("ACTION_REQUIRED", briefing["briefing_status"])
+
+    def test_conversion_funnel_identifies_largest_loss(self):
+        funnel = conversion_funnel(views=1000, carts=200, orders=100)
+        self.assertEqual("VIEW_TO_CART", funnel["largest_loss_stage"])
+        self.assertEqual(0.5, funnel["cart_to_order_rate"])

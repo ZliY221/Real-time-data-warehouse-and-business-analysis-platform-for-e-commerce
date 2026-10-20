@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -587,6 +587,16 @@ def create_app(
         inventory_status: Annotated[Literal["HEALTHY", "REPLENISH_SOON", "STOCKOUT_RISK", "NO_DEMAND"], Query()] = "HEALTHY",
     ) -> dict[str, object]:
         return operating_briefing(alert_count=alert_count, campaign_status=campaign_status, inventory_status=inventory_status)
+
+    @app.get("/api/v3/operations/conversion-funnel", tags=["operations"])
+    def commerce_conversion_funnel(
+        views: Annotated[int, Query(ge=0)], carts: Annotated[int, Query(ge=0)],
+        orders: Annotated[int, Query(ge=0)],
+    ) -> dict[str, object]:
+        try:
+            return conversion_funnel(views=views, carts=carts, orders=orders)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.get(
         "/api/v1/anomalies/summary",

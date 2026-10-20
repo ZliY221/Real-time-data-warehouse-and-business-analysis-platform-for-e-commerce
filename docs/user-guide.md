@@ -114,4 +114,6 @@ docker compose up -d
 
 `GET /api/v3/operations/inventory-signal?available_units=20&demand_per_hour=10&replenishment_hours=5` 根据库存、实时需求速度和补货周期估算库存覆盖小时数，返回健康、待补货或缺货风险状态。
 
+`GET /api/v3/operations/briefing` 接收当前商品告警数、活动进度和库存状态，生成 P0 至 P3 的行动清单。缺货风险优先于活动落后和普通商品波动；没有风险时提示继续观察。
+
 仓库内样例数据均为合成数据。运行产物写入 `build/`，不应将业务凭据、个人数据或生产连接信息提交到仓库。

@@ -92,3 +92,21 @@ def inventory_signal(*, available_units: int, demand_per_hour: float,
     return {"available_units": available_units, "demand_per_hour": demand_per_hour,
             "coverage_hours": coverage, "replenishment_hours": replenishment_hours,
             "status": status}
+
+
+def operating_briefing(*, alert_count: int, campaign_status: str,
+                       inventory_status: str) -> dict[str, Any]:
+    """Turn realtime conditions into a short, ordered operator checklist."""
+    if alert_count < 0:
+        raise ValueError("alert_count cannot be negative")
+    actions: list[dict[str, str]] = []
+    if inventory_status == "STOCKOUT_RISK":
+        actions.append({"priority": "P0", "action": "Confirm replenishment and limit promotion exposure"})
+    if campaign_status == "BEHIND":
+        actions.append({"priority": "P1", "action": "Review traffic, conversion and campaign placement"})
+    if alert_count:
+        actions.append({"priority": "P1", "action": "Review products with material GMV movement"})
+    if not actions:
+        actions.append({"priority": "P3", "action": "Continue monitoring current operating window"})
+    return {"action_count": len(actions), "actions": actions,
+            "briefing_status": "ACTION_REQUIRED" if actions[0]["priority"] in {"P0", "P1"} else "MONITOR"}

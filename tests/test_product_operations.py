@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, inventory_signal, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -44,3 +44,8 @@ class ProductOperationsTests(unittest.TestCase):
         signal = inventory_signal(available_units=20, demand_per_hour=10, replenishment_hours=5)
         self.assertEqual("STOCKOUT_RISK", signal["status"])
         self.assertEqual(2.0, signal["coverage_hours"])
+
+    def test_briefing_orders_stockout_before_campaign(self):
+        briefing = operating_briefing(alert_count=2, campaign_status="BEHIND", inventory_status="STOCKOUT_RISK")
+        self.assertEqual("P0", briefing["actions"][0]["priority"])
+        self.assertEqual("ACTION_REQUIRED", briefing["briefing_status"])

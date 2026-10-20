@@ -112,4 +112,6 @@ docker compose up -d
 
 `GET /api/v3/operations/campaign-pacing?current_gmv=400&target_gmv=1000&elapsed_ratio=0.6` 将实时成交进度与活动时间进度比较，返回领先、正常或落后状态以及进度差值。
 
+`GET /api/v3/operations/inventory-signal?available_units=20&demand_per_hour=10&replenishment_hours=5` 根据库存、实时需求速度和补货周期估算库存覆盖小时数，返回健康、待补货或缺货风险状态。
+
 仓库内样例数据均为合成数据。运行产物写入 `build/`，不应将业务凭据、个人数据或生产连接信息提交到仓库。

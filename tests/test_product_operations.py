@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, inventory_signal, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -39,3 +39,8 @@ class ProductOperationsTests(unittest.TestCase):
         pace = campaign_pacing(current_gmv=Decimal("400"), target_gmv=Decimal("1000"), elapsed_ratio=0.6)
         self.assertEqual("BEHIND", pace["status"])
         self.assertAlmostEqual(-0.2, pace["pace_gap"])
+
+    def test_inventory_signal_detects_stockout_risk(self):
+        signal = inventory_signal(available_units=20, demand_per_hour=10, replenishment_hours=5)
+        self.assertEqual("STOCKOUT_RISK", signal["status"])
+        self.assertEqual(2.0, signal["coverage_hours"])

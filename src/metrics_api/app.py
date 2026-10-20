@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, inventory_signal, product_alerts, product_contribution, resource_plan
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -571,6 +571,14 @@ def create_app(
         elapsed_ratio: Annotated[float, Query(gt=0, le=1)],
     ) -> dict[str, object]:
         return campaign_pacing(current_gmv=current_gmv, target_gmv=target_gmv, elapsed_ratio=elapsed_ratio)
+
+    @app.get("/api/v3/operations/inventory-signal", tags=["operations"])
+    def commerce_inventory_signal(
+        available_units: Annotated[int, Query(ge=0)],
+        demand_per_hour: Annotated[float, Query(ge=0)],
+        replenishment_hours: Annotated[float, Query(ge=0)],
+    ) -> dict[str, object]:
+        return inventory_signal(available_units=available_units, demand_per_hour=demand_per_hour, replenishment_hours=replenishment_hours)
 
     @app.get(
         "/api/v1/anomalies/summary",

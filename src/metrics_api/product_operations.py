@@ -73,3 +73,22 @@ def campaign_pacing(*, current_gmv: Decimal, target_gmv: Decimal,
     return {"current_gmv": f"{current_gmv:.2f}", "target_gmv": f"{target_gmv:.2f}",
             "progress_ratio": progress, "elapsed_ratio": elapsed_ratio,
             "pace_gap": gap, "status": status}
+
+
+def inventory_signal(*, available_units: int, demand_per_hour: float,
+                     replenishment_hours: float) -> dict[str, Any]:
+    """Estimate stock coverage from live demand without mutating inventory."""
+    if available_units < 0 or demand_per_hour < 0 or replenishment_hours < 0:
+        raise ValueError("inventory inputs cannot be negative")
+    coverage = None if demand_per_hour == 0 else available_units / demand_per_hour
+    if coverage is None:
+        status = "NO_DEMAND"
+    elif coverage < replenishment_hours:
+        status = "STOCKOUT_RISK"
+    elif coverage < replenishment_hours * 1.5:
+        status = "REPLENISH_SOON"
+    else:
+        status = "HEALTHY"
+    return {"available_units": available_units, "demand_per_hour": demand_per_hour,
+            "coverage_hours": coverage, "replenishment_hours": replenishment_hours,
+            "status": status}

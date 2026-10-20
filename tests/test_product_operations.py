@@ -1,6 +1,8 @@
 import unittest
 
-from metrics_api.product_operations import command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
+from decimal import Decimal
+
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -32,3 +34,8 @@ class ProductOperationsTests(unittest.TestCase):
         snapshot = command_center([{"name": "a", "gmv": "150", "order_count": 3}], [{"name": "a", "gmv": "100"}])
         self.assertEqual("150.00", snapshot["total_gmv"])
         self.assertEqual("ATTENTION", snapshot["operating_status"])
+
+    def test_campaign_pacing_highlights_behind_target(self):
+        pace = campaign_pacing(current_gmv=Decimal("400"), target_gmv=Decimal("1000"), elapsed_ratio=0.6)
+        self.assertEqual("BEHIND", pace["status"])
+        self.assertAlmostEqual(-0.2, pace["pace_gap"])

@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import campaign_pacing, command_center, compare_product_windows, product_alerts, product_contribution, resource_plan
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -563,6 +563,14 @@ def create_app(
         current = metrics_repository.fetch_product_breakdown(start=start, end=end, category=None, dimension="sku", limit=50)
         baseline = metrics_repository.fetch_product_breakdown(start=start - DEFAULT_RANGE, end=start, category=None, dimension="sku", limit=50)
         return {"generated_at": end, **command_center(current, baseline)}
+
+    @app.get("/api/v3/operations/campaign-pacing", tags=["operations"])
+    def commerce_campaign_pacing(
+        current_gmv: Annotated[Decimal, Query(ge=0)],
+        target_gmv: Annotated[Decimal, Query(gt=0)],
+        elapsed_ratio: Annotated[float, Query(gt=0, le=1)],
+    ) -> dict[str, object]:
+        return campaign_pacing(current_gmv=current_gmv, target_gmv=target_gmv, elapsed_ratio=elapsed_ratio)
 
     @app.get(
         "/api/v1/anomalies/summary",

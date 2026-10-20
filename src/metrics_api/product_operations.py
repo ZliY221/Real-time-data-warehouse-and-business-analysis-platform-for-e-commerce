@@ -60,3 +60,16 @@ def command_center(current: list[dict[str, Any]], baseline: list[dict[str, Any]]
     return {"product_count": len(current), "total_gmv": f"{total_gmv:.2f}",
             "alert_count": len(alerts), "top_contributors": contributions[:3],
             "alerts": alerts, "operating_status": "ATTENTION" if alerts else "STABLE"}
+
+
+def campaign_pacing(*, current_gmv: Decimal, target_gmv: Decimal,
+                    elapsed_ratio: float) -> dict[str, Any]:
+    """Compare live campaign progress with the expected time pace."""
+    if target_gmv <= 0 or current_gmv < 0 or not 0 < elapsed_ratio <= 1:
+        raise ValueError("target must be positive, current non-negative and elapsed ratio in (0, 1]")
+    progress = float(current_gmv / target_gmv)
+    gap = progress - elapsed_ratio
+    status = "AHEAD" if gap >= 0.05 else "BEHIND" if gap <= -0.05 else "ON_PACE"
+    return {"current_gmv": f"{current_gmv:.2f}", "target_gmv": f"{target_gmv:.2f}",
+            "progress_ratio": progress, "elapsed_ratio": elapsed_ratio,
+            "pace_gap": gap, "status": status}

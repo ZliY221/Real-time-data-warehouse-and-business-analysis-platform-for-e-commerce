@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan, shift_handoff
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -64,3 +64,8 @@ class ProductOperationsTests(unittest.TestCase):
         result = campaign_guardrail(discount_rate=0.2, inventory_status="STOCKOUT_RISK", campaign_status="ON_PACE")
         self.assertEqual("BLOCKED", result["launch_status"])
         self.assertEqual(1, len(result["blockers"]))
+
+    def test_shift_handoff_combines_pending_actions(self):
+        result = shift_handoff(alert_count=4, unacknowledged_count=2, campaign_status="BEHIND", inventory_status="REPLENISH_SOON")
+        self.assertEqual("ACTION_REQUIRED", result["handoff_status"])
+        self.assertEqual(3, len(result["actions"]))

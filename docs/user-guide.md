@@ -122,4 +122,6 @@ docker compose up -d
 
 `GET /api/v3/operations/campaign-guardrail` 在活动发布前检查折扣比例、库存风险和活动进度。存在高折扣、缺货风险或落后情况下继续加大折扣时返回 `BLOCKED` 及具体原因。
 
+`GET /api/v3/operations/shift-handoff` 将未确认商品告警、活动进度和库存状态整理成换班行动清单。交接人员可按返回顺序继续处理，不需要重新组合多个页面信息。
+
 仓库内样例数据均为合成数据。运行产物写入 `build/`，不应将业务凭据、个人数据或生产连接信息提交到仓库。

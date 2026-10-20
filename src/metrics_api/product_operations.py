@@ -152,3 +152,22 @@ def campaign_guardrail(*, discount_rate: float, inventory_status: str,
     return {"discount_rate": discount_rate, "inventory_status": inventory_status,
             "campaign_status": campaign_status, "blockers": blockers,
             "launch_status": "BLOCKED" if blockers else "READY"}
+
+
+def shift_handoff(*, alert_count: int, unacknowledged_count: int,
+                  campaign_status: str, inventory_status: str) -> dict[str, Any]:
+    """Create a concise commerce operations handoff summary."""
+    if alert_count < 0 or unacknowledged_count < 0 or unacknowledged_count > alert_count:
+        raise ValueError("handoff alert counts are invalid")
+    actions = []
+    if unacknowledged_count:
+        actions.append("Acknowledge remaining product alerts")
+    if inventory_status in {"STOCKOUT_RISK", "REPLENISH_SOON"}:
+        actions.append("Review replenishment plan")
+    if campaign_status == "BEHIND":
+        actions.append("Review campaign conversion and placement")
+    if not actions:
+        actions.append("Continue realtime monitoring")
+    return {"alert_count": alert_count, "unacknowledged_count": unacknowledged_count,
+            "campaign_status": campaign_status, "inventory_status": inventory_status,
+            "actions": actions, "handoff_status": "ACTION_REQUIRED" if len(actions) > 1 or unacknowledged_count else "MONITOR"}

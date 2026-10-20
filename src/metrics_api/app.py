@@ -50,7 +50,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -615,6 +615,17 @@ def create_app(
         campaign_status: Annotated[Literal["AHEAD", "ON_PACE", "BEHIND"], Query()],
     ) -> dict[str, object]:
         return campaign_guardrail(discount_rate=discount_rate, inventory_status=inventory_status, campaign_status=campaign_status)
+
+    @app.get("/api/v3/operations/shift-handoff", tags=["operations"])
+    def commerce_shift_handoff(
+        alert_count: Annotated[int, Query(ge=0)], unacknowledged_count: Annotated[int, Query(ge=0)],
+        campaign_status: Annotated[Literal["AHEAD", "ON_PACE", "BEHIND"], Query()],
+        inventory_status: Annotated[Literal["HEALTHY", "REPLENISH_SOON", "STOCKOUT_RISK", "NO_DEMAND"], Query()],
+    ) -> dict[str, object]:
+        try:
+            return shift_handoff(alert_count=alert_count, unacknowledged_count=unacknowledged_count, campaign_status=campaign_status, inventory_status=inventory_status)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.get(
         "/api/v1/anomalies/summary",

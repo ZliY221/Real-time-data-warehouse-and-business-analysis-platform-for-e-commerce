@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan, shift_handoff
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, shift_handoff
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -69,3 +69,13 @@ class ProductOperationsTests(unittest.TestCase):
         result = shift_handoff(alert_count=4, unacknowledged_count=2, campaign_status="BEHIND", inventory_status="REPLENISH_SOON")
         self.assertEqual("ACTION_REQUIRED", result["handoff_status"])
         self.assertEqual(3, len(result["actions"]))
+
+    def test_promotion_margin_blocks_unprofitable_discount(self):
+        result = promotion_margin_guardrail(
+            selling_price=Decimal("100"), unit_cost=Decimal("62"),
+            discount_rate=0.30, shipping_subsidy=Decimal("5"),
+            expected_return_rate=0.10, minimum_margin_rate=0.10,
+        )
+        self.assertEqual("BLOCKED", result["status"])
+        self.assertLess(result["maximum_safe_discount_rate"], 0.30)
+        self.assertEqual(1, len(result["reasons"]))

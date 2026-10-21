@@ -171,3 +171,39 @@ def shift_handoff(*, alert_count: int, unacknowledged_count: int,
     return {"alert_count": alert_count, "unacknowledged_count": unacknowledged_count,
             "campaign_status": campaign_status, "inventory_status": inventory_status,
             "actions": actions, "handoff_status": "ACTION_REQUIRED" if len(actions) > 1 or unacknowledged_count else "MONITOR"}
+
+
+def promotion_margin_guardrail(*, selling_price: Decimal, unit_cost: Decimal,
+                               discount_rate: float, shipping_subsidy: Decimal,
+                               expected_return_rate: float,
+                               minimum_margin_rate: float = 0.1) -> dict[str, Any]:
+    """Protect contribution margin after discount, subsidy and expected returns."""
+    if selling_price <= 0 or unit_cost < 0 or shipping_subsidy < 0:
+        raise ValueError("price must be positive and costs cannot be negative")
+    if not 0 <= discount_rate < 1 or not 0 <= expected_return_rate < 1:
+        raise ValueError("discount and return rates must be in [0, 1)")
+    if not 0 <= minimum_margin_rate < 1:
+        raise ValueError("minimum_margin_rate must be in [0, 1)")
+    discounted_price = selling_price * (Decimal("1") - Decimal(str(discount_rate)))
+    expected_revenue = discounted_price * (Decimal("1") - Decimal(str(expected_return_rate)))
+    contribution = expected_revenue - unit_cost - shipping_subsidy
+    margin_rate = contribution / expected_revenue if expected_revenue else Decimal("-1")
+    required_revenue = (unit_cost + shipping_subsidy) / (Decimal("1") - Decimal(str(minimum_margin_rate)))
+    denominator = selling_price * (Decimal("1") - Decimal(str(expected_return_rate)))
+    maximum_discount = Decimal("1") - required_revenue / denominator if denominator else Decimal("0")
+    maximum_discount = max(Decimal("0"), min(Decimal("0.99"), maximum_discount))
+    floor = Decimal(str(minimum_margin_rate))
+    status = "BLOCKED" if contribution < 0 or margin_rate < floor else "REVIEW" if margin_rate < floor + Decimal("0.05") else "READY"
+    reasons = []
+    if contribution < 0:
+        reasons.append("expected contribution margin is negative")
+    elif margin_rate < floor:
+        reasons.append("expected margin rate is below the configured floor")
+    return {"selling_price": f"{selling_price:.2f}",
+            "discounted_price": f"{discounted_price:.2f}",
+            "expected_realized_revenue": f"{expected_revenue:.2f}",
+            "expected_contribution": f"{contribution:.2f}",
+            "expected_margin_rate": float(margin_rate),
+            "minimum_margin_rate": minimum_margin_rate,
+            "maximum_safe_discount_rate": float(maximum_discount),
+            "status": status, "reasons": reasons}

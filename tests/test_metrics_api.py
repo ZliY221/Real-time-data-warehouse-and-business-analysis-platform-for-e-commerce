@@ -618,6 +618,16 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("live-refresh-toggle", page.text)
         self.assertIn("autoRefreshCountdown", script.text)
 
+    def test_promotion_margin_guardrail_is_exposed(self) -> None:
+        response = self.client.get("/api/v3/operations/promotion-margin", params={
+            "selling_price": "100", "unit_cost": "62", "discount_rate": "0.30",
+            "shipping_subsidy": "5", "expected_return_rate": "0.10",
+            "minimum_margin_rate": "0.10",
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("BLOCKED", response.json()["status"])
+        self.assertLess(response.json()["maximum_safe_discount_rate"], 0.30)
+
 
 if __name__ == "__main__":
     unittest.main()

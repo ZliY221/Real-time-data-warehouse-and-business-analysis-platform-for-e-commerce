@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 import sqlite3
+import tomllib
 from threading import Lock
 from typing import Annotated, Literal
 
@@ -50,7 +51,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, resource_plan, shift_handoff
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -63,6 +64,8 @@ BUCKET_SECONDS: dict[ResolvedTimeBucket, int] = {
 }
 DASHBOARD_DIRECTORY = Path(__file__).resolve().parents[2] / "dashboard" / "static"
 DEFAULT_ASSET_CATALOG = Path(__file__).resolve().parents[2] / "config" / "data-assets.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_VERSION = str(tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
 DASHBOARD_SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; "
@@ -151,7 +154,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(
         title="Ecommerce Realtime Metrics API",
-        version="2.14.0",
+        version=PROJECT_VERSION,
         description="Read-only API for verified minute metrics stored in ClickHouse.",
     )
     app.state.repository = repository or ClickHouseHttpRepository(
@@ -626,6 +629,22 @@ def create_app(
             return shift_handoff(alert_count=alert_count, unacknowledged_count=unacknowledged_count, campaign_status=campaign_status, inventory_status=inventory_status)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.get("/api/v3/operations/promotion-margin", tags=["operations"])
+    def commerce_promotion_margin(
+        selling_price: Annotated[Decimal, Query(gt=0)],
+        unit_cost: Annotated[Decimal, Query(ge=0)],
+        discount_rate: Annotated[float, Query(ge=0, lt=1)],
+        shipping_subsidy: Annotated[Decimal, Query(ge=0)] = Decimal("0"),
+        expected_return_rate: Annotated[float, Query(ge=0, lt=1)] = 0,
+        minimum_margin_rate: Annotated[float, Query(ge=0, lt=1)] = 0.1,
+    ) -> dict[str, object]:
+        return promotion_margin_guardrail(
+            selling_price=selling_price, unit_cost=unit_cost,
+            discount_rate=discount_rate, shipping_subsidy=shipping_subsidy,
+            expected_return_rate=expected_return_rate,
+            minimum_margin_rate=minimum_margin_rate,
+        )
 
     @app.get(
         "/api/v1/anomalies/summary",

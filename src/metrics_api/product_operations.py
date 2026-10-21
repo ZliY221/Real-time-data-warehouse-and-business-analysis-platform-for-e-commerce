@@ -244,3 +244,45 @@ def return_capacity_signal(*, orders: int, return_requests: int,
             "available_capacity": capacity, "forecast_backlog": forecast_backlog,
             "recommended_additional_capacity_per_hour": max(0, required_rate - handling_rate_per_hour),
             "status": status}
+
+
+def fulfillment_promise_signal(*, orders_due_today: int, already_shipped: int,
+                               packing_backlog: int, packing_rate_per_hour: int,
+                               carrier_remaining_capacity: int,
+                               hours_to_cutoff: float) -> dict[str, Any]:
+    """Forecast whether today's remaining orders can meet the shipping cutoff."""
+    values = (orders_due_today, already_shipped, packing_backlog,
+              packing_rate_per_hour, carrier_remaining_capacity)
+    if min(values) < 0 or already_shipped > orders_due_today:
+        raise ValueError("fulfillment counts are invalid")
+    if packing_rate_per_hour < 1 or hours_to_cutoff < 0 or hours_to_cutoff > 24:
+        raise ValueError("packing rate or cutoff horizon is invalid")
+    remaining_due = orders_due_today - already_shipped
+    packing_capacity = int(packing_rate_per_hour * hours_to_cutoff)
+    packable_orders = min(packing_backlog, packing_capacity)
+    shippable_orders = min(packable_orders, carrier_remaining_capacity)
+    shortfall = max(0, remaining_due - shippable_orders)
+    packing_gap = max(0, remaining_due - packing_capacity)
+    carrier_gap = max(0, remaining_due - carrier_remaining_capacity)
+    if packing_gap and carrier_gap:
+        bottleneck = "PACKING_AND_CARRIER"
+    elif packing_gap:
+        bottleneck = "PACKING"
+    elif carrier_gap:
+        bottleneck = "CARRIER"
+    elif shortfall:
+        bottleneck = "ORDER_READINESS"
+    else:
+        bottleneck = "NONE"
+    status = "CUTOFF_RISK" if shortfall and hours_to_cutoff <= 1 else (
+        "CAPACITY_GAP" if shortfall else "PROMISE_READY"
+    )
+    required_rate = ceil(remaining_due / hours_to_cutoff) if remaining_due and hours_to_cutoff else 0
+    return {"orders_due_today": orders_due_today, "already_shipped": already_shipped,
+            "remaining_due": remaining_due, "packing_backlog": packing_backlog,
+            "hours_to_cutoff": hours_to_cutoff, "packing_capacity": packing_capacity,
+            "carrier_remaining_capacity": carrier_remaining_capacity,
+            "forecast_shippable_orders": shippable_orders,
+            "promise_shortfall": shortfall, "bottleneck": bottleneck,
+            "recommended_additional_packing_rate": max(0, required_rate - packing_rate_per_hour),
+            "status": status}

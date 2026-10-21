@@ -51,7 +51,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -661,6 +661,22 @@ def create_app(
             processed_returns=processed_returns, existing_backlog=existing_backlog,
             handling_rate_per_hour=handling_rate_per_hour,
             horizon_hours=horizon_hours, return_rate_threshold=return_rate_threshold,
+        )
+
+    @app.get("/api/v3/operations/fulfillment-promise", tags=["operations"])
+    def commerce_fulfillment_promise(
+        orders_due_today: Annotated[int, Query(ge=0)],
+        already_shipped: Annotated[int, Query(ge=0)],
+        packing_backlog: Annotated[int, Query(ge=0)],
+        packing_rate_per_hour: Annotated[int, Query(ge=1)],
+        carrier_remaining_capacity: Annotated[int, Query(ge=0)],
+        hours_to_cutoff: Annotated[float, Query(ge=0, le=24)],
+    ) -> dict[str, object]:
+        return fulfillment_promise_signal(
+            orders_due_today=orders_due_today, already_shipped=already_shipped,
+            packing_backlog=packing_backlog, packing_rate_per_hour=packing_rate_per_hour,
+            carrier_remaining_capacity=carrier_remaining_capacity,
+            hours_to_cutoff=hours_to_cutoff,
         )
 
     @app.get(

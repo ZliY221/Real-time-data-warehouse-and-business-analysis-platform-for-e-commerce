@@ -638,6 +638,16 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("SURGE_CAPACITY_GAP", response.json()["status"])
         self.assertEqual(120, response.json()["forecast_backlog"])
 
+    def test_fulfillment_promise_signal_is_exposed(self) -> None:
+        response = self.client.get("/api/v3/operations/fulfillment-promise", params={
+            "orders_due_today": 500, "already_shipped": 100,
+            "packing_backlog": 450, "packing_rate_per_hour": 100,
+            "carrier_remaining_capacity": 250, "hours_to_cutoff": 0.5,
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("CUTOFF_RISK", response.json()["status"])
+        self.assertEqual(350, response.json()["promise_shortfall"])
+
 
 if __name__ == "__main__":
     unittest.main()

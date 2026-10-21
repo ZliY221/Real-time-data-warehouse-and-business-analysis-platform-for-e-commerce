@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -88,3 +88,13 @@ class ProductOperationsTests(unittest.TestCase):
         self.assertEqual("SURGE_CAPACITY_GAP", result["status"])
         self.assertEqual(120, result["forecast_backlog"])
         self.assertEqual(15, result["recommended_additional_capacity_per_hour"])
+
+    def test_fulfillment_promise_exposes_packing_and_carrier_gap(self):
+        result = fulfillment_promise_signal(
+            orders_due_today=500, already_shipped=100, packing_backlog=450,
+            packing_rate_per_hour=100, carrier_remaining_capacity=250,
+            hours_to_cutoff=2,
+        )
+        self.assertEqual("CAPACITY_GAP", result["status"])
+        self.assertEqual("PACKING_AND_CARRIER", result["bottleneck"])
+        self.assertEqual(200, result["promise_shortfall"])

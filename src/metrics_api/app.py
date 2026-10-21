@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict, Field
 
 from data_quality.history import QualityHistoryReader, QualityHistoryStore
 from metrics_api.config import ApiSettings
@@ -51,7 +52,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import FulfillmentNode, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -82,6 +83,21 @@ DASHBOARD_SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
 }
+
+
+class FulfillmentNodeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    node: str = Field(min_length=1, max_length=80)
+    available_units: int = Field(ge=0)
+    packing_rate_per_hour: int = Field(ge=1)
+    carrier_capacity: int = Field(ge=0)
+    hours_to_cutoff: float = Field(ge=0, le=24)
+
+
+class FulfillmentAllocationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    order_count: int = Field(ge=0)
+    nodes: list[FulfillmentNodeInput] = Field(min_length=1, max_length=100)
 
 
 def _utc(value: datetime) -> datetime:
@@ -677,6 +693,15 @@ def create_app(
             packing_backlog=packing_backlog, packing_rate_per_hour=packing_rate_per_hour,
             carrier_remaining_capacity=carrier_remaining_capacity,
             hours_to_cutoff=hours_to_cutoff,
+        )
+
+    @app.post("/api/v4/operations/fulfillment-allocation", tags=["operations"])
+    def commerce_fulfillment_allocation(
+        payload: FulfillmentAllocationInput,
+    ) -> dict[str, object]:
+        return allocate_fulfillment_demand(
+            order_count=payload.order_count,
+            nodes=[FulfillmentNode(**item.model_dump()) for item in payload.nodes],
         )
 
     @app.get(

@@ -648,6 +648,22 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("CUTOFF_RISK", response.json()["status"])
         self.assertEqual(350, response.json()["promise_shortfall"])
 
+    def test_v4_fulfillment_allocation_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/fulfillment-allocation", json={
+            "order_count": 220,
+            "nodes": [
+                {"node": "north", "available_units": 200,
+                 "packing_rate_per_hour": 100, "carrier_capacity": 150,
+                 "hours_to_cutoff": 2},
+                {"node": "south", "available_units": 100,
+                 "packing_rate_per_hour": 30, "carrier_capacity": 80,
+                 "hours_to_cutoff": 2},
+            ],
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("PARTIAL", response.json()["status"])
+        self.assertEqual(10, response.json()["unallocated_orders"])
+
 
 if __name__ == "__main__":
     unittest.main()

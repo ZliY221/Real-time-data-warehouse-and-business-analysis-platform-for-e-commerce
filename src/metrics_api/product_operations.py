@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from dataclasses import dataclass
 from math import ceil
 from typing import Any
+
+
+@dataclass(frozen=True)
+class FulfillmentNode:
+    node: str
+    available_units: int
+    packing_rate_per_hour: int
+    carrier_capacity: int
+    hours_to_cutoff: float
 
 
 def compare_product_windows(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -286,3 +296,48 @@ def fulfillment_promise_signal(*, orders_due_today: int, already_shipped: int,
             "promise_shortfall": shortfall, "bottleneck": bottleneck,
             "recommended_additional_packing_rate": max(0, required_rate - packing_rate_per_hour),
             "status": status}
+
+
+def allocate_fulfillment_demand(*, order_count: int,
+                                nodes: list[FulfillmentNode]) -> dict[str, Any]:
+    """Allocate due orders across fulfillment nodes by safe same-window capacity."""
+    if order_count < 0 or not nodes:
+        raise ValueError("order count and fulfillment nodes are required")
+    names = [item.node.strip() for item in nodes]
+    if (any(not name for name in names)
+            or any(item.node != item.node.strip() for item in nodes)
+            or len(set(names)) != len(names)):
+        raise ValueError("fulfillment node names must be non-empty and unique")
+    for item in nodes:
+        if min(item.available_units, item.packing_rate_per_hour, item.carrier_capacity) < 0:
+            raise ValueError("node capacities cannot be negative")
+        if item.packing_rate_per_hour < 1 or not 0 <= item.hours_to_cutoff <= 24:
+            raise ValueError("node packing rate or cutoff horizon is invalid")
+
+    ranked = []
+    for item in nodes:
+        packing_capacity = int(item.packing_rate_per_hour * item.hours_to_cutoff)
+        safe_capacity = min(item.available_units, packing_capacity, item.carrier_capacity)
+        ranked.append((item, packing_capacity, safe_capacity))
+    ranked.sort(key=lambda row: (-row[2], row[0].node))
+
+    remaining = order_count
+    allocations = []
+    for item, packing_capacity, safe_capacity in ranked:
+        allocated = min(remaining, safe_capacity)
+        remaining -= allocated
+        constraints = []
+        if item.available_units == safe_capacity:
+            constraints.append("INVENTORY")
+        if packing_capacity == safe_capacity:
+            constraints.append("PACKING")
+        if item.carrier_capacity == safe_capacity:
+            constraints.append("CARRIER")
+        allocations.append({"node": item.node, "allocated_orders": allocated,
+                            "safe_capacity": safe_capacity,
+                            "unused_capacity": safe_capacity - allocated,
+                            "constraints": constraints})
+    status = "ALLOCATED" if not remaining else "PARTIAL" if remaining < order_count else "BLOCKED"
+    return {"order_count": order_count, "allocated_orders": order_count - remaining,
+            "unallocated_orders": remaining, "status": status,
+            "allocations": allocations, "dispatch_started": False}

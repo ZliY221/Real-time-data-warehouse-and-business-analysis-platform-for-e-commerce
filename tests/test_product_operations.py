@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import FulfillmentNode, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -98,3 +98,14 @@ class ProductOperationsTests(unittest.TestCase):
         self.assertEqual("CAPACITY_GAP", result["status"])
         self.assertEqual("PACKING_AND_CARRIER", result["bottleneck"])
         self.assertEqual(200, result["promise_shortfall"])
+
+    def test_fulfillment_allocation_routes_orders_across_nodes(self):
+        result = allocate_fulfillment_demand(order_count=220, nodes=[
+            FulfillmentNode("north", 200, 100, 150, 2),
+            FulfillmentNode("south", 100, 30, 80, 2),
+        ])
+        self.assertEqual("PARTIAL", result["status"])
+        self.assertEqual(210, result["allocated_orders"])
+        self.assertEqual(10, result["unallocated_orders"])
+        self.assertEqual("north", result["allocations"][0]["node"])
+        self.assertFalse(result["dispatch_started"])

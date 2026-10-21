@@ -2,7 +2,7 @@ import unittest
 
 from decimal import Decimal
 
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, shift_handoff
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 
 class ProductOperationsTests(unittest.TestCase):
@@ -79,3 +79,12 @@ class ProductOperationsTests(unittest.TestCase):
         self.assertEqual("BLOCKED", result["status"])
         self.assertLess(result["maximum_safe_discount_rate"], 0.30)
         self.assertEqual(1, len(result["reasons"]))
+
+    def test_return_capacity_exposes_surge_and_backlog(self):
+        result = return_capacity_signal(
+            orders=1000, return_requests=200, processed_returns=20,
+            existing_backlog=100, handling_rate_per_hour=20, horizon_hours=8,
+        )
+        self.assertEqual("SURGE_CAPACITY_GAP", result["status"])
+        self.assertEqual(120, result["forecast_backlog"])
+        self.assertEqual(15, result["recommended_additional_capacity_per_hour"])

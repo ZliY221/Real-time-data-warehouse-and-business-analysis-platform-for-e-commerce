@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from math import ceil
 from typing import Any
 
 
@@ -207,3 +208,39 @@ def promotion_margin_guardrail(*, selling_price: Decimal, unit_cost: Decimal,
             "minimum_margin_rate": minimum_margin_rate,
             "maximum_safe_discount_rate": float(maximum_discount),
             "status": status, "reasons": reasons}
+
+
+def return_capacity_signal(*, orders: int, return_requests: int,
+                           processed_returns: int, existing_backlog: int,
+                           handling_rate_per_hour: int, horizon_hours: int = 8,
+                           return_rate_threshold: float = 0.15) -> dict[str, Any]:
+    """Forecast reverse-logistics capacity from a live return window."""
+    if min(orders, return_requests, processed_returns, existing_backlog, handling_rate_per_hour) < 0:
+        raise ValueError("return capacity inputs cannot be negative")
+    if handling_rate_per_hour < 1 or horizon_hours < 1 or horizon_hours > 168:
+        raise ValueError("handling rate and horizon are invalid")
+    if not 0 < return_rate_threshold <= 1:
+        raise ValueError("return_rate_threshold must be in (0, 1]")
+    workload = existing_backlog + return_requests
+    completed = min(processed_returns, workload)
+    pending = workload - completed
+    capacity = handling_rate_per_hour * horizon_hours
+    forecast_backlog = max(0, pending - capacity)
+    return_rate = return_requests / orders if orders else (1.0 if return_requests else 0.0)
+    surge = return_rate >= return_rate_threshold
+    if surge and forecast_backlog:
+        status = "SURGE_CAPACITY_GAP"
+    elif forecast_backlog:
+        status = "CAPACITY_GAP"
+    elif surge:
+        status = "RETURN_SURGE"
+    else:
+        status = "HEALTHY"
+    required_rate = ceil(pending / horizon_hours) if pending else 0
+    return {"orders": orders, "return_requests": return_requests,
+            "return_rate": return_rate, "return_rate_threshold": return_rate_threshold,
+            "existing_backlog": existing_backlog, "processed_returns": completed,
+            "pending_returns": pending, "horizon_hours": horizon_hours,
+            "available_capacity": capacity, "forecast_backlog": forecast_backlog,
+            "recommended_additional_capacity_per_hour": max(0, required_rate - handling_rate_per_hour),
+            "status": status}

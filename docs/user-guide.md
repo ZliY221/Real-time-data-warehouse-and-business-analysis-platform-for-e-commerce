@@ -1,6 +1,6 @@
 # 用户使用指南
 
-适用版本：`v3.8.0`
+适用版本：`v3.9.0`
 
 本指南随项目版本同步更新，介绍当前版本可直接使用的入口、功能和输出位置。首次使用建议先阅读仓库首页的项目简介、架构和常用入口，再按本指南完成运行。
 
@@ -131,3 +131,7 @@ docker compose up -d
 调用 `GET /api/v3/operations/promotion-margin`，传入原价 `selling_price`、单位成本 `unit_cost`、折扣率 `discount_rate`，并可加入运费补贴 `shipping_subsidy`、预期退货率 `expected_return_rate` 和最低毛利率 `minimum_margin_rate`。接口返回折后价、预期实际收入、贡献毛利、毛利率以及最大安全折扣率。
 
 `READY` 表示预计毛利高于保护线，`REVIEW` 表示接近保护线，`BLOCKED` 表示预计亏损或低于最低毛利要求。该结果用于活动上线前的经营复核，不替代财务结算，也不直接修改商品价格。
+
+## v3.9.0 退货处理容量预测
+
+调用 `GET /api/v3/operations/return-capacity`，传入订单量、当前退货请求、已处理数量、历史积压、每小时处理能力和班次时长。接口会计算实时退货率、班次可用容量、预计剩余积压和建议补充的小时处理能力。`RETURN_SURGE` 表示退货比例异常但现有产能可消化，`CAPACITY_GAP` 表示普通积压超出容量，`SURGE_CAPACITY_GAP` 表示退货激增且产能不足，应同时排查商品质量并调整逆向物流班次。

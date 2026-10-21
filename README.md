@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v3.8.0-b8325d)
+![Version](https://img.shields.io/badge/version-v3.9.0-b8325d)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -145,4 +145,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v3.8.0`。实时经营指挥台新增促销毛利保护，联合折扣、成本、运费补贴与预期退货损耗评估利润风险和安全折扣上限。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v3.9.0`。实时经营指挥台新增退货处理容量预测，联合退货率、历史积压和班次能力识别逆向物流风险。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

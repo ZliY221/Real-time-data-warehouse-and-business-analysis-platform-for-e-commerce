@@ -51,7 +51,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, shift_handoff
+from metrics_api.product_operations import alert_acknowledgement, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -644,6 +644,23 @@ def create_app(
             discount_rate=discount_rate, shipping_subsidy=shipping_subsidy,
             expected_return_rate=expected_return_rate,
             minimum_margin_rate=minimum_margin_rate,
+        )
+
+    @app.get("/api/v3/operations/return-capacity", tags=["operations"])
+    def commerce_return_capacity(
+        orders: Annotated[int, Query(ge=0)],
+        return_requests: Annotated[int, Query(ge=0)],
+        processed_returns: Annotated[int, Query(ge=0)],
+        existing_backlog: Annotated[int, Query(ge=0)],
+        handling_rate_per_hour: Annotated[int, Query(ge=1)],
+        horizon_hours: Annotated[int, Query(ge=1, le=168)] = 8,
+        return_rate_threshold: Annotated[float, Query(gt=0, le=1)] = 0.15,
+    ) -> dict[str, object]:
+        return return_capacity_signal(
+            orders=orders, return_requests=return_requests,
+            processed_returns=processed_returns, existing_backlog=existing_backlog,
+            handling_rate_per_hour=handling_rate_per_hour,
+            horizon_hours=horizon_hours, return_rate_threshold=return_rate_threshold,
         )
 
     @app.get(

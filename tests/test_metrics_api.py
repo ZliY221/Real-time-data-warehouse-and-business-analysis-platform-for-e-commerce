@@ -628,6 +628,16 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("BLOCKED", response.json()["status"])
         self.assertLess(response.json()["maximum_safe_discount_rate"], 0.30)
 
+    def test_return_capacity_signal_is_exposed(self) -> None:
+        response = self.client.get("/api/v3/operations/return-capacity", params={
+            "orders": 1000, "return_requests": 200, "processed_returns": 20,
+            "existing_backlog": 100, "handling_rate_per_hour": 20,
+            "horizon_hours": 8,
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("SURGE_CAPACITY_GAP", response.json()["status"])
+        self.assertEqual(120, response.json()["forecast_backlog"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v4.1.0-b8325d)
+![Version](https://img.shields.io/badge/version-v4.2.0-b8325d)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -145,4 +145,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v4.1.0`。实时经营指挥台新增履约节点库存再平衡，联合预测需求、安全库存和双向调拨容量生成可审查的跨仓建议。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v4.2.0`。实时经营指挥台新增拆单合并窗口决策，结合待齐商品、打包时间和承运截单时间减少可避免的多包裹发货。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

@@ -1,6 +1,6 @@
 # 用户使用指南
 
-适用版本：`v4.1.0`
+适用版本：`v4.2.0`
 
 本指南随项目版本同步更新，介绍当前版本可直接使用的入口、功能和输出位置。首次使用建议先阅读仓库首页的项目简介、架构和常用入口，再按本指南完成运行。
 
@@ -147,3 +147,7 @@ docker compose up -d
 ## v4.1.0 库存再平衡
 
 调用 `POST /api/v4/operations/inventory-rebalancing`，提交各履约节点的可用库存、预测需求、安全库存、最大调出量和最大调入量。系统只将满足需求和安全库存后的剩余库存视为可调出量，优先补充缺口更大的节点，并同时遵守两端容量限制。`BALANCED` 表示计划可消除全部预测缺口，`PARTIAL` 表示调拨后仍有缺口，`GAP` 表示当前没有可行调拨来源，`NO_TRANSFER_NEEDED` 表示各节点已满足需求。`transfer_started=false` 表示接口不会自动生成仓间任务。
+
+## v4.2.0 拆单合并窗口
+
+调用 `POST /api/v4/operations/shipment-consolidation`，提交允许等待的最长分钟数，以及每个订单的商品总数、当前可用商品数、下一件商品预计到齐时间、承运截单剩余时间和打包耗时。接口以“截单剩余时间减打包耗时”计算安全等待窗口：可在用户设定窗口内齐货时返回 `CONSOLIDATE`；等待会影响截单时返回 `SHIP_AVAILABLE_NOW`；全部商品已齐返回 `SHIP_COMPLETE`；尚无可发商品返回 `HOLD_FOR_STOCK`。`packages_avoided` 用于衡量建议收益，`shipment_changes_started=false` 表示结果不会自动修改订单或仓库任务。

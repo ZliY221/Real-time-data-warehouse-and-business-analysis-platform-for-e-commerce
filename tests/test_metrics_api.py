@@ -680,6 +680,20 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual(30, response.json()["planned_transfer_units"])
         self.assertFalse(response.json()["transfer_started"])
 
+    def test_v4_shipment_consolidation_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/shipment-consolidation", json={
+            "maximum_wait_minutes": 60,
+            "orders": [
+                {"order_id": "order-1", "total_items": 3, "available_items": 2,
+                 "next_item_ready_minutes": 30, "carrier_cutoff_minutes": 180,
+                 "packing_minutes": 20},
+            ],
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("CONSOLIDATE", response.json()["orders"][0]["action"])
+        self.assertEqual(1, response.json()["packages_avoided"])
+        self.assertFalse(response.json()["shipment_changes_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

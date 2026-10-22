@@ -27,6 +27,16 @@ class InventoryNode:
     inbound_transfer_capacity: int
 
 
+@dataclass(frozen=True)
+class ShipmentCandidate:
+    order_id: str
+    total_items: int
+    available_items: int
+    next_item_ready_minutes: int
+    carrier_cutoff_minutes: int
+    packing_minutes: int
+
+
 def compare_product_windows(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return deterministic GMV deltas for matching product dimensions."""
     previous = {str(item["name"]): Decimal(str(item["gmv"])) for item in baseline}
@@ -404,3 +414,49 @@ def plan_inventory_rebalancing(nodes: list[InventoryNode]) -> dict[str, Any]:
             "planned_transfer_units": moved,
             "residual_deficit_units": residual_deficit,
             "transfers": transfers, "transfer_started": False}
+
+
+def plan_shipment_consolidation(candidates: list[ShipmentCandidate], *,
+                                maximum_wait_minutes: int) -> dict[str, Any]:
+    """Plan a bounded consolidation window without changing shipments."""
+    if not candidates or maximum_wait_minutes < 0 or maximum_wait_minutes > 1440:
+        raise ValueError("shipment candidates and a valid wait window are required")
+    order_ids = [item.order_id.strip() for item in candidates]
+    if (any(not order_id for order_id in order_ids)
+            or any(item.order_id != item.order_id.strip() for item in candidates)
+            or len(order_ids) != len(set(order_ids))):
+        raise ValueError("order ids must be non-empty and unique")
+    orders = []
+    packages_avoided = 0
+    for item in sorted(candidates, key=lambda row: row.order_id):
+        if (item.total_items < 1 or item.available_items < 0
+                or item.available_items > item.total_items
+                or min(item.next_item_ready_minutes, item.carrier_cutoff_minutes,
+                       item.packing_minutes) < 0):
+            raise ValueError("shipment candidate is invalid")
+        pending = item.total_items - item.available_items
+        safe_wait = max(0, item.carrier_cutoff_minutes - item.packing_minutes)
+        if pending == 0:
+            action = "SHIP_COMPLETE"
+            wait = 0
+        elif (item.next_item_ready_minutes <= maximum_wait_minutes
+              and item.next_item_ready_minutes <= safe_wait):
+            action = "CONSOLIDATE"
+            wait = item.next_item_ready_minutes
+            packages_avoided += 1 if item.available_items else 0
+        elif item.available_items:
+            action = "SHIP_AVAILABLE_NOW"
+            wait = 0
+        else:
+            action = "HOLD_FOR_STOCK"
+            wait = min(item.next_item_ready_minutes, safe_wait)
+        orders.append({"order_id": item.order_id, "action": action,
+                       "total_items": item.total_items,
+                       "available_items": item.available_items,
+                       "pending_items": pending, "planned_wait_minutes": wait,
+                       "safe_wait_minutes": safe_wait})
+    return {"status": "REVIEW" if any(row["action"] in {"SHIP_AVAILABLE_NOW", "HOLD_FOR_STOCK"}
+                                        for row in orders) else "READY",
+            "order_count": len(orders), "maximum_wait_minutes": maximum_wait_minutes,
+            "packages_avoided": packages_avoided, "orders": orders,
+            "shipment_changes_started": False}

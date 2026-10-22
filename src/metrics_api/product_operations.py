@@ -17,6 +17,16 @@ class FulfillmentNode:
     hours_to_cutoff: float
 
 
+@dataclass(frozen=True)
+class InventoryNode:
+    node: str
+    available_units: int
+    forecast_demand: int
+    safety_stock: int
+    outbound_transfer_capacity: int
+    inbound_transfer_capacity: int
+
+
 def compare_product_windows(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return deterministic GMV deltas for matching product dimensions."""
     previous = {str(item["name"]): Decimal(str(item["gmv"])) for item in baseline}
@@ -341,3 +351,56 @@ def allocate_fulfillment_demand(*, order_count: int,
     return {"order_count": order_count, "allocated_orders": order_count - remaining,
             "unallocated_orders": remaining, "status": status,
             "allocations": allocations, "dispatch_started": False}
+
+
+def plan_inventory_rebalancing(nodes: list[InventoryNode]) -> dict[str, Any]:
+    """Suggest stock transfers between fulfillment nodes without moving inventory."""
+    if not nodes:
+        raise ValueError("inventory nodes are required")
+    names = [item.node.strip() for item in nodes]
+    if (any(not name for name in names)
+            or any(item.node != item.node.strip() for item in nodes)
+            or len(names) != len(set(names))):
+        raise ValueError("inventory node names must be non-empty and unique")
+    for item in nodes:
+        if min(item.available_units, item.forecast_demand, item.safety_stock,
+               item.outbound_transfer_capacity, item.inbound_transfer_capacity) < 0:
+            raise ValueError("inventory inputs cannot be negative")
+
+    sources = []
+    targets = []
+    for item in nodes:
+        surplus = max(0, item.available_units - item.forecast_demand - item.safety_stock)
+        deficit = max(0, item.forecast_demand + item.safety_stock - item.available_units)
+        if surplus:
+            sources.append([item, min(surplus, item.outbound_transfer_capacity)])
+        if deficit:
+            targets.append([item, min(deficit, item.inbound_transfer_capacity), deficit])
+    sources.sort(key=lambda row: (-row[1], row[0].node))
+    targets.sort(key=lambda row: (-row[2], row[0].node))
+
+    transfers = []
+    for target in targets:
+        needed = target[1]
+        for source in sources:
+            quantity = min(needed, source[1])
+            if quantity <= 0:
+                continue
+            transfers.append({"from_node": source[0].node, "to_node": target[0].node,
+                              "units": quantity})
+            source[1] -= quantity
+            needed -= quantity
+            if needed == 0:
+                break
+        target.append(needed)
+    total_deficit = sum(row[2] for row in targets)
+    residual_deficit = sum(row[3] + max(0, row[2] - row[1]) for row in targets)
+    moved = sum(row["units"] for row in transfers)
+    status = ("NO_TRANSFER_NEEDED" if total_deficit == 0 else
+              "BALANCED" if residual_deficit == 0 else
+              "PARTIAL" if moved else "GAP")
+    return {"status": status, "node_count": len(nodes),
+            "forecast_deficit_units": total_deficit,
+            "planned_transfer_units": moved,
+            "residual_deficit_units": residual_deficit,
+            "transfers": transfers, "transfer_started": False}

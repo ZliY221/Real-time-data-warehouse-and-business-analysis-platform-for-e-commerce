@@ -664,6 +664,22 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("PARTIAL", response.json()["status"])
         self.assertEqual(10, response.json()["unallocated_orders"])
 
+    def test_v4_inventory_rebalancing_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/inventory-rebalancing", json={
+            "nodes": [
+                {"node": "north", "available_units": 120, "forecast_demand": 40,
+                 "safety_stock": 20, "outbound_transfer_capacity": 50,
+                 "inbound_transfer_capacity": 0},
+                {"node": "south", "available_units": 10, "forecast_demand": 50,
+                 "safety_stock": 10, "outbound_transfer_capacity": 0,
+                 "inbound_transfer_capacity": 30},
+            ],
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("PARTIAL", response.json()["status"])
+        self.assertEqual(30, response.json()["planned_transfer_units"])
+        self.assertFalse(response.json()["transfer_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

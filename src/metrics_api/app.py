@@ -52,7 +52,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import FulfillmentNode, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import FulfillmentNode, InventoryNode, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -98,6 +98,21 @@ class FulfillmentAllocationInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     order_count: int = Field(ge=0)
     nodes: list[FulfillmentNodeInput] = Field(min_length=1, max_length=100)
+
+
+class InventoryNodeInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    node: str = Field(min_length=1, max_length=80)
+    available_units: int = Field(ge=0)
+    forecast_demand: int = Field(ge=0)
+    safety_stock: int = Field(ge=0)
+    outbound_transfer_capacity: int = Field(ge=0)
+    inbound_transfer_capacity: int = Field(ge=0)
+
+
+class InventoryRebalancingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    nodes: list[InventoryNodeInput] = Field(min_length=1, max_length=100)
 
 
 def _utc(value: datetime) -> datetime:
@@ -702,6 +717,14 @@ def create_app(
         return allocate_fulfillment_demand(
             order_count=payload.order_count,
             nodes=[FulfillmentNode(**item.model_dump()) for item in payload.nodes],
+        )
+
+    @app.post("/api/v4/operations/inventory-rebalancing", tags=["operations"])
+    def commerce_inventory_rebalancing(
+        payload: InventoryRebalancingInput,
+    ) -> dict[str, object]:
+        return plan_inventory_rebalancing(
+            [InventoryNode(**item.model_dump()) for item in payload.nodes]
         )
 
     @app.get(

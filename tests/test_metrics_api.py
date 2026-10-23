@@ -694,6 +694,21 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual(1, response.json()["packages_avoided"])
         self.assertFalse(response.json()["shipment_changes_started"])
 
+    def test_v4_packing_wave_plan_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/packing-wave-plan", json={
+            "station_count": 2,
+            "orders": [
+                {"order_id": "order-1", "packing_minutes": 30,
+                 "cutoff_minutes": 20, "priority": 100},
+                {"order_id": "order-2", "packing_minutes": 10,
+                 "cutoff_minutes": 60, "priority": 50},
+            ],
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("AT_RISK", response.json()["status"])
+        self.assertEqual(1, response.json()["at_risk_order_count"])
+        self.assertFalse(response.json()["packing_tasks_dispatched"])
+
 
 if __name__ == "__main__":
     unittest.main()

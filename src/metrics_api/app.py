@@ -52,7 +52,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import FulfillmentNode, InventoryNode, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import FulfillmentNode, InventoryNode, PackingWaveOrder, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_packing_waves, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -129,6 +129,20 @@ class ShipmentConsolidationInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     maximum_wait_minutes: int = Field(default=60, ge=0, le=1440)
     orders: list[ShipmentCandidateInput] = Field(min_length=1, max_length=1000)
+
+
+class PackingWaveOrderInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    order_id: str = Field(min_length=1, max_length=80)
+    packing_minutes: int = Field(ge=1, le=1440)
+    cutoff_minutes: int = Field(ge=1, le=1440)
+    priority: int = Field(ge=1, le=100)
+
+
+class PackingWavePlanInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    station_count: int = Field(ge=1, le=100)
+    orders: list[PackingWaveOrderInput] = Field(min_length=1, max_length=5000)
 
 
 def _utc(value: datetime) -> datetime:
@@ -750,6 +764,15 @@ def create_app(
         return plan_shipment_consolidation(
             [ShipmentCandidate(**item.model_dump()) for item in payload.orders],
             maximum_wait_minutes=payload.maximum_wait_minutes,
+        )
+
+    @app.post("/api/v4/operations/packing-wave-plan", tags=["operations"])
+    def commerce_packing_wave_plan(
+        payload: PackingWavePlanInput,
+    ) -> dict[str, object]:
+        return plan_packing_waves(
+            [PackingWaveOrder(**item.model_dump()) for item in payload.orders],
+            station_count=payload.station_count,
         )
 
     @app.get(

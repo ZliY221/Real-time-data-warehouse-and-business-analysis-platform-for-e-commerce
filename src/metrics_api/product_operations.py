@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from dataclasses import dataclass
 from math import ceil
+import heapq
 from typing import Any
 
 
@@ -35,6 +36,14 @@ class ShipmentCandidate:
     next_item_ready_minutes: int
     carrier_cutoff_minutes: int
     packing_minutes: int
+
+
+@dataclass(frozen=True)
+class PackingWaveOrder:
+    order_id: str
+    packing_minutes: int
+    cutoff_minutes: int
+    priority: int
 
 
 def compare_product_windows(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -460,3 +469,36 @@ def plan_shipment_consolidation(candidates: list[ShipmentCandidate], *,
             "order_count": len(orders), "maximum_wait_minutes": maximum_wait_minutes,
             "packages_avoided": packages_avoided, "orders": orders,
             "shipment_changes_started": False}
+
+
+def plan_packing_waves(orders: list[PackingWaveOrder], *, station_count: int) -> dict[str, Any]:
+    """Schedule packing work across bounded stations without dispatching tasks."""
+    if not orders or station_count < 1 or station_count > 100:
+        raise ValueError("orders and a valid station count are required")
+    order_ids = [item.order_id.strip() for item in orders]
+    if (any(not order_id for order_id in order_ids)
+            or any(item.order_id != item.order_id.strip() for item in orders)
+            or len(order_ids) != len(set(order_ids))):
+        raise ValueError("order ids must be non-empty and unique")
+    for item in orders:
+        if item.packing_minutes < 1 or item.cutoff_minutes < 1 or not 1 <= item.priority <= 100:
+            raise ValueError("packing order is invalid")
+
+    stations = [(0, number) for number in range(1, station_count + 1)]
+    heapq.heapify(stations)
+    assignments = []
+    for item in sorted(orders, key=lambda row: (row.cutoff_minutes, -row.priority, row.order_id)):
+        start, station = heapq.heappop(stations)
+        finish = start + item.packing_minutes
+        late = finish > item.cutoff_minutes
+        assignments.append({"order_id": item.order_id, "station": station,
+                            "start_minute": start, "finish_minute": finish,
+                            "cutoff_minute": item.cutoff_minutes,
+                            "slack_minutes": item.cutoff_minutes - finish,
+                            "status": "AT_RISK" if late else "ON_TIME"})
+        heapq.heappush(stations, (finish, station))
+    at_risk = sum(row["status"] == "AT_RISK" for row in assignments)
+    return {"status": "AT_RISK" if at_risk else "READY",
+            "station_count": station_count, "order_count": len(orders),
+            "at_risk_order_count": at_risk, "assignments": assignments,
+            "packing_tasks_dispatched": False}

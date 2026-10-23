@@ -709,6 +709,21 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual(1, response.json()["at_risk_order_count"])
         self.assertFalse(response.json()["packing_tasks_dispatched"])
 
+    def test_v4_carrier_handoff_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/carrier-handoff", json={
+            "shipments": [
+                {"shipment_id": "shipment-1", "ready_minute": 10,
+                 "delivery_cutoff_minute": 60, "priority": 90},
+            ],
+            "slots": [
+                {"slot_id": "pickup-1", "pickup_minute": 30, "capacity": 1},
+            ],
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("READY", response.json()["status"])
+        self.assertEqual("pickup-1", response.json()["reservations"][0]["slot_id"])
+        self.assertFalse(response.json()["carrier_booking_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,6 +46,21 @@ class PackingWaveOrder:
     priority: int
 
 
+@dataclass(frozen=True)
+class CarrierPickupSlot:
+    slot_id: str
+    pickup_minute: int
+    capacity: int
+
+
+@dataclass(frozen=True)
+class CarrierHandoffShipment:
+    shipment_id: str
+    ready_minute: int
+    delivery_cutoff_minute: int
+    priority: int
+
+
 def compare_product_windows(current: list[dict[str, Any]], baseline: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return deterministic GMV deltas for matching product dimensions."""
     previous = {str(item["name"]): Decimal(str(item["gmv"])) for item in baseline}
@@ -502,3 +517,49 @@ def plan_packing_waves(orders: list[PackingWaveOrder], *, station_count: int) ->
             "station_count": station_count, "order_count": len(orders),
             "at_risk_order_count": at_risk, "assignments": assignments,
             "packing_tasks_dispatched": False}
+
+
+def reserve_carrier_handoffs(shipments: list[CarrierHandoffShipment],
+                             slots: list[CarrierPickupSlot]) -> dict[str, Any]:
+    """Reserve feasible pickup capacity without contacting a carrier."""
+    if not shipments or not slots:
+        raise ValueError("shipments and pickup slots are required")
+    shipment_ids = [item.shipment_id.strip() for item in shipments]
+    slot_ids = [item.slot_id.strip() for item in slots]
+    if (any(not value for value in shipment_ids + slot_ids)
+            or len(shipment_ids) != len(set(shipment_ids))
+            or len(slot_ids) != len(set(slot_ids))):
+        raise ValueError("shipment and slot ids must be non-empty and unique")
+    for item in shipments:
+        if (item.shipment_id != item.shipment_id.strip() or item.ready_minute < 0
+                or item.delivery_cutoff_minute < item.ready_minute
+                or not 1 <= item.priority <= 100):
+            raise ValueError("carrier handoff shipment is invalid")
+    for item in slots:
+        if item.slot_id != item.slot_id.strip() or item.pickup_minute < 0 or item.capacity < 0:
+            raise ValueError("carrier pickup slot is invalid")
+
+    remaining = {item.slot_id: item.capacity for item in slots}
+    ordered_slots = sorted(slots, key=lambda row: (row.pickup_minute, row.slot_id))
+    reservations = []
+    for item in sorted(shipments, key=lambda row: (-row.priority,
+                                                    row.delivery_cutoff_minute,
+                                                    row.shipment_id)):
+        feasible = next((slot for slot in ordered_slots
+                         if remaining[slot.slot_id] > 0
+                         and item.ready_minute <= slot.pickup_minute
+                         <= item.delivery_cutoff_minute), None)
+        if feasible:
+            remaining[feasible.slot_id] -= 1
+            reservations.append({"shipment_id": item.shipment_id,
+                                 "slot_id": feasible.slot_id,
+                                 "pickup_minute": feasible.pickup_minute,
+                                 "status": "RESERVED"})
+        else:
+            reservations.append({"shipment_id": item.shipment_id, "slot_id": None,
+                                 "pickup_minute": None, "status": "UNASSIGNED"})
+    unassigned = sum(row["status"] == "UNASSIGNED" for row in reservations)
+    return {"status": "READY" if not unassigned else "PARTIAL",
+            "shipment_count": len(shipments), "unassigned_count": unassigned,
+            "remaining_capacity": remaining, "reservations": reservations,
+            "carrier_booking_started": False}

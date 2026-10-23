@@ -52,7 +52,7 @@ from metrics_api.repository import (
     MetricsRepository,
     MetricsRepositoryError,
 )
-from metrics_api.product_operations import FulfillmentNode, InventoryNode, PackingWaveOrder, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_packing_waves, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.product_operations import CarrierHandoffShipment, CarrierPickupSlot, FulfillmentNode, InventoryNode, PackingWaveOrder, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_packing_waves, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, reserve_carrier_handoffs, resource_plan, return_capacity_signal, shift_handoff
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -143,6 +143,27 @@ class PackingWavePlanInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     station_count: int = Field(ge=1, le=100)
     orders: list[PackingWaveOrderInput] = Field(min_length=1, max_length=5000)
+
+
+class CarrierPickupSlotInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    slot_id: str = Field(min_length=1, max_length=80)
+    pickup_minute: int = Field(ge=0, le=10080)
+    capacity: int = Field(ge=0, le=5000)
+
+
+class CarrierHandoffShipmentInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    shipment_id: str = Field(min_length=1, max_length=80)
+    ready_minute: int = Field(ge=0, le=10080)
+    delivery_cutoff_minute: int = Field(ge=0, le=10080)
+    priority: int = Field(ge=1, le=100)
+
+
+class CarrierHandoffInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    shipments: list[CarrierHandoffShipmentInput] = Field(min_length=1, max_length=5000)
+    slots: list[CarrierPickupSlotInput] = Field(min_length=1, max_length=1000)
 
 
 def _utc(value: datetime) -> datetime:
@@ -773,6 +794,13 @@ def create_app(
         return plan_packing_waves(
             [PackingWaveOrder(**item.model_dump()) for item in payload.orders],
             station_count=payload.station_count,
+        )
+
+    @app.post("/api/v4/operations/carrier-handoff", tags=["operations"])
+    def commerce_carrier_handoff(payload: CarrierHandoffInput) -> dict[str, object]:
+        return reserve_carrier_handoffs(
+            [CarrierHandoffShipment(**item.model_dump()) for item in payload.shipments],
+            [CarrierPickupSlot(**item.model_dump()) for item in payload.slots],
         )
 
     @app.get(

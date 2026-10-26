@@ -745,6 +745,28 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual(0, response.json()["unresolved_count"])
         self.assertFalse(response.json()["warehouse_commands_started"])
 
+    def test_v4_fulfillment_shift_board_prioritises_stale_data(self) -> None:
+        journeys = []
+        for index in range(100):
+            case = index % 6
+            journeys.append({
+                "journey_id": f"shift-{index + 1:03d}",
+                "inventory_ready": case != 1,
+                "packing_capacity": 0 if case == 2 else 4,
+                "carrier_slot_available": case != 3,
+                "data_age_minutes": 10 if case == 0 else 1,
+                "cutoff_minutes": 20 if case == 4 else 90,
+                "priority": 100 - index % 50,
+            })
+        response = self.client.post("/api/v4/operations/fulfillment-shift-board", json={
+            "journeys": journeys, "visible_limit": 10,
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("FULFILLMENT_SHIFT_BOARD_READY", response.json()["status"])
+        self.assertEqual(10, response.json()["visible_count"])
+        self.assertEqual("BLOCKED", response.json()["focus_items"][0]["status"])
+        self.assertFalse(response.json()["warehouse_commands_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # 用户使用指南
 
-适用版本：`v4.5.0`
+适用版本：`v4.6.0`
 
 本指南随项目版本同步更新，介绍当前版本可直接使用的入口、功能和输出位置。首次使用建议先阅读仓库首页的项目简介、架构和常用入口，再按本指南完成运行。
 
@@ -163,3 +163,9 @@ docker compose up -d
 ## v4.5.0 履约操作旅程演练
 
 调用 `POST /api/v4/operations/operator-rehearsal`，一次提交恰好 100 条履约操作旅程。每条记录包含数据延迟、库存状态、打包产能、承运时隙、截单剩余时间和优先级。系统依次检查数据新鲜度、库存、打包、承运与截单风险，并返回 `primary_action`、三步 `steps`、中文 `message` 和人工确认要求。结果按优先级与截单时间排序，方便值班人员先处理紧急订单；`unresolved_count=0` 表示所有场景均有明确路径，`warehouse_commands_started=false` 表示不会自动下发仓库或承运指令。
+
+## v4.6.0 履约班次看板
+
+调用 `POST /api/v4/operations/fulfillment-shift-board`，提交 100 条履约旅程，并使用 `visible_limit` 控制 1 至 25 条焦点任务。系统按“数据待刷新、临近截单、资源协调、放行复核”划分队列，旧指标任务始终优先显示，避免班次人员先执行仓库动作再发现数据失效。
+
+每条焦点任务提供 `lane`、预计耗时和恢复键。`remaining_count` 表示未展示任务，`estimated_focus_minutes` 用于安排当班处理能力。`warehouse_commands_started=false` 表示看板不会自动调拨库存、扩充工位或预约承运时隙。

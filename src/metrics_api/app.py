@@ -54,6 +54,7 @@ from metrics_api.repository import (
 )
 from metrics_api.product_operations import CarrierHandoffShipment, CarrierPickupSlot, FulfillmentNode, InventoryNode, PackingWaveOrder, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_packing_waves, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, reserve_carrier_handoffs, resource_plan, return_capacity_signal, shift_handoff
 from metrics_api.operator_journey import FulfillmentOperatorJourney, rehearse_fulfillment_journeys
+from metrics_api.fulfillment_shift_board import build_fulfillment_shift_board
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -181,6 +182,10 @@ class FulfillmentOperatorJourneyInput(BaseModel):
 class FulfillmentUsabilityRehearsalInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     journeys: list[FulfillmentOperatorJourneyInput] = Field(min_length=100, max_length=100)
+
+
+class FulfillmentShiftBoardInput(FulfillmentUsabilityRehearsalInput):
+    visible_limit: int = Field(default=16, ge=1, le=25)
 
 
 def _utc(value: datetime) -> datetime:
@@ -827,6 +832,15 @@ def create_app(
         return rehearse_fulfillment_journeys([
             FulfillmentOperatorJourney(**item.model_dump()) for item in payload.journeys
         ])
+
+    @app.post("/api/v4/operations/fulfillment-shift-board", tags=["operations"])
+    def commerce_fulfillment_shift_board(
+        payload: FulfillmentShiftBoardInput,
+    ) -> dict[str, object]:
+        return build_fulfillment_shift_board(
+            [FulfillmentOperatorJourney(**item.model_dump()) for item in payload.journeys],
+            visible_limit=payload.visible_limit,
+        )
 
     @app.get(
         "/api/v1/anomalies/summary",

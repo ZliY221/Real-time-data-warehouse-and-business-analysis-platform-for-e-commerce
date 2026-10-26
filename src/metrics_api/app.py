@@ -56,6 +56,7 @@ from metrics_api.product_operations import CarrierHandoffShipment, CarrierPickup
 from metrics_api.operator_journey import FulfillmentOperatorJourney, rehearse_fulfillment_journeys
 from metrics_api.fulfillment_shift_board import build_fulfillment_shift_board
 from metrics_api.promotion_guard import PromotionMetric, evaluate_promotion_guard
+from metrics_api.price_integrity import PriceIntegrityObservation, assess_price_integrity
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -209,6 +210,25 @@ class PromotionGuardInput(BaseModel):
     maximum_data_age_minutes: int = Field(default=5, ge=0, le=1440)
     maximum_conversion_drop_points: float = Field(default=0.03, ge=0, le=1)
     maximum_refund_increase_points: float = Field(default=0.02, ge=0, le=1)
+
+
+class PriceIntegrityObservationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sku: str = Field(min_length=1, max_length=120)
+    catalog_price: float = Field(gt=0)
+    checkout_price: float = Field(ge=0)
+    approved_discount_percent: float = Field(ge=0, le=100)
+    observed_discount_percent: float = Field(ge=0, le=100)
+    sample_orders: int = Field(ge=0)
+    data_age_minutes: int = Field(ge=0, le=1440)
+
+
+class PriceIntegrityInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    observations: list[PriceIntegrityObservationInput] = Field(min_length=1, max_length=5000)
+    minimum_sample_orders: int = Field(default=20, ge=1)
+    maximum_data_age_minutes: int = Field(default=5, ge=0, le=1440)
+    price_tolerance: float = Field(default=0.01, ge=0)
 
 
 def _utc(value: datetime) -> datetime:
@@ -873,6 +893,15 @@ def create_app(
             maximum_data_age_minutes=payload.maximum_data_age_minutes,
             maximum_conversion_drop_points=payload.maximum_conversion_drop_points,
             maximum_refund_increase_points=payload.maximum_refund_increase_points,
+        )
+
+    @app.post("/api/v4/operations/price-integrity", tags=["operations"])
+    def commerce_price_integrity(payload: PriceIntegrityInput) -> dict[str, object]:
+        return assess_price_integrity(
+            [PriceIntegrityObservation(**item.model_dump()) for item in payload.observations],
+            minimum_sample_orders=payload.minimum_sample_orders,
+            maximum_data_age_minutes=payload.maximum_data_age_minutes,
+            price_tolerance=payload.price_tolerance,
         )
 
     @app.get(

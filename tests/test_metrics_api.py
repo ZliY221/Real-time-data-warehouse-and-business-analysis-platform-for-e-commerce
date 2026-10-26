@@ -782,6 +782,20 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("CONVERSION_DROP", response.json()["campaigns"][0]["blockers"])
         self.assertFalse(response.json()["automatic_campaign_change_started"])
 
+    def test_v4_price_integrity_guard_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/price-integrity", json={
+            "observations": [
+                {"sku": "sku-1", "catalog_price": 100,
+                 "checkout_price": 80, "approved_discount_percent": 10,
+                 "observed_discount_percent": 20, "sample_orders": 50,
+                 "data_age_minutes": 1}
+            ]
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("PRICE_INTEGRITY_HOLD", response.json()["status"])
+        self.assertIn("DISCOUNT_EXCEEDS_APPROVAL", response.json()["items"][0]["blockers"])
+        self.assertFalse(response.json()["automatic_price_change_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

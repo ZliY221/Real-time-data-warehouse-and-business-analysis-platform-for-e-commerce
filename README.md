@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/ci.yml)
 [![Portable smoke](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml/badge.svg)](https://github.com/ZliY221/Real-time-data-warehouse-and-business-analysis-platform-for-e-commerce/actions/workflows/portable-smoke.yml)
-![Version](https://img.shields.io/badge/version-v4.7.0-b8325d)
+![Version](https://img.shields.io/badge/version-v4.8.0-b8325d)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-2563eb)
 ![Flink](https://img.shields.io/badge/Apache_Flink-event_time-e6522c)
 
@@ -145,4 +145,4 @@ tests/                 Python 自动化验证
 
 ## 版本与维护
 
-当前版本为 `v4.7.0`。实时经营指挥台新增促销活动护栏，持续对比实时与基准转化率、退款率和客单价，并结合样本量和数据新鲜度给出扩量、观察或暂停复核建议。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。
+当前版本为 `v4.8.0`。实时经营指挥台新增价格一致性护栏，对目录价、审批折扣、实时折扣与结算价进行逐 SKU 核对，及时识别超折扣和结算差异。每次发布同步维护[用户使用指南](docs/user-guide.md)、[版本记录](CHANGELOG.md)和[版本摘要](VERSION_LOG.md)。

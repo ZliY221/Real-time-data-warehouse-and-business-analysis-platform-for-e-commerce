@@ -55,6 +55,7 @@ from metrics_api.repository import (
 from metrics_api.product_operations import CarrierHandoffShipment, CarrierPickupSlot, FulfillmentNode, InventoryNode, PackingWaveOrder, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_packing_waves, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, reserve_carrier_handoffs, resource_plan, return_capacity_signal, shift_handoff
 from metrics_api.operator_journey import FulfillmentOperatorJourney, rehearse_fulfillment_journeys
 from metrics_api.fulfillment_shift_board import build_fulfillment_shift_board
+from metrics_api.promotion_guard import PromotionMetric, evaluate_promotion_guard
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -186,6 +187,28 @@ class FulfillmentUsabilityRehearsalInput(BaseModel):
 
 class FulfillmentShiftBoardInput(FulfillmentUsabilityRehearsalInput):
     visible_limit: int = Field(default=16, ge=1, le=25)
+
+
+class PromotionMetricInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    campaign_id: str = Field(min_length=1, max_length=120)
+    baseline_conversion_rate: float = Field(ge=0, le=1)
+    live_conversion_rate: float = Field(ge=0, le=1)
+    baseline_refund_rate: float = Field(ge=0, le=1)
+    live_refund_rate: float = Field(ge=0, le=1)
+    baseline_average_order_value: float = Field(gt=0)
+    live_average_order_value: float = Field(ge=0)
+    sample_orders: int = Field(ge=0)
+    data_age_minutes: int = Field(ge=0, le=1440)
+
+
+class PromotionGuardInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    campaigns: list[PromotionMetricInput] = Field(min_length=1, max_length=1000)
+    minimum_sample_orders: int = Field(default=200, ge=1)
+    maximum_data_age_minutes: int = Field(default=5, ge=0, le=1440)
+    maximum_conversion_drop_points: float = Field(default=0.03, ge=0, le=1)
+    maximum_refund_increase_points: float = Field(default=0.02, ge=0, le=1)
 
 
 def _utc(value: datetime) -> datetime:
@@ -840,6 +863,16 @@ def create_app(
         return build_fulfillment_shift_board(
             [FulfillmentOperatorJourney(**item.model_dump()) for item in payload.journeys],
             visible_limit=payload.visible_limit,
+        )
+
+    @app.post("/api/v4/operations/promotion-guard", tags=["operations"])
+    def commerce_promotion_guard(payload: PromotionGuardInput) -> dict[str, object]:
+        return evaluate_promotion_guard(
+            [PromotionMetric(**item.model_dump()) for item in payload.campaigns],
+            minimum_sample_orders=payload.minimum_sample_orders,
+            maximum_data_age_minutes=payload.maximum_data_age_minutes,
+            maximum_conversion_drop_points=payload.maximum_conversion_drop_points,
+            maximum_refund_increase_points=payload.maximum_refund_increase_points,
         )
 
     @app.get(

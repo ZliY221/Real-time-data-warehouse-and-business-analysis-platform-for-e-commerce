@@ -1,6 +1,6 @@
 # 用户使用指南
 
-适用版本：`v4.6.0`
+适用版本：`v4.7.0`
 
 本指南随项目版本同步更新，介绍当前版本可直接使用的入口、功能和输出位置。首次使用建议先阅读仓库首页的项目简介、架构和常用入口，再按本指南完成运行。
 
@@ -169,3 +169,9 @@ docker compose up -d
 调用 `POST /api/v4/operations/fulfillment-shift-board`，提交 100 条履约旅程，并使用 `visible_limit` 控制 1 至 25 条焦点任务。系统按“数据待刷新、临近截单、资源协调、放行复核”划分队列，旧指标任务始终优先显示，避免班次人员先执行仓库动作再发现数据失效。
 
 每条焦点任务提供 `lane`、预计耗时和恢复键。`remaining_count` 表示未展示任务，`estimated_focus_minutes` 用于安排当班处理能力。`warehouse_commands_started=false` 表示看板不会自动调拨库存、扩充工位或预约承运时隙。
+
+## v4.7.0 促销活动实时护栏
+
+调用 `POST /api/v4/operations/promotion-guard`，提交每个活动的基准与实时转化率、退款率、客单价、样本订单数和数据延迟。系统会计算转化变化、退款变化和客单价变化，并按 `HEALTHY`、`OBSERVE`、`HOLD` 返回活动状态。
+
+样本不足时建议继续观察；数据超过新鲜度阈值、转化率下降超过门槛或退款率上升超过门槛时进入 `HOLD`。可通过请求字段调整样本、新鲜度和变化阈值。`automatic_campaign_change_started=false` 表示接口不会自动暂停活动或调整流量。

@@ -767,6 +767,21 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("BLOCKED", response.json()["focus_items"][0]["status"])
         self.assertFalse(response.json()["warehouse_commands_started"])
 
+    def test_v4_promotion_guard_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/promotion-guard", json={
+            "campaigns": [
+                {"campaign_id": "flash-sale", "baseline_conversion_rate": 0.12,
+                 "live_conversion_rate": 0.08, "baseline_refund_rate": 0.03,
+                 "live_refund_rate": 0.06, "baseline_average_order_value": 120,
+                 "live_average_order_value": 110, "sample_orders": 500,
+                 "data_age_minutes": 1}
+            ]
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("PROMOTION_GUARD_HOLD", response.json()["status"])
+        self.assertIn("CONVERSION_DROP", response.json()["campaigns"][0]["blockers"])
+        self.assertFalse(response.json()["automatic_campaign_change_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

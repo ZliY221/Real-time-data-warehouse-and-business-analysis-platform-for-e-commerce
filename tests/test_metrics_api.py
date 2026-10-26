@@ -724,6 +724,27 @@ class MetricsApiTests(unittest.TestCase):
         self.assertEqual("pickup-1", response.json()["reservations"][0]["slot_id"])
         self.assertFalse(response.json()["carrier_booking_started"])
 
+    def test_v4_operator_rehearsal_covers_one_hundred_journeys(self) -> None:
+        journeys = []
+        for index in range(100):
+            case = index % 6
+            journeys.append({
+                "journey_id": f"journey-{index + 1:03d}",
+                "inventory_ready": case != 1,
+                "packing_capacity": 0 if case == 2 else 4,
+                "carrier_slot_available": case != 3,
+                "data_age_minutes": 10 if case == 0 else 1,
+                "cutoff_minutes": 20 if case == 4 else 90,
+                "priority": 100 - index % 50,
+            })
+        response = self.client.post(
+            "/api/v4/operations/operator-rehearsal", json={"journeys": journeys}
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(100, response.json()["journey_count"])
+        self.assertEqual(0, response.json()["unresolved_count"])
+        self.assertFalse(response.json()["warehouse_commands_started"])
+
 
 if __name__ == "__main__":
     unittest.main()

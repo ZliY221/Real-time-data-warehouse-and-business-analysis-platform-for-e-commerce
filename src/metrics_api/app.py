@@ -53,6 +53,7 @@ from metrics_api.repository import (
     MetricsRepositoryError,
 )
 from metrics_api.product_operations import CarrierHandoffShipment, CarrierPickupSlot, FulfillmentNode, InventoryNode, PackingWaveOrder, ShipmentCandidate, alert_acknowledgement, allocate_fulfillment_demand, campaign_guardrail, campaign_pacing, command_center, compare_product_windows, conversion_funnel, fulfillment_promise_signal, inventory_signal, operating_briefing, plan_inventory_rebalancing, plan_packing_waves, plan_shipment_consolidation, product_alerts, product_contribution, promotion_margin_guardrail, reserve_carrier_handoffs, resource_plan, return_capacity_signal, shift_handoff
+from metrics_api.operator_journey import FulfillmentOperatorJourney, rehearse_fulfillment_journeys
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -164,6 +165,22 @@ class CarrierHandoffInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     shipments: list[CarrierHandoffShipmentInput] = Field(min_length=1, max_length=5000)
     slots: list[CarrierPickupSlotInput] = Field(min_length=1, max_length=1000)
+
+
+class FulfillmentOperatorJourneyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    journey_id: str = Field(min_length=1, max_length=80)
+    inventory_ready: bool
+    packing_capacity: int = Field(ge=0, le=500)
+    carrier_slot_available: bool
+    data_age_minutes: int = Field(ge=0, le=1440)
+    cutoff_minutes: int = Field(ge=0, le=10080)
+    priority: int = Field(ge=1, le=100)
+
+
+class FulfillmentUsabilityRehearsalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    journeys: list[FulfillmentOperatorJourneyInput] = Field(min_length=100, max_length=100)
 
 
 def _utc(value: datetime) -> datetime:
@@ -802,6 +819,14 @@ def create_app(
             [CarrierHandoffShipment(**item.model_dump()) for item in payload.shipments],
             [CarrierPickupSlot(**item.model_dump()) for item in payload.slots],
         )
+
+    @app.post("/api/v4/operations/operator-rehearsal", tags=["operations"])
+    def commerce_operator_rehearsal(
+        payload: FulfillmentUsabilityRehearsalInput,
+    ) -> dict[str, object]:
+        return rehearse_fulfillment_journeys([
+            FulfillmentOperatorJourney(**item.model_dump()) for item in payload.journeys
+        ])
 
     @app.get(
         "/api/v1/anomalies/summary",

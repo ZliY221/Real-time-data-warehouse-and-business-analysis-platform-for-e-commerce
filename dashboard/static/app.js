@@ -132,13 +132,18 @@ const runtimeState = {
   previousAutoRefreshSeconds: 5,
   nextRefreshAt: 0,
   refreshing: false,
+  refreshQueued: false,
+  initialized: false,
+  activePage: "overview",
   savedViews: parseSavedViews(localStorage.getItem("commerce.savedViews")),
 };
 
 const commercePages = new Set(["overview", "analysis", "products", "trust"]);
+const commercePageOrder = [...commercePages];
 
-function activateCommercePage(page, updateHash = true) {
+function activateCommercePage(page, updateHash = true, refresh = true) {
   const selected = commercePages.has(page) ? page : "overview";
+  runtimeState.activePage = selected;
   document.body.dataset.commercePage = selected;
   document.querySelectorAll("[data-commerce-page-view]").forEach((view) => {
     view.hidden = view.dataset.commercePageView !== selected;
@@ -149,13 +154,31 @@ function activateCommercePage(page, updateHash = true) {
     link.setAttribute("aria-current", active ? "page" : "false");
   });
   if (updateHash) history.replaceState({}, "", `${location.pathname}${location.search}#${selected}`);
-  window.requestAnimationFrame(() => Object.values(charts).forEach((chart) => chart.resize()));
+  try { localStorage.setItem("commerce.activePage", selected); } catch (_) {}
+  if (updateHash) {
+    document.querySelector("#dashboard-content").focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+  }
+  window.requestAnimationFrame(() => {
+    document.querySelectorAll(`[data-commerce-page-view="${selected}"] .chart`).forEach((element) => {
+      const chart = window.echarts?.getInstanceByDom(element);
+      if (chart) chart.resize();
+    });
+  });
+  if (refresh && runtimeState.initialized) void refreshDashboard();
 }
 
-document.querySelectorAll("[data-commerce-page-link]").forEach((link) => {
+const commercePageLinks = [...document.querySelectorAll("[data-commerce-page-link]")];
+commercePageLinks.forEach((link, index) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();
     activateCommercePage(link.dataset.commercePageLink);
+  });
+  link.addEventListener("keydown", (event) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? commercePageOrder.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + commercePageOrder.length) % commercePageOrder.length;
+    commercePageLinks[next].focus();
   });
 });
 
@@ -215,7 +238,9 @@ function initializeCharts() {
   });
 
   const observer = new ResizeObserver(() => {
-    for (const chart of Object.values(charts)) chart.resize();
+    for (const chart of Object.values(charts)) {
+      if (!chart.getDom().closest("[hidden]")) chart.resize();
+    }
   });
   observer.observe(document.querySelector(".shell"));
 
@@ -238,7 +263,7 @@ function setLoading(loading) {
   if (loading) {
     setConnectionState("pending", "正在刷新数据");
     for (const chart of Object.values(charts)) {
-      chart.showLoading("default", {
+      if (!chart.getDom().closest("[hidden]")) chart.showLoading("default", {
         text: "正在读取指标",
         color: cssToken("--color-primary"),
         textColor: cssToken("--color-text-muted"),
@@ -1005,61 +1030,47 @@ function renderFailure(error) {
 }
 
 async function refreshDashboard() {
-  if (runtimeState.refreshing) return;
+  if (runtimeState.refreshing) {
+    runtimeState.refreshQueued = true;
+    return;
+  }
   runtimeState.refreshing = true;
   if (runtimeState.quickRangeHours !== null) {
     setQuickRange(runtimeState.quickRangeHours, false);
   }
   elements.errorBanner.hidden = true;
   setLoading(true);
+  document.querySelector("#dashboard-content").setAttribute("aria-busy", "true");
   const filters = currentFilters();
-  const qualityRefresh = refreshQuality();
-  const anomalyRefresh = refreshAnomalies(filters);
-  const assetRefresh = refreshAssetHealth();
   try {
-    const comparisonPeriod = createComparisonPeriod(filters, elements.comparisonMode.value);
-    const contributionDimension = elements.comparisonDimension.value;
-    const baselineFilters = {
-      ...filters, start: comparisonPeriod.baseline_start, end: comparisonPeriod.baseline_end,
-    };
-    const [summary, comparison, timeSeries, regions, channels, recent, baselineBreakdown, products] = await Promise.all([
-      fetchJson("/api/v1/metrics/summary", queryFor(filters)),
-      fetchJson(
-        "/api/v1/metrics/comparison",
-        queryFor(filters, comparisonPeriod),
-      ),
-      fetchJson(
-        "/api/v1/metrics/timeseries",
-        queryFor(filters, { bucket: "auto" }),
-      ),
-      fetchJson(
-        "/api/v1/metrics/breakdown",
-        queryFor(filters, { dimension: "region", limit: 12 }),
-      ),
-      fetchJson(
-        "/api/v1/metrics/breakdown",
-        queryFor(filters, { dimension: "channel", limit: 12 }),
-      ),
-      fetchJson("/api/v1/metrics/minutes", queryFor(filters, { limit: 12 })),
-      fetchJson(
-        "/api/v1/metrics/breakdown",
-        queryFor(baselineFilters, { dimension: contributionDimension, limit: 12 }),
-      ),
-      fetchJson("/api/v1/products/breakdown", productQuery(filters)),
-    ]);
-
+    const page = runtimeState.activePage;
+    const summary = await fetchJson("/api/v1/metrics/summary", queryFor(filters));
     renderSummary(summary);
-    renderComparison(comparison);
-    renderContributions(
-      contributionDimension === "region" ? regions.items : channels.items,
-      baselineBreakdown.items,
-    );
-    renderTrend(timeSeries);
-    renderRegion(regions.items);
-    renderChannel(channels.items);
-    renderRecent(recent.items);
-    renderProducts(products);
-    updateDimensionOptions(regions.items, channels.items);
+    let loadedDetail = "经营概览";
+    if (page === "analysis") {
+      const comparisonPeriod = createComparisonPeriod(filters, elements.comparisonMode.value);
+      const contributionDimension = elements.comparisonDimension.value;
+      const baselineFilters = { ...filters, start: comparisonPeriod.baseline_start, end: comparisonPeriod.baseline_end };
+      const [comparison, timeSeries, regions, channels, recent, baselineBreakdown] = await Promise.all([
+        fetchJson("/api/v1/metrics/comparison", queryFor(filters, comparisonPeriod)),
+        fetchJson("/api/v1/metrics/timeseries", queryFor(filters, { bucket: "auto" })),
+        fetchJson("/api/v1/metrics/breakdown", queryFor(filters, { dimension: "region", limit: 12 })),
+        fetchJson("/api/v1/metrics/breakdown", queryFor(filters, { dimension: "channel", limit: 12 })),
+        fetchJson("/api/v1/metrics/minutes", queryFor(filters, { limit: 12 })),
+        fetchJson("/api/v1/metrics/breakdown", queryFor(baselineFilters, { dimension: contributionDimension, limit: 12 })),
+      ]);
+      renderComparison(comparison);
+      renderContributions(contributionDimension === "region" ? regions.items : channels.items, baselineBreakdown.items);
+      renderTrend(timeSeries); renderRegion(regions.items); renderChannel(channels.items); renderRecent(recent.items);
+      updateDimensionOptions(regions.items, channels.items);
+      loadedDetail = `${timeSeries.count} 个时间点`;
+    } else if (page === "products") {
+      renderProducts(await fetchJson("/api/v1/products/breakdown", productQuery(filters)));
+      loadedDetail = "商品表现";
+    } else if (page === "trust") {
+      await Promise.all([refreshQuality(), refreshAnomalies(filters), refreshAssetHealth()]);
+      loadedDetail = "质量与资产健康";
+    }
     elements.lastRefreshed.textContent = `页面刷新 ${formatTimestamp(new Date(), { seconds: true })}`;
     elements.previewBanner.hidden = runtimeState.dataMode !== "preview";
     if (runtimeState.dataMode === "preview") {
@@ -1071,14 +1082,18 @@ async function refreshDashboard() {
       );
     }
     elements.liveStatus.textContent = summary.has_data
-      ? `数据刷新成功，共加载 ${timeSeries.count} 个时间点。`
+      ? `数据刷新成功，已加载${loadedDetail}。`
       : "数据刷新成功，当前筛选范围没有指标。";
   } catch (error) {
     renderFailure(error instanceof Error ? error : new Error("发生未知错误。"));
   } finally {
-    await Promise.all([qualityRefresh, anomalyRefresh, assetRefresh]);
     setLoading(false);
+    document.querySelector("#dashboard-content").setAttribute("aria-busy", "false");
     runtimeState.refreshing = false;
+    if (runtimeState.refreshQueued) {
+      runtimeState.refreshQueued = false;
+      void refreshDashboard();
+    }
   }
 }
 
@@ -1230,7 +1245,9 @@ for (const button of elements.quickRanges) {
 }
 
 try {
-  activateCommercePage(window.location.hash.slice(1), false);
+  let storedPage = "";
+  try { storedPage = localStorage.getItem("commerce.activePage") || ""; } catch (_) {}
+  activateCommercePage(window.location.hash.slice(1) || storedPage, false, false);
   initializeCharts();
   const sharedViewState = inspectDashboardShareQuery(window.location.search);
   const sharedView = parseDashboardShareQuery(window.location.search);
@@ -1271,6 +1288,7 @@ try {
   }
   setAutoRefresh(Number(elements.autoRefreshInterval.value));
   renderSavedViews();
+  runtimeState.initialized = true;
   void refreshDashboard();
 } catch (error) {
   renderFailure(error instanceof Error ? error : new Error("看板初始化失败。"));

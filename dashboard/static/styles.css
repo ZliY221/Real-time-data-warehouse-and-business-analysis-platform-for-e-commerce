@@ -63,6 +63,21 @@ body {
   line-height: 1.5;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  z-index: 80;
+  inset: 0 auto auto 0;
+  width: 0;
+  height: 3px;
+  opacity: 0;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary), var(--color-accent));
+  transition: width .24s ease, opacity .14s ease;
+}
+
+body.is-loading::before { width: 100%; opacity: 1; }
+.commerce-page { contain: layout paint; }
+
 button,
 input,
 select {

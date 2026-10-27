@@ -14,4 +14,8 @@ test("dashboard exposes four focused commerce operation pages", () => {
   }
   assert.match(app, /function activateCommercePage/);
   assert.match(app, /aria-current/);
+  assert.match(app, /commerce\.activePage/);
+  assert.match(app, /runtimeState\.refreshQueued/);
+  assert.match(app, /page === "analysis"/);
+  assert.match(app, /aria-busy/);
 });

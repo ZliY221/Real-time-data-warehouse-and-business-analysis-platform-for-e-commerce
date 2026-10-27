@@ -1509,3 +1509,17 @@ thead { background: #f6f1ee; }
   .filter-panel { margin-top: 1rem; }
   .kpi-grid { grid-template-columns: 1fr; }
 }
+
+/* v4.9 workspace pages: each operation mode has its own visual canvas. */
+[hidden] { display: none !important; }
+body { transition: background .25s ease; }
+body[data-commerce-page="overview"] { background: radial-gradient(circle at 85% -10%, rgb(184 50 93 / 14%), transparent 30rem), #fff8f5; }
+body[data-commerce-page="analysis"] { background: linear-gradient(rgb(37 99 235 / 4%) 1px, transparent 1px), linear-gradient(90deg, rgb(37 99 235 / 4%) 1px, transparent 1px), #f4f7fd; background-size: 32px 32px; }
+body[data-commerce-page="products"] { background: radial-gradient(circle at 18% 85%, rgb(15 118 110 / 14%), transparent 28rem), linear-gradient(145deg, #f0f8f4, #fffaf2); }
+body[data-commerce-page="trust"] { background: radial-gradient(circle at 82% 14%, rgb(109 91 208 / 13%), transparent 30rem), linear-gradient(150deg, #f7f4fb, #f1f7fa); }
+.commerce-page { animation: commerce-page-in .24s ease both; }
+@keyframes commerce-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.commerce-nav a[aria-current="page"] { color: #fff; background: linear-gradient(135deg, #b8325d, #7c3f87); border-color: transparent; box-shadow: 0 8px 20px rgb(126 43 88 / 18%); }
+body[data-commerce-page="products"] .product-panel { min-height: 620px; background: linear-gradient(145deg, rgb(255 255 255 / 96%), rgb(240 249 246 / 94%)); }
+body[data-commerce-page="trust"] .quality-section { border-color: color-mix(in srgb, #6d5bd0 22%, var(--color-border)); }
+@media (prefers-reduced-motion: reduce) { .commerce-page { animation: none; } }

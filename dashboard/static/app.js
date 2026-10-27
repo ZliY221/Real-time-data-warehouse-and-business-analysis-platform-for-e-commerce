@@ -135,6 +135,30 @@ const runtimeState = {
   savedViews: parseSavedViews(localStorage.getItem("commerce.savedViews")),
 };
 
+const commercePages = new Set(["overview", "analysis", "products", "trust"]);
+
+function activateCommercePage(page, updateHash = true) {
+  const selected = commercePages.has(page) ? page : "overview";
+  document.body.dataset.commercePage = selected;
+  document.querySelectorAll("[data-commerce-page-view]").forEach((view) => {
+    view.hidden = view.dataset.commercePageView !== selected;
+  });
+  document.querySelectorAll("[data-commerce-page-link]").forEach((link) => {
+    const active = link.dataset.commercePageLink === selected;
+    link.classList.toggle("is-active", active);
+    link.setAttribute("aria-current", active ? "page" : "false");
+  });
+  if (updateHash) history.replaceState({}, "", `${location.pathname}${location.search}#${selected}`);
+  window.requestAnimationFrame(() => Object.values(charts).forEach((chart) => chart.resize()));
+}
+
+document.querySelectorAll("[data-commerce-page-link]").forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    activateCommercePage(link.dataset.commercePageLink);
+  });
+});
+
 function renderSavedViews() {
   const selected = elements.savedView.value;
   elements.savedView.replaceChildren(new Option("选择已保存视图", ""), ...runtimeState.savedViews.map(view => new Option(view.name, view.id)));
@@ -1206,6 +1230,7 @@ for (const button of elements.quickRanges) {
 }
 
 try {
+  activateCommercePage(window.location.hash.slice(1), false);
   initializeCharts();
   const sharedViewState = inspectDashboardShareQuery(window.location.search);
   const sharedView = parseDashboardShareQuery(window.location.search);

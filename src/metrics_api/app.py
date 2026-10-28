@@ -57,6 +57,7 @@ from metrics_api.operator_journey import FulfillmentOperatorJourney, rehearse_fu
 from metrics_api.fulfillment_shift_board import build_fulfillment_shift_board
 from metrics_api.promotion_guard import PromotionMetric, evaluate_promotion_guard
 from metrics_api.price_integrity import PriceIntegrityObservation, assess_price_integrity
+from metrics_api.payment_recovery import PaymentFailureObservation, plan_payment_recovery
 
 MAX_RANGE = timedelta(days=31)
 DEFAULT_RANGE = timedelta(hours=24)
@@ -229,6 +230,24 @@ class PriceIntegrityInput(BaseModel):
     minimum_sample_orders: int = Field(default=20, ge=1)
     maximum_data_age_minutes: int = Field(default=5, ge=0, le=1440)
     price_tolerance: float = Field(default=0.01, ge=0)
+
+
+class PaymentFailureObservationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    order_id: str = Field(min_length=1, max_length=128)
+    failure_code: str = Field(min_length=1, max_length=80)
+    retry_count: int = Field(ge=0, le=20)
+    payment_age_minutes: int = Field(ge=0, le=10080)
+    inventory_reserved: bool
+    customer_session_active: bool
+    order_amount: float = Field(gt=0)
+
+
+class PaymentRecoveryInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    observations: list[PaymentFailureObservationInput] = Field(min_length=1, max_length=5000)
+    maximum_retries: int = Field(default=2, ge=0, le=20)
+    reservation_timeout_minutes: int = Field(default=30, ge=1, le=1440)
 
 
 def _utc(value: datetime) -> datetime:
@@ -902,6 +921,14 @@ def create_app(
             minimum_sample_orders=payload.minimum_sample_orders,
             maximum_data_age_minutes=payload.maximum_data_age_minutes,
             price_tolerance=payload.price_tolerance,
+        )
+
+    @app.post("/api/v4/operations/payment-recovery", tags=["operations"])
+    def commerce_payment_recovery(payload: PaymentRecoveryInput) -> dict[str, object]:
+        return plan_payment_recovery(
+            [PaymentFailureObservation(**item.model_dump()) for item in payload.observations],
+            maximum_retries=payload.maximum_retries,
+            reservation_timeout_minutes=payload.reservation_timeout_minutes,
         )
 
     @app.get(

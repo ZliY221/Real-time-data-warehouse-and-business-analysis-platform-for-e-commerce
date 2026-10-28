@@ -796,6 +796,20 @@ class MetricsApiTests(unittest.TestCase):
         self.assertIn("DISCOUNT_EXCEEDS_APPROVAL", response.json()["items"][0]["blockers"])
         self.assertFalse(response.json()["automatic_price_change_started"])
 
+    def test_v4_payment_recovery_plan_is_exposed(self) -> None:
+        response = self.client.post("/api/v4/operations/payment-recovery", json={
+            "observations": [
+                {"order_id": "order-1", "failure_code": "gateway_timeout",
+                 "retry_count": 0, "payment_age_minutes": 5,
+                 "inventory_reserved": True, "customer_session_active": True,
+                 "order_amount": 199.0}
+            ]
+        })
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("PAYMENT_RECOVERY_READY", response.json()["status"])
+        self.assertEqual("OFFER_ALTERNATIVE_PAYMENT", response.json()["items"][0]["recommended_action"])
+        self.assertFalse(response.json()["automatic_payment_started"])
+
 
 if __name__ == "__main__":
     unittest.main()
